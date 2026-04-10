@@ -1,4 +1,4 @@
-import Image from 'next/image';
+/*  */import Image from 'next/image';
 
 const menuItems = [
   { name: 'P60 Cheeseburger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', alt: 'Cheeseburger' },
