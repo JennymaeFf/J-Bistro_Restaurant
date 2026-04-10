@@ -1,39 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# J'Bistro Restaurant Flask Project
 
-## Getting Started
+This project was converted from a Next.js setup into a Python Flask web application for a school restaurant system.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Backend: Flask
+- Frontend: Flask Jinja templates, HTML, CSS, JavaScript
+- Database: Supabase
+
+## Project Structure
+
+```text
+app.py
+templates/
+static/
+  css/
+  js/
+  images/
+requirements.txt
+supabase_schema.sql
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Home page
+- Menu page
+- Add to cart
+- Order page
+- Dashboard page
+- Supabase CRUD for orders
+- Supabase read for menu items
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Supabase Setup
 
-## Learn More
+Project Name: `J'Bistro_Restaurant`
 
-To learn more about Next.js, take a look at the following resources:
+1. Open your Supabase SQL Editor.
+2. Run the SQL inside `supabase_schema.sql`.
+3. Make sure the REST API is enabled for the tables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Default connection values inside `app.py`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Supabase URL: `https://fvfvgqpeawafwyczpfbd.supabase.co`
+- API key: uses the provided anon/public key by default
 
-## Deploy on Vercel
+You can also override them with environment variables:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```powershell
+$env:SUPABASE_URL="https://fvfvgqpeawafwyczpfbd.supabase.co"
+$env:SUPABASE_API_KEY="your-key"
+$env:FLASK_SECRET_KEY="your-secret"
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-"# bistro" 
-"# BISTRO" 
-"# J-Bistro_Restaurant" 
+## Installation
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+Then open `http://127.0.0.1:5000`.
+
+## Routes
+
+- `/` = Home page
+- `/menu` = Menu page
+- `/order` = Order page
+- `/dashboard` = Dashboard page
+
+## Notes
+
+- If the `menu_items` table is empty or unavailable, the app shows sample menu items so the interface can still be demonstrated.
+- Orders require the `orders` table in Supabase to exist.

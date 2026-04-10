@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Order | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="page-banner">
+    <div class="container">
+        <p class="eyebrow">Customer Order</p>
+        <h1>Order Summary</h1>
+        <p>Review the selected items, enter the customer details, and submit the order to Supabase.</p>
+    </div>
+</section>
+
+<section class="container order-layout">
+    <div class="panel">
+        <h2>Cart Items</h2>
+
+        {% if cart %}
+            <div class="order-list">
+                {% for item in cart %}
+                    <div class="order-item">
+                        <div>
+                            <h3>{{ item.name }}</h3>
+                            <p>Quantity: {{ item.quantity }}</p>
+                        </div>
+                        <div class="order-actions">
+                            <strong>PHP {{ "%.2f"|format(item.price * item.quantity) }}</strong>
+                            <form action="{{ url_for('remove_from_cart', item_id=item.id) }}" method="post">
+                                <button type="submit" class="button danger small">Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="total-box">
+                <span>Total Amount</span>
+                <strong>PHP {{ "%.2f"|format(total_amount) }}</strong>
+            </div>
+        {% else %}
+            <p class="empty-state">Your cart is empty. Go to the menu page to add items first.</p>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <h2>Place Order</h2>
+        <form action="{{ url_for('order') }}" method="post" class="form-grid">
+            <label>
+                Customer Name
+                <input type="text" name="customer_name" placeholder="Enter customer name" required>
+            </label>
+            <label>
+                Table Number
+                <input type="text" name="table_number" placeholder="Example: Table 4">
+            </label>
+            <button type="submit" class="button primary">Submit Order</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Home | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-overlay"></div>
+    <div class="container hero-content">
+        <div class="hero-card">
+            <p class="eyebrow">Welcome to J'Bistro Restaurant</p>
+            <h1>Simple Restaurant Ordering System for Your School Project</h1>
+            <p class="hero-text">
+                This Flask application shows how restaurant menu items and customer orders can be managed
+                using Python, Jinja templates, and Supabase as the cloud database.
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="{{ url_for('menu') }}">View Menu</a>
+                <a class="button secondary" href="{{ url_for('dashboard') }}">Open Dashboard</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container section-grid">
+    <article class="info-card">
+        <h2>Menu Display</h2>
+        <p>Food items are loaded from Supabase and displayed in a clean card layout.</p>
+    </article>
+    <article class="info-card">
+        <h2>Order System</h2>
+        <p>Customers can add food to the cart, review the order, and submit it to the database.</p>
+    </article>
+    <article class="info-card">
+        <h2>Dashboard</h2>
+        <p>Orders can be viewed, updated, and deleted through simple CRUD actions.</p>
+    </article>
+</section>
+{% endblock %}

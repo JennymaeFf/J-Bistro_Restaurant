@@ -2,7 +2,6 @@ services:
   - type: web
     name: jbistro-flask
     runtime: python
-    rootDir: flask-app
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
     envVars:

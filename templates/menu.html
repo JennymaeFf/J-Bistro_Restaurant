@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Menu | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="page-banner">
+    <div class="container">
+        <p class="eyebrow">Food List</p>
+        <h1>Restaurant Menu</h1>
+        <p>These menu items are loaded from Supabase. If the table is not ready yet, sample data is shown.</p>
+        {% if info_message %}
+            <div class="notice-card">{{ info_message }}</div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="container menu-grid">
+    {% for item in menu_items %}
+        <article class="menu-card">
+            <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
+            <div class="menu-card-body">
+                <span class="category-label">{{ item.category }}</span>
+                <h2>{{ item.name }}</h2>
+                <p>{{ item.description }}</p>
+                <div class="menu-card-footer">
+                    <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                    <form action="{{ url_for('add_to_cart', item_id=item.id) }}" method="post">
+                        <button type="submit" class="button primary small">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}
