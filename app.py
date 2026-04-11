@@ -1,6 +1,18 @@
 import json
 import os
+import re
+import sys
+from functools import wraps
+from pathlib import Path
 from typing import Any
+
+CURRENT_DIR = Path(__file__).resolve().parent
+LOCAL_SITE_PACKAGES = CURRENT_DIR / ".venv" / "Lib" / "site-packages"
+
+# If the project virtual environment exists, add it to Python's import path.
+# This lets `python app.py` work even when the venv is not activated first.
+if LOCAL_SITE_PACKAGES.exists():
+    sys.path.insert(0, str(LOCAL_SITE_PACKAGES))
 
 import requests
 from flask import Flask, flash, redirect, render_template, request, session, url_for
@@ -78,6 +90,24 @@ SAMPLE_MENU = [
 ]
 
 
+def is_logged_in() -> bool:
+    """Check if the current visitor already has a logged-in session."""
+    return "user" in session
+
+
+def login_required(view_function):
+    """Redirect visitors to the login page when a route needs authentication."""
+
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        if not is_logged_in():
+            flash("Please log in first before placing an order.", "error")
+            return redirect(url_for("login"))
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
+
+
 def get_cart() -> list[dict[str, Any]]:
     """Return the shopping cart stored in the user's session."""
     return session.setdefault("cart", [])
@@ -99,6 +129,185 @@ def supabase_headers(include_json: bool = True) -> dict[str, str]:
     if include_json:
         headers["Content-Type"] = "application/json"
     return headers
+
+
+def supabase_auth_headers() -> dict[str, str]:
+    """Headers used for Supabase authentication requests."""
+    return {
+        "apikey": SUPABASE_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+
+def valid_email_message(email: str) -> str | None:
+    """Return an error message if the email format should not be accepted."""
+    email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+    if not re.match(email_pattern, email):
+        return "Please enter a valid email address."
+
+    blocked_domains = {"example.com", "example.org", "example.net"}
+    domain = email.rsplit("@", 1)[-1].lower()
+
+    if domain in blocked_domains:
+        return "Please use a real email address instead of an example domain."
+
+    return None
+
+
+def parse_response_json(response: requests.Response) -> dict[str, Any]:
+    """Read JSON safely from a Supabase response."""
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            return data
+    except ValueError:
+        pass
+
+    return {}
+
+
+def auth_error_message(response: requests.Response, action: str) -> str:
+    """Convert Supabase Auth errors into friendlier messages for the user."""
+    data = parse_response_json(response)
+    error_code = data.get("error_code", "")
+    message = data.get("msg") or data.get("message") or ""
+
+    if error_code == "email_address_invalid":
+        return "Please enter a valid email address."
+    if error_code == "user_already_exists":
+        return "This email is already registered. Please log in instead."
+    if error_code == "over_email_send_rate_limit":
+        return "Too many signup attempts were made. Please wait a few minutes and try again."
+    if error_code == "email_not_confirmed":
+        return "Please confirm your email first before logging in."
+    if error_code == "invalid_credentials":
+        return "Invalid email or password. Please try again."
+    if "already registered" in message.lower():
+        return "This email is already registered. Please log in instead."
+
+    if action == "register":
+        return message or "Registration failed. Please check your details and try again."
+
+    return message or "Login failed. Please check your email and password."
+
+
+def fetch_registered_user(email: str) -> tuple[dict[str, Any] | None, str | None]:
+    """
+    Check the public app_users table for an existing registration.
+    This table helps us prevent duplicate email registrations clearly.
+    """
+    endpoint = f"{SUPABASE_URL}/rest/v1/app_users"
+    params = {"select": "*", "email": f"eq.{email}", "limit": 1}
+
+    try:
+        response = requests.get(endpoint, headers=supabase_headers(False), params=params, timeout=15)
+        response.raise_for_status()
+        users = response.json()
+        return (users[0] if users else None), None
+    except requests.RequestException:
+        return None, "The app_users table could not be checked. Make sure you ran supabase_schema.sql."
+
+
+def save_registered_user(user_id: str, email: str) -> tuple[bool, str | None]:
+    """
+    Save user details in the public app_users table.
+    Supabase Auth stores the account in auth.users, while this table stores app-facing profile data.
+    """
+    endpoint = f"{SUPABASE_URL}/rest/v1/app_users"
+    payload = {"id": user_id, "email": email}
+    headers = supabase_headers()
+    headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+
+    try:
+        response = requests.post(
+            endpoint,
+            headers=headers,
+            params={"on_conflict": "email"},
+            data=json.dumps(payload),
+            timeout=15,
+        )
+        response.raise_for_status()
+        return True, None
+    except requests.RequestException:
+        return False, "The user account was created, but app_users could not be updated. Run supabase_schema.sql in Supabase."
+
+
+def authenticate_user(email: str, password: str) -> tuple[bool, str]:
+    """Log in a user through Supabase Auth using email and password."""
+    endpoint = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
+    payload = {"email": email, "password": password}
+
+    try:
+        response = requests.post(
+            endpoint,
+            headers=supabase_auth_headers(),
+            data=json.dumps(payload),
+            timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        user = data.get("user") or {}
+        if not user.get("id"):
+            return False, "Login failed because Supabase did not return a user account."
+
+        save_registered_user(user["id"], user.get("email", email))
+
+        session["user"] = {
+            "id": user["id"],
+            "email": user.get("email", email),
+            "access_token": data.get("access_token"),
+        }
+        session.modified = True
+        return True, "Login successful."
+    except requests.HTTPError as exc:
+        return False, auth_error_message(exc.response, "login")
+    except requests.RequestException:
+        return False, "Login could not connect to Supabase right now."
+
+
+def register_user(email: str, password: str) -> tuple[bool, str]:
+    """Create a new user account through Supabase Auth."""
+    email_error = valid_email_message(email)
+    if email_error:
+        return False, email_error
+
+    existing_user, existing_error = fetch_registered_user(email)
+    if existing_user:
+        return False, "This email is already registered. Please log in instead."
+    if existing_error:
+        return False, existing_error
+
+    endpoint = f"{SUPABASE_URL}/auth/v1/signup"
+    payload = {"email": email, "password": password}
+
+    try:
+        response = requests.post(
+            endpoint,
+            headers=supabase_auth_headers(),
+            data=json.dumps(payload),
+            timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+        user = data.get("user") or {}
+
+        if not user.get("id"):
+            return False, "Registration failed because Supabase did not return a new user."
+
+        profile_saved, profile_error = save_registered_user(user["id"], user.get("email", email))
+        if not profile_saved:
+            return False, profile_error or "Registration failed while saving user data."
+
+        if data.get("session"):
+            return True, "Registration successful. You can now log in."
+
+        return True, "Registration successful. Please check your email confirmation before logging in."
+    except requests.HTTPError as exc:
+        return False, auth_error_message(exc.response, "register")
+    except requests.RequestException:
+        return False, "Registration could not connect to Supabase right now."
 
 
 def fetch_menu_items() -> tuple[list[dict[str, Any]], str | None]:
@@ -200,12 +409,72 @@ def inject_layout_data() -> dict[str, Any]:
     return {
         "cart_count": sum(item["quantity"] for item in cart),
         "cart_total_amount": cart_total(cart),
+        "current_user": session.get("user"),
     }
 
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
+def login():
+    """Display the login page and process user login."""
+    if is_logged_in():
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if not email or not password:
+            flash("Please enter both email and password.", "error")
+            return redirect(url_for("login"))
+
+        success, message = authenticate_user(email, password)
+        flash(message, "success" if success else "error")
+
+        if success:
+            return redirect(url_for("home"))
+
+    return render_template("login.html", auth_page=True)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    """Display the register page and create a new Supabase Auth account."""
+    if is_logged_in():
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if not email or not password:
+            flash("Please fill in all registration fields.", "error")
+            return redirect(url_for("register"))
+
+        if len(password) < 6:
+            flash("Password must be at least 6 characters long.", "error")
+            return redirect(url_for("register"))
+
+        success, message = register_user(email, password)
+        flash(message, "success" if success else "error")
+
+        if success:
+            return redirect(url_for("login"))
+
+    return render_template("register.html", auth_page=True)
+
+
+@app.route("/logout")
+def logout():
+    """Remove the current user from the session."""
+    session.pop("user", None)
+    session.pop("cart", None)
+    flash("You have been logged out.", "success")
+    return redirect(url_for("login"))
+
+
+@app.route("/home")
 def home() -> str:
-    """Home page that introduces the restaurant project."""
+    """Home page that introduces the restaurant project after login."""
     return render_template("home.html")
 
 
@@ -217,6 +486,7 @@ def menu() -> str:
 
 
 @app.route("/cart/add/<int:item_id>", methods=["POST"])
+@login_required
 def add_to_cart(item_id: int):
     """Add a menu item to the cart stored in the session."""
     menu_items, _ = fetch_menu_items()
@@ -247,6 +517,7 @@ def add_to_cart(item_id: int):
 
 
 @app.route("/cart/remove/<int:item_id>", methods=["POST"])
+@login_required
 def remove_from_cart(item_id: int):
     """Remove one menu item from the session cart."""
     cart = get_cart()
@@ -257,6 +528,7 @@ def remove_from_cart(item_id: int):
 
 
 @app.route("/order", methods=["GET", "POST"])
+@login_required
 def order():
     """
     Order page that shows the cart and creates a new Supabase order.
@@ -289,6 +561,7 @@ def order():
 
 
 @app.route("/dashboard")
+@login_required
 def dashboard() -> str:
     """Dashboard page to monitor and manage orders."""
     orders, message = fetch_orders()
@@ -296,6 +569,7 @@ def dashboard() -> str:
 
 
 @app.route("/dashboard/update/<order_id>", methods=["POST"])
+@login_required
 def dashboard_update(order_id: str):
     """Change the order status from the dashboard."""
     new_status = request.form.get("status", "Pending")
@@ -305,6 +579,7 @@ def dashboard_update(order_id: str):
 
 
 @app.route("/dashboard/delete/<order_id>", methods=["POST"])
+@login_required
 def dashboard_delete(order_id: str):
     """Delete an order from the dashboard."""
     success, message = delete_order(order_id)

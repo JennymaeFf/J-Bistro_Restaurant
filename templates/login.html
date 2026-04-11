@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Login | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-background"></div>
+    <div class="auth-overlay"></div>
+    <div class="wood-strip"></div>
+
+    <div class="auth-card-wrap">
+        <div class="auth-card">
+            <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro Restaurant Logo" class="auth-logo">
+            <p class="auth-title">Welcome to J'Bistro</p>
+
+            <form action="{{ url_for('login') }}" method="post" class="auth-form">
+                <label>
+                    Email
+                    <input type="email" name="email" placeholder="Enter your email" required>
+                </label>
+                <label>
+                    Password
+                    <input type="password" name="password" placeholder="Enter your password" required>
+                </label>
+                <button type="submit" class="auth-button">Login</button>
+            </form>
+
+            <p class="auth-footer-text">
+                Don't have an account?
+                <a href="{{ url_for('register') }}">Register here</a>
+            </p>
+        </div>
+    </div>
+</section>
+{% endblock %}

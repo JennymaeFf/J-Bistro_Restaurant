@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    {% if not auth_page %}
     <header class="site-header">
         <div class="container nav-wrapper">
             <a class="brand" href="{{ url_for('home') }}">
@@ -21,16 +22,26 @@
                 <a href="{{ url_for('menu') }}">Menu</a>
                 <a href="{{ url_for('order') }}">Order</a>
                 <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                {% if current_user %}
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Login</a>
+                {% endif %}
             </nav>
             <div class="cart-chip">
-                <span>Cart</span>
+                {% if current_user %}
+                    <span>{{ current_user.email }}</span>
+                {% else %}
+                    <span>Cart</span>
+                {% endif %}
                 <strong>{{ cart_count }}</strong>
             </div>
         </div>
     </header>
+    {% endif %}
 
     <main>
-        <div class="container">
+        <div class="container {% if auth_page %}auth-flash-container{% endif %}">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <section class="flash-stack">
@@ -45,11 +56,13 @@
         {% block content %}{% endblock %}
     </main>
 
+    {% if not auth_page %}
     <footer class="site-footer">
         <div class="container footer-content">
             <p>J'Bistro Restaurant School Project using Flask, Jinja, HTML, CSS, JavaScript, and Supabase.</p>
         </div>
     </footer>
+    {% endif %}
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
