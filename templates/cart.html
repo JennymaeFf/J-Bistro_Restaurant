@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Order | J'Bistro Restaurant{% endblock %}
+{% block title %}Cart | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
 <section class="cart-shell">
     <div class="container">
         <section class="cart-section">
-            <h1>Order Summary</h1>
+            <h1>Your Cart</h1>
 
-            {% if cart %}
+            {% if cart_items %}
                 <div class="cart-items">
-                    {% for item in cart %}
+                    {% for item in cart_items %}
                         <div class="cart-item">
                             <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.name }}">
                             <div class="item-info">
@@ -27,20 +27,13 @@
 
                 <div class="total-section">
                     <span class="total-label">Total Amount</span>
-                    <span class="total-amount">PHP {{ "%.2f"|format(total_amount) }}</span>
+                    <span class="total-amount">PHP {{ "%.2f"|format(total) }}</span>
                 </div>
 
-                <form action="{{ url_for('order') }}" method="post" class="checkout-form">
-                    <label>
-                        Customer Name
-                        <input type="text" name="customer_name" placeholder="Enter customer name" required>
-                    </label>
-                    <label>
-                        Table Number
-                        <input type="text" name="table_number" placeholder="Example: Table 4">
-                    </label>
-                    <button type="submit" class="order-btn">Place Order</button>
-                </form>
+                <div class="cart-actions">
+                    <a href="{{ url_for('menu') }}" class="button secondary">Continue Shopping</a>
+                    <a href="{{ url_for('order') }}" class="button primary">Proceed to Checkout</a>
+                </div>
             {% else %}
                 <p class="empty-state">Your cart is empty. Go to the menu page to add items first.</p>
                 <a class="button primary" href="{{ url_for('menu') }}">Go to Menu</a>

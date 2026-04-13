@@ -4,35 +4,78 @@
 
 {% block content %}
 <section class="hero">
+    <div class="hero-background">
+        <img src="{{ url_for('static', filename='images/bg.png') }}" alt="Restaurant background">
+    </div>
     <div class="hero-overlay"></div>
     <div class="container hero-content">
         <div class="hero-card">
-            <p class="eyebrow">Welcome to J'Bistro Restaurant</p>
-            <h1>Simple Restaurant Ordering System for Your School Project</h1>
+            <p class="eyebrow">Welcome to J'Bistro</p>
+            <h1>Delicious Food, Exceptional Experience</h1>
             <p class="hero-text">
-                This Flask application shows how restaurant menu items and customer orders can be managed
-                using Python, Jinja templates, and Supabase as the cloud database.
+                Discover our carefully crafted menu featuring the finest ingredients and authentic flavors.
+                From traditional dishes to modern creations, every meal is prepared with passion.
             </p>
             <div class="hero-actions">
-                <a class="button primary" href="{{ url_for('menu') }}">View Menu</a>
-                <a class="button secondary" href="{{ url_for('dashboard') }}">Open Dashboard</a>
+                <a class="button primary" href="{{ url_for('menu') }}">Explore Our Menu</a>
+                <a class="button secondary" href="#best-sellers">View Best Sellers</a>
             </div>
         </div>
     </div>
 </section>
 
-<section class="container section-grid">
-    <article class="info-card">
-        <h2>Menu Display</h2>
-        <p>Food items are loaded from Supabase and displayed in a clean card layout.</p>
-    </article>
-    <article class="info-card">
-        <h2>Order System</h2>
-        <p>Customers can add food to the cart, review the order, and submit it to the database.</p>
-    </article>
-    <article class="info-card">
-        <h2>Dashboard</h2>
-        <p>Orders can be viewed, updated, and deleted through simple CRUD actions.</p>
-    </article>
+<section id="best-sellers" class="best-sellers-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Our Best Sellers</h2>
+            <p>Most popular dishes loved by our customers</p>
+        </div>
+
+        <div class="best-sellers-grid">
+            {% for item in best_sellers %}
+                <article class="product-card">
+                    <div class="product-image">
+                        <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
+                    </div>
+                    <div class="product-content">
+                        <h3>{{ item.name }}</h3>
+                        <p class="product-description">{{ item.description }}</p>
+                        <div class="product-footer">
+                            <strong class="price">PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                            <form action="{{ url_for('add_to_cart', item_id=item.id) }}" method="post">
+                                <button type="submit" class="button primary small">Add to Cart</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+
+        <div class="section-actions">
+            <a class="button primary" href="{{ url_for('menu') }}">View Full Menu</a>
+        </div>
+    </div>
+</section>
+
+<section class="features-section">
+    <div class="container">
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🍽️</div>
+                <h3>Fresh Ingredients</h3>
+                <p>We use only the freshest, locally-sourced ingredients in every dish.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👨‍🍳</div>
+                <h3>Expert Chefs</h3>
+                <p>Our experienced chefs bring years of culinary expertise to your table.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚚</div>
+                <h3>Fast Delivery</h3>
+                <p>Quick and reliable delivery service to get your food hot and fresh.</p>
+            </div>
+        </div>
+    </div>
 </section>
 {% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Our Team | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="team-hero">
+    <div class="hero-overlay"></div>
+    <div class="container hero-content">
+        <h1>Meet Our Team</h1>
+        <p>Passionate culinary professionals dedicated to serving you the finest dining experience</p>
+    </div>
+</section>
+
+<section class="team-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Our Culinary & Management Team</h2>
+            <p>Meet the talented individuals who make J'Bistro special</p>
+        </div>
+
+        <div class="team-grid">
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Chef Marco">
+                    <div class="team-overlay">
+                        <p>Head Chef</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>Marco Reyes</h3>
+                    <p class="role">Head Chef</p>
+                    <p class="bio">20+ years of culinary expertise in Asian cuisine</p>
+                </div>
+            </div>
+
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/beefsteak.png') }}" alt="Chef Anna">
+                    <div class="team-overlay">
+                        <p>Sous Chef</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>Anna Santos</h3>
+                    <p class="role">Sous Chef</p>
+                    <p class="bio">Expert in Filipino traditional dishes</p>
+                </div>
+            </div>
+
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/fried_chicken.png') }}" alt="Manager John">
+                    <div class="team-overlay">
+                        <p>Restaurant Manager</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>John Dela Cruz</h3>
+                    <p class="role">Restaurant Manager</p>
+                    <p class="bio">Ensuring exceptional service and guest satisfaction</p>
+                </div>
+            </div>
+
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Server Maria">
+                    <div class="team-overlay">
+                        <p>Senior Server</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>Maria Garcia</h3>
+                    <p class="role">Senior Server</p>
+                    <p class="bio">Outstanding hospitality and customer care specialist</p>
+                </div>
+            </div>
+
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/pork_sinigang.png') }}" alt="Cashier Pedro">
+                    <div class="team-overlay">
+                        <p>Head Cashier</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>Pedro Martinez</h3>
+                    <p class="role">Head Cashier</p>
+                    <p class="bio">Financial operations and customer transactions expert</p>
+                </div>
+            </div>
+
+            <div class="team-card">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/spring_rolls.png') }}" alt="Chef Lisa">
+                    <div class="team-overlay">
+                        <p>Pastry Chef</p>
+                    </div>
+                </div>
+                <div class="team-info">
+                    <h3>Lisa Wong</h3>
+                    <p class="role">Pastry Chef</p>
+                    <p class="bio">Creative desserts and baked goods specialist</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="team-values">
+    <div class="container">
+        <h2>Our Core Values</h2>
+        <div class="values-grid">
+            <div class="value-card">
+                <div class="value-icon">🎯</div>
+                <h4>Excellence</h4>
+                <p>Committed to delivering the highest quality in every dish</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon">❤️</div>
+                <h4>Passion</h4>
+                <p>Love for food and hospitality is in everything we do</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon">🤝</div>
+                <h4>Teamwork</h4>
+                <p>Working together to create memorable experiences</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

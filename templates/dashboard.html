@@ -5,9 +5,9 @@
 {% block content %}
 <section class="page-banner">
     <div class="container">
-        <p class="eyebrow">Admin Dashboard</p>
-        <h1>Manage Orders</h1>
-        <p>Use this page to read, update, and delete orders stored in Supabase.</p>
+        <p class="eyebrow">Dashboard</p>
+        <h1>Order Activity</h1>
+        <p>Guests can view this page. Logged-in users can manage the saved orders.</p>
         {% if info_message %}
             <div class="notice-card">{{ info_message }}</div>
         {% endif %}
@@ -50,18 +50,22 @@
                                 <td>PHP {{ "%.2f"|format(order.total_amount|float) }}</td>
                                 <td><span class="status-badge">{{ order.status }}</span></td>
                                 <td>
-                                    <form action="{{ url_for('dashboard_update', order_id=order.id) }}" method="post" class="inline-form">
-                                        <select name="status">
-                                            <option value="Pending" {% if order.status == "Pending" %}selected{% endif %}>Pending</option>
-                                            <option value="Preparing" {% if order.status == "Preparing" %}selected{% endif %}>Preparing</option>
-                                            <option value="Completed" {% if order.status == "Completed" %}selected{% endif %}>Completed</option>
-                                            <option value="Cancelled" {% if order.status == "Cancelled" %}selected{% endif %}>Cancelled</option>
-                                        </select>
-                                        <button type="submit" class="button secondary small">Update</button>
-                                    </form>
-                                    <form action="{{ url_for('dashboard_delete', order_id=order.id) }}" method="post" class="inline-form">
-                                        <button type="submit" class="button danger small confirm-delete">Delete</button>
-                                    </form>
+                                    {% if is_logged_in %}
+                                        <form action="{{ url_for('dashboard_update', order_id=order.id) }}" method="post" class="inline-form">
+                                            <select name="status">
+                                                <option value="Pending" {% if order.status == "Pending" %}selected{% endif %}>Pending</option>
+                                                <option value="Preparing" {% if order.status == "Preparing" %}selected{% endif %}>Preparing</option>
+                                                <option value="Completed" {% if order.status == "Completed" %}selected{% endif %}>Completed</option>
+                                                <option value="Cancelled" {% if order.status == "Cancelled" %}selected{% endif %}>Cancelled</option>
+                                            </select>
+                                            <button type="submit" class="button secondary small">Update</button>
+                                        </form>
+                                        <form action="{{ url_for('dashboard_delete', order_id=order.id) }}" method="post" class="inline-form">
+                                            <button type="submit" class="button danger small confirm-delete">Delete</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="status-badge">Login required to manage</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

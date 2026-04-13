@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Profile | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="page-banner">
+    <div class="container">
+        <h1>Your Profile</h1>
+        <p>Manage your account information and preferences.</p>
+    </div>
+</section>
+
+<section class="section-grid">
+    <div class="container">
+        <div class="info-card">
+            <h2>Account Information</h2>
+            <p><strong>Email:</strong> {{ current_user.email if current_user else 'Not logged in' }}</p>
+            <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %Y') if current_user and current_user.created_at else 'N/A' }}</p>
+        </div>
+        <div class="info-card">
+            <h2>Quick Actions</h2>
+            <a href="{{ url_for('order') }}" class="button primary">View Orders</a>
+            <a href="{{ url_for('cart') }}" class="button secondary">View Cart</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

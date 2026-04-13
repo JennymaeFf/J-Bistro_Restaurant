@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="receipt-page">
+    <div class="receipt">
+        <div class="receipt-brand">
+            <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro logo">
+            <div>
+                <p class="restaurant-name">J'Bistro Restaurant</p>
+                <p class="address">Thank you for ordering with us</p>
+            </div>
+        </div>
+
+        <h1>Receipt</h1>
+
+        <div class="receipt-meta">
+            <div class="cash-info">
+                <span>Customer</span>
+                <span>{{ receipt.customer_name }}</span>
+            </div>
+            <div class="cash-info">
+                <span>Table</span>
+                <span>{{ receipt.table_number }}</span>
+            </div>
+        </div>
+
+        <div class="dashed"></div>
+
+        <div class="receipt-items">
+            {% for item in receipt.items %}
+                <div class="item">
+                    <span class="item-name">{{ item.name }}</span>
+                    <span class="item-qty">x{{ item.quantity }}</span>
+                    <span class="item-price">PHP {{ "%.2f"|format(item.price * item.quantity) }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="dashed"></div>
+
+        <div class="total">
+            <span>Total</span>
+            <span>PHP {{ "%.2f"|format(receipt.total_amount) }}</span>
+        </div>
+
+        <div class="receipt-info">
+            Your order has been saved successfully. Please wait while your food is being prepared.
+        </div>
+
+        <div class="footer">
+            <p class="thank-you">Thank you for dining with us!</p>
+            <a class="receipt-menu-link" href="{{ url_for('menu') }}">Go to Menu</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
