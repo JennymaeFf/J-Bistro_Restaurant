@@ -3,49 +3,84 @@
 {% block title %}Order | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
-<section class="cart-shell">
+<section class="checkout-shell">
     <div class="container">
-        <section class="cart-section">
-            <h1>Order Summary</h1>
+        <div class="checkout-header">
+            <h1>Checkout</h1>
+            <p class="checkout-subtitle">Complete your delicious order</p>
+        </div>
 
-            {% if cart %}
-                <div class="cart-items">
-                    {% for item in cart %}
-                        <div class="cart-item">
-                            <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.name }}">
-                            <div class="item-info">
-                                <h3>{{ item.name }}</h3>
-                                <p class="price">PHP {{ "%.2f"|format(item.price|float) }}</p>
-                                <p>Quantity: {{ item.quantity }}</p>
+        {% if cart %}
+            <div class="checkout-container">
+                <div class="order-summary">
+                    <h2>Order Summary</h2>
+                    <div class="order-items">
+                        {% for item in cart %}
+                            <div class="order-item">
+                                <div class="item-info">
+                                    <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
+                                    <div>
+                                        <h4>{{ item.display_name }}</h4>
+                                        <p>Quantity: {{ item.quantity }}</p>
+                                        {% if item.size %}
+                                            <p>Size: {{ item.size|capitalize }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="item-price">
+                                    PHP {{ "%.2f"|format(item.price * item.quantity) }}
+                                </div>
                             </div>
-                            <form action="{{ url_for('remove_from_cart', item_id=item.id) }}" method="post">
-                                <button type="submit" class="delete-btn" aria-label="Remove item">x</button>
-                            </form>
+                        {% endfor %}
+                    </div>
+                    <div class="order-total">
+                        <div class="total-row">
+                            <span>Total Amount</span>
+                            <span>PHP {{ "%.2f"|format(total_amount) }}</span>
                         </div>
-                    {% endfor %}
+                    </div>
                 </div>
 
-                <div class="total-section">
-                    <span class="total-label">Total Amount</span>
-                    <span class="total-amount">PHP {{ "%.2f"|format(total_amount) }}</span>
-                </div>
+                <div class="checkout-form-section">
+                    <div class="customer-info">
+                        <h2>Customer Information</h2>
+                        <div class="info-display">
+                            <div class="info-row">
+                                <span>Name:</span>
+                                <span>{{ user.email.split('@')[0]|title }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Email:</span>
+                                <span>{{ user.email }}</span>
+                            </div>
+                        </div>
+                    </div>
 
-                <form action="{{ url_for('order') }}" method="post" class="checkout-form">
-                    <label>
-                        Customer Name
-                        <input type="text" name="customer_name" placeholder="Enter customer name" required>
-                    </label>
-                    <label>
-                        Table Number
-                        <input type="text" name="table_number" placeholder="Example: Table 4">
-                    </label>
-                    <button type="submit" class="order-btn">Place Order</button>
-                </form>
-            {% else %}
-                <p class="empty-state">Your cart is empty. Go to the menu page to add items first.</p>
-                <a class="button primary" href="{{ url_for('menu') }}">Go to Menu</a>
-            {% endif %}
-        </section>
+                    <form action="{{ url_for('order') }}" method="post" class="checkout-form">
+                        <div class="form-group">
+                            <label for="payment_method">Payment Method</label>
+                            <select id="payment_method" name="payment_method" required>
+                                <option value="">Select payment method</option>
+                                <option value="Cash">Cash</option>
+                                <option value="GCash">GCash</option>
+                                <option value="Card">Card</option>
+                            </select>
+                        </div>
+
+                        <div class="checkout-actions">
+                            <a href="{{ url_for('cart') }}" class="btn-secondary">Back to Cart</a>
+                            <button type="submit" class="btn-primary">Place Order</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-checkout">
+                <h2>No items to checkout</h2>
+                <p>Add some delicious items to your cart first</p>
+                <a href="{{ url_for('menu') }}" class="btn-primary">Browse Menu</a>
+            </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

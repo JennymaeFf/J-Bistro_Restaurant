@@ -104,6 +104,7 @@ SAMPLE_MENU_ITEMS = [
         "category": "beverages",
         "price": 25.0,
         "image": "coke.png",
+        "sizes": {"small": 20.0, "medium": 25.0, "large": 30.0}
     },
     {
         "id": 12,
@@ -112,6 +113,7 @@ SAMPLE_MENU_ITEMS = [
         "category": "beverages",
         "price": 20.0,
         "image": "ice_tea.png",
+        "sizes": {"small": 18.0, "medium": 20.0, "large": 25.0}
     },
     {
         "id": 13,
@@ -120,6 +122,7 @@ SAMPLE_MENU_ITEMS = [
         "category": "beverages",
         "price": 30.0,
         "image": "mango_juice.png",
+        "sizes": {"small": 25.0, "medium": 30.0, "large": 35.0}
     },
     {
         "id": 14,
@@ -128,6 +131,7 @@ SAMPLE_MENU_ITEMS = [
         "category": "beverages",
         "price": 25.0,
         "image": "lemonade.png",
+        "sizes": {"small": 20.0, "medium": 25.0, "large": 30.0}
     },
     {
         "id": 15,
@@ -136,6 +140,7 @@ SAMPLE_MENU_ITEMS = [
         "category": "beverages",
         "price": 15.0,
         "image": "water.png",
+        "sizes": {"small": 12.0, "medium": 15.0, "large": 18.0}
     },
 ]
 
@@ -347,17 +352,43 @@ def fetch_orders() -> tuple[list[dict[str, Any]], str | None]:
     return orders, None
 
 
-def create_order(customer_name: str, table_number: str, cart: list[dict[str, Any]], total_amount: float) -> tuple[bool, str]:
+def get_next_table_number() -> tuple[int, str | None]:
+    """Get the next table number based on existing orders."""
+    orders, error = fetch_orders()
+    if error:
+        return 1, None  # Default to 1 if we can't fetch orders
+    
+    # Find the highest table number
+    max_table = 0
+    for order in orders:
+        table_str = order.get("table_number", "")
+        if table_str and table_str.startswith("Table "):
+            try:
+                table_num = int(table_str.replace("Table ", ""))
+                max_table = max(max_table, table_num)
+            except ValueError:
+                continue
+    
+    return max_table + 1, None
+
+
+def create_order(customer_name: str, cart: list[dict[str, Any]], total_amount: float, payment_method: str) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
 
+    # Get next table number
+    table_number, table_error = get_next_table_number()
+    if table_error:
+        return False, f"Unable to generate table number: {table_error}"
+
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
-        "table_number": table_number or None,
+        "table_number": f"Table {table_number}",
         "items": cart,
         "total_amount": total_amount,
+        "payment_method": payment_method,
         "status": "Pending",
     }
     try:
@@ -373,7 +404,7 @@ def create_order(customer_name: str, table_number: str, cart: list[dict[str, Any
     if response.status_code >= 400:
         return False, parse_response_error(response)
 
-    return True, "Order submitted successfully."
+    return True, f"Order submitted successfully. Your table number is {table_number}."
 
 
 def update_order_status(order_id: int, status: str) -> tuple[bool, str]:

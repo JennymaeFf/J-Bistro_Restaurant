@@ -34,7 +34,7 @@
             <main class="menu-content">
                 <section class="menu-grid menu-grid-custom">
                     {% for item in menu_items %}
-                        <article class="menu-item-card">
+                        <article class="menu-item-card" onclick="openItemModal({{ item.id }}, '{{ item.name }}', '{{ item.description }}', {{ item.price|tojson }}, '{{ item.category }}', {{ item.sizes|tojson if item.sizes else 'null' }}, '{{ item.image }}')">
                             <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
                             <div class="menu-item-content">
                                 <span class="category-label">
@@ -47,9 +47,6 @@
                                 <p>{{ item.description }}</p>
                                 <div class="menu-item-footer">
                                     <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
-                                    <form action="{{ url_for('add_to_cart', item_id=item.id) }}" method="post">
-                                        <button type="submit" class="button primary small">Add to Cart</button>
-                                    </form>
                                 </div>
                             </div>
                         </article>
@@ -59,4 +56,42 @@
         </div>
     </div>
 </section>
+
+<!-- Item Modal -->
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeItemModal()">&times;</span>
+        <div class="modal-body">
+            <img id="modalImage" src="" alt="">
+            <div class="modal-details">
+                <h2 id="modalName"></h2>
+                <p id="modalDescription"></p>
+                <div class="modal-price">
+                    <strong>PHP <span id="modalPrice"></span></strong>
+                </div>
+                
+                <div class="quantity-selector">
+                    <label>Quantity:</label>
+                    <div class="quantity-controls">
+                        <button type="button" onclick="changeQuantity(-1)">-</button>
+                        <span id="quantity">1</span>
+                        <button type="button" onclick="changeQuantity(1)">+</button>
+                    </div>
+                </div>
+                
+                <div id="sizeSelector" class="size-selector" style="display: none;">
+                    <label>Size:</label>
+                    <div class="size-options">
+                        <label><input type="radio" name="size" value="small" checked> Small</label>
+                        <label><input type="radio" name="size" value="medium"> Medium</label>
+                        <label><input type="radio" name="size" value="large"> Large</label>
+                    </div>
+                </div>
+                
+                <button onclick="addToCart()" class="button primary">Add to Cart</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

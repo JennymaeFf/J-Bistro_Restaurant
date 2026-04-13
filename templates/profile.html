@@ -1,26 +1,74 @@
 {% extends "base.html" %}
 
-{% block title %}Profile | J'Bistro Restaurant{% endblock %}
+{% block title %}My Profile | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
 <section class="page-banner">
     <div class="container">
-        <h1>Your Profile</h1>
+        <h1>My Account</h1>
         <p>Manage your account information and preferences.</p>
     </div>
 </section>
 
-<section class="section-grid">
+<section class="profile-section">
     <div class="container">
-        <div class="info-card">
-            <h2>Account Information</h2>
-            <p><strong>Email:</strong> {{ current_user.email if current_user else 'Not logged in' }}</p>
-            <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %Y') if current_user and current_user.created_at else 'N/A' }}</p>
-        </div>
-        <div class="info-card">
-            <h2>Quick Actions</h2>
-            <a href="{{ url_for('order') }}" class="button primary">View Orders</a>
-            <a href="{{ url_for('cart') }}" class="button secondary">View Cart</a>
+        <div class="profile-layout">
+            <!-- Account Information Panel -->
+            <div class="panel profile-panel">
+                <h2>Account Information</h2>
+                
+                {% if current_user %}
+                    <div class="info-group">
+                        <label>Email Address</label>
+                        <p class="info-value">{{ current_user.email }}</p>
+                    </div>
+
+                    <div class="info-group">
+                        <label>Account Status</label>
+                        <p class="info-value"><span class="status-badge success">Active</span></p>
+                    </div>
+
+                    <div class="info-group">
+                        <label>Member Since</label>
+                        <p class="info-value">
+                            {% if current_user.created_at %}
+                                {{ current_user.created_at.strftime('%B %d, %Y') }}
+                            {% else %}
+                                Recently joined
+                            {% endif %}
+                        </p>
+                    </div>
+                {% else %}
+                    <p class="empty-state">Please log in to view your profile.</p>
+                {% endif %}
+            </div>
+
+            <!-- Quick Actions Panel -->
+            <div class="panel profile-panel">
+                <h2>Quick Actions</h2>
+                <div class="action-grid">
+                    <a href="{{ url_for('menu') }}" class="action-card">
+                        <div class="action-icon">🍽️</div>
+                        <h3>Browse Menu</h3>
+                        <p>Explore our delicious menu</p>
+                    </a>
+                    <a href="{{ url_for('order') }}" class="action-card">
+                        <div class="action-icon">📦</div>
+                        <h3>My Orders</h3>
+                        <p>View order history</p>
+                    </a>
+                    <a href="{{ url_for('cart') }}" class="action-card">
+                        <div class="action-icon">🛒</div>
+                        <h3>Shopping Cart</h3>
+                        <p>Review your cart</p>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="action-card logout-card">
+                        <div class="action-icon">🚪</div>
+                        <h3>Logout</h3>
+                        <p>Sign out from your account</p>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </section>

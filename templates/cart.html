@@ -5,40 +5,90 @@
 {% block content %}
 <section class="cart-shell">
     <div class="container">
-        <section class="cart-section">
-            <h1>Your Cart</h1>
+        <div class="cart-header">
+            <h1>Your Shopping Cart</h1>
+            <p class="cart-subtitle">Review your delicious selections</p>
+        </div>
 
-            {% if cart_items %}
+        {% if cart_items %}
+            <div class="cart-container">
                 <div class="cart-items">
                     {% for item in cart_items %}
-                        <div class="cart-item">
-                            <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.name }}">
-                            <div class="item-info">
-                                <h3>{{ item.name }}</h3>
-                                <p class="price">PHP {{ "%.2f"|format(item.price|float) }}</p>
-                                <p>Quantity: {{ item.quantity }}</p>
+                        <div class="cart-item-card">
+                            <div class="item-image">
+                                <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
                             </div>
-                            <form action="{{ url_for('remove_from_cart', item_id=item.id) }}" method="post">
-                                <button type="submit" class="delete-btn" aria-label="Remove item">x</button>
-                            </form>
+                            <div class="item-details">
+                                <h3>{{ item.display_name }}</h3>
+                                <div class="item-meta">
+                                    <span class="quantity-badge">Qty: {{ item.quantity }}</span>
+                                    {% if item.size %}
+                                        <span class="size-badge">{{ item.size|capitalize }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="item-price">
+                                    <span class="unit-price">PHP {{ "%.2f"|format(item.price|float) }} each</span>
+                                    <span class="total-price">PHP {{ "%.2f"|format(item.price * item.quantity) }}</span>
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <form action="{{ url_for('remove_from_cart', item_id=item.id) }}" method="post" class="remove-form">
+                                    <input type="hidden" name="item_key" value="{{ item.item_key }}">
+                                    <button type="submit" class="remove-btn" aria-label="Remove item">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M18 6L6 18M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     {% endfor %}
                 </div>
 
-                <div class="total-section">
-                    <span class="total-label">Total Amount</span>
-                    <span class="total-amount">PHP {{ "%.2f"|format(total) }}</span>
+                <div class="cart-summary">
+                    <div class="summary-card">
+                        <h3>Order Summary</h3>
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>PHP {{ "%.2f"|format(total) }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Service Fee</span>
+                            <span>PHP 0.00</span>
+                        </div>
+                        <div class="summary-row total-row">
+                            <span><strong>Total</strong></span>
+                            <span><strong>PHP {{ "%.2f"|format(total) }}</strong></span>
+                        </div>
+                        <div class="checkout-actions">
+                            <a href="{{ url_for('menu') }}" class="btn-secondary">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Continue Shopping
+                            </a>
+                            <a href="{{ url_for('order') }}" class="btn-primary">
+                                Proceed to Checkout
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="cart-actions">
-                    <a href="{{ url_for('menu') }}" class="button secondary">Continue Shopping</a>
-                    <a href="{{ url_for('order') }}" class="button primary">Proceed to Checkout</a>
+            </div>
+        {% else %}
+            <div class="empty-cart">
+                <div class="empty-cart-icon">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
                 </div>
-            {% else %}
-                <p class="empty-state">Your cart is empty. Go to the menu page to add items first.</p>
-                <a class="button primary" href="{{ url_for('menu') }}">Go to Menu</a>
-            {% endif %}
-        </section>
+                <h2>Your cart is empty</h2>
+                <p>Discover our delicious menu and add some items to your cart</p>
+                <a href="{{ url_for('menu') }}" class="btn-primary">Browse Menu</a>
+            </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

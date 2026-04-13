@@ -31,6 +31,13 @@ from supabase_client import (
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 
+# Wrap app with WhiteNoise for production static file serving
+try:
+    from whitenoise import WhiteNoise
+    app.wsgi_app = WhiteNoise(app.wsgi_app, root=str(CURRENT_DIR / "static"), prefix="/static/")
+except ImportError:
+    pass  # WhiteNoise not installed, Flask will handle static files
+
 
 def is_logged_in() -> bool:
     return bool(session.get("user"))
@@ -83,7 +90,10 @@ def inject_layout_data() -> dict[str, Any]:
         "cart_count": sum(int(item["quantity"]) for item in cart),
         "current_user": session.get("user"),
         "is_logged_in": is_logged_in(),
+        "get_cart": get_cart,
+        "cart_total": cart_total,
     }
+
 
 
 @app.route("/")
@@ -118,31 +128,45 @@ def add_to_cart(item_id: int):
         flash("Menu item not found.", "error")
         return redirect(url_for("menu"))
 
+    quantity = int(request.form.get("quantity", 1))
+    size = request.form.get("size")
+    price = float(request.form.get("price", selected_item["price"]))
+    
     cart = get_cart()
-    existing = next((item for item in cart if int(item["id"]) == item_id), None)
+    # Create a unique key for cart items with size
+    item_key = f"{item_id}_{size}" if size else str(item_id)
+    
+    existing = next((item for item in cart if item.get("item_key") == item_key), None)
     if existing:
-        existing["quantity"] += 1
+        existing["quantity"] += quantity
     else:
-        cart.append(
-            {
-                "id": int(selected_item["id"]),
-                "name": selected_item["name"],
-                "price": float(selected_item["price"]),
-                "image": selected_item.get("image", "plogo.png"),
-                "quantity": 1,
-            }
-        )
+        cart_item = {
+            "id": int(selected_item["id"]),
+            "name": selected_item["name"],
+            "price": price,
+            "image": selected_item.get("image", "plogo.png"),
+            "quantity": quantity,
+            "item_key": item_key,
+        }
+        if size:
+            cart_item["size"] = size
+            cart_item["display_name"] = f"{selected_item['name']} ({size.capitalize()})"
+        else:
+            cart_item["display_name"] = selected_item["name"]
+        cart.append(cart_item)
 
     session["cart"] = cart
     session.modified = True
-    flash(f"{selected_item['name']} added to cart.", "success")
+    item_name = cart_item.get("display_name", selected_item["name"])
+    flash(f"{item_name} added to cart.", "success")
     return redirect(url_for("menu"))
 
 
 @app.route("/cart/remove/<int:item_id>", methods=["POST"])
 @login_required_for_order
 def remove_from_cart(item_id: int):
-    session["cart"] = [item for item in get_cart() if int(item["id"]) != item_id]
+    item_key = request.form.get("item_key", str(item_id))
+    session["cart"] = [item for item in get_cart() if item.get("item_key", str(item["id"])) != item_key]
     session.modified = True
     flash("Item removed from cart.", "success")
     return redirect(url_for("order"))
@@ -152,31 +176,42 @@ def remove_from_cart(item_id: int):
 @login_required_for_order
 def order():
     cart = get_cart()
+    user = session.get("user", {})
     if request.method == "POST":
-        customer_name = request.form.get("customer_name", "").strip()
-        table_number = request.form.get("table_number", "").strip()
+        customer_name = user.get("email", "").split("@")[0]  # Use email prefix as name
+        payment_method = request.form.get("payment_method", "").strip()
 
-        if not customer_name:
-            flash("Customer name is required.", "error")
+        if not payment_method:
+            flash("Payment method is required.", "error")
             return redirect(url_for("order"))
         if not cart:
             flash("Add menu items before placing an order.", "error")
             return redirect(url_for("menu"))
 
-        success, message = create_order(customer_name, table_number, cart, cart_total(cart))
+        success, message = create_order(customer_name, cart, cart_total(cart), payment_method)
         flash(message, "success" if success else "error")
         if success:
+            # Extract table number from the message
+            table_number = "N/A"
+            if "Your table number is" in message:
+                try:
+                    table_number = message.split("Your table number is ")[1].split(".")[0]
+                    table_number = f"Table {table_number}"
+                except:
+                    table_number = "N/A"
+            
             session["last_receipt"] = {
                 "customer_name": customer_name,
-                "table_number": table_number or "N/A",
+                "table_number": table_number,
                 "items": [dict(item) for item in cart],
                 "total_amount": cart_total(cart),
+                "payment_method": payment_method,
             }
             session["cart"] = []
             session.modified = True
             return redirect(url_for("receipt"))
 
-    return render_template("order.html", cart=cart, total_amount=cart_total(cart))
+    return render_template("order.html", cart=cart, total_amount=cart_total(cart), user=user)
 
 
 @app.route("/receipt")

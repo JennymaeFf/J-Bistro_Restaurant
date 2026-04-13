@@ -13,7 +13,8 @@ create table if not exists public.menu_items (
     description text not null,
     category text not null,
     price numeric(10,2) not null,
-    image text not null
+    image text not null,
+    sizes jsonb -- For beverages: {"small": 20.0, "medium": 25.0, "large": 30.0}
 );
 
 create table if not exists public.orders (
@@ -22,9 +23,12 @@ create table if not exists public.orders (
     table_number text,
     items jsonb not null,
     total_amount numeric(10,2) not null,
+    payment_method text not null,
     status text not null default 'Pending',
     created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists payment_method text;
 
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
