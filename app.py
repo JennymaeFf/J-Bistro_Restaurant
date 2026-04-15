@@ -28,7 +28,12 @@ from supabase_client import (
     valid_email_message,
 )
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(
+    __name__,
+    template_folder="templates",
+    static_folder="static",
+    static_url_path="/static",
+)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 
 # Wrap app with WhiteNoise for production static file serving
