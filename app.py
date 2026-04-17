@@ -155,7 +155,6 @@ def home():
 
 
 @app.route("/best-sellers")
-@login_required
 def best_sellers():
     return redirect(url_for("home", _anchor="best-sellers"))
 

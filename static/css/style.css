@@ -806,13 +806,18 @@ select {
 
 /* Best Sellers Section */
 .best-sellers-section {
-    padding: 80px 0;
-    background: var(--bg);
+    padding: 84px 0;
+    background:
+        linear-gradient(180deg, rgba(255, 250, 244, 0.92), rgba(247, 239, 228, 0.98)),
+        var(--bg);
 }
 
 .section-header {
     text-align: center;
     margin-bottom: 48px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .section-header h2 {
@@ -839,6 +844,9 @@ select {
     overflow: hidden;
     box-shadow: var(--shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
 .product-card:hover {
@@ -847,8 +855,23 @@ select {
 }
 
 .product-image {
+    position: relative;
     height: 200px;
     overflow: hidden;
+}
+
+.product-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 1;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(255, 250, 244, 0.92);
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
 }
 
 .product-image img {
@@ -864,6 +887,9 @@ select {
 
 .product-content {
     padding: 24px;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
 }
 
 .product-content h3 {
@@ -877,6 +903,7 @@ select {
     font-size: 0.9rem;
     line-height: 1.5;
     margin-bottom: 16px;
+    flex: 1;
 }
 
 .product-footer {
@@ -884,6 +911,7 @@ select {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    margin-top: auto;
 }
 
 .price {

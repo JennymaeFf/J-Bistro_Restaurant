@@ -18,24 +18,25 @@
             </p>
             <div class="hero-actions">
                 <a class="button primary" href="{{ url_for('menu') }}">Explore Our Menu</a>
-                <a class="button secondary" href="{{ url_for('best_sellers') }}">View Best Sellers</a>
+                <a class="button secondary" href="#best-sellers">View Best Sellers</a>
             </div>
         </div>
     </div>
 </section>
 
-{% if is_logged_in %}
 <section id="best-sellers" class="best-sellers-section">
     <div class="container">
         <div class="section-header">
+            <p class="eyebrow">Customer Favorites</p>
             <h2>Our Best Sellers</h2>
-            <p>Most popular dishes loved by our customers</p>
+            <p>Featured dishes guests can browse anytime. Log in only when you are ready to add items to your cart.</p>
         </div>
 
         <div class="best-sellers-grid">
             {% for item in best_sellers %}
                 <article class="product-card">
                     <div class="product-image">
+                        <span class="product-badge">Best Seller</span>
                         <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
                     </div>
                     <div class="product-content">
@@ -57,7 +58,6 @@
         </div>
     </div>
 </section>
-{% endif %}
 
 <section class="features-section">
     <div class="container">
