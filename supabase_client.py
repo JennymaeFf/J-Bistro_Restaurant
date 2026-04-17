@@ -253,6 +253,20 @@ def parse_response_error(response: requests.Response) -> str:
     return f"Request failed with status {response.status_code}."
 
 
+def is_schema_cache_column_error(message: str, *columns: str) -> bool:
+    lowered = message.lower()
+    return "schema cache" in lowered and any(column.lower() in lowered for column in columns)
+
+
+def schema_cache_fix_message(*columns: str) -> str:
+    column_list = ", ".join(columns)
+    return (
+        f"Database schema is missing or has not refreshed these columns: {column_list}. "
+        "Run the latest supabase_schema.sql in Supabase SQL Editor, then run "
+        "NOTIFY pgrst, 'reload schema'; and try again."
+    )
+
+
 def register_user(email: str, password: str) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
@@ -394,7 +408,10 @@ def update_user_profile(user_id: str, full_name: str, phone_number: str) -> tupl
         return False, "Unable to update your profile right now.", None
 
     if response.status_code >= 400:
-        return False, parse_response_error(response), None
+        error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "full_name", "phone_number"):
+            return False, schema_cache_fix_message("app_users.full_name", "app_users.phone_number"), None
+        return False, error_message, None
 
     rows = response.json()
     if not rows:
@@ -529,6 +546,8 @@ def create_order(
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "payment_method"):
+            return False, schema_cache_fix_message("orders.payment_method")
         if "customer_phone" not in error_message:
             return False, error_message
 

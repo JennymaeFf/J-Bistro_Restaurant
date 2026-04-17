@@ -1,6 +1,8 @@
 -- Public profile table used by the Flask app.
 -- auth.users stores the real auth account, while app_users lets the app
 -- check duplicate emails and keep a simple user list for the project.
+-- After running this file in Supabase SQL Editor, PostgREST is notified to
+-- refresh its schema cache so new columns are visible to the REST API.
 create table if not exists public.app_users (
     id uuid primary key,
     email text unique not null,
@@ -35,6 +37,15 @@ alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists customer_phone text;
 alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists phone_number text;
+
+-- Keep existing rows valid after adding these columns to an older database.
+update public.orders
+set payment_method = 'Cash'
+where payment_method is null;
+
+update public.app_users
+set full_name = initcap(replace(split_part(email, '@', 1), '.', ' '))
+where full_name is null or btrim(full_name) = '';
 
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
@@ -99,3 +110,18 @@ values
     ('Beef Steak', 'Classic beef steak cooked with a rich savory taste.', 'Main Course', 99.00, 'beefsteak.png'),
     ('Salmon Fillet', 'Tender salmon fillet with a clean and premium flavor.', 'Main Course', 99.00, 'salmonfillet.png')
 on conflict do nothing;
+
+-- Verify the columns exist in Postgres.
+select table_name, column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and (
+      (table_name = 'orders' and column_name in ('payment_method', 'customer_phone'))
+      or (table_name = 'app_users' and column_name in ('full_name', 'phone_number'))
+  )
+order by table_name, column_name;
+
+-- Refresh Supabase/PostgREST schema cache so REST requests stop seeing stale
+-- "Could not find column in the schema cache" errors.
+notify pgrst, 'reload schema';
+select pg_notification_queue_usage();
