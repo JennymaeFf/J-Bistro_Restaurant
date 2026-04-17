@@ -301,7 +301,6 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
                 "id": user_id,
                 "email": email,
                 "full_name": default_full_name(email),
-                "phone_number": "",
             },
             timeout=REQUEST_TIMEOUT,
         )
@@ -310,7 +309,7 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
-        if "full_name" not in error_message and "phone_number" not in error_message:
+        if "full_name" not in error_message:
             return False, error_message
 
         try:
@@ -353,7 +352,6 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     if rows:
         profile = rows[0]
         profile.setdefault("full_name", default_full_name(profile.get("email", email)))
-        profile.setdefault("phone_number", "")
         return profile, None
 
     if not email:
@@ -363,7 +361,6 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         "id": user_id,
         "email": email,
         "full_name": default_full_name(email),
-        "phone_number": "",
     }
     try:
         create_response = requests.post(
@@ -383,17 +380,14 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     return (created_rows[0] if created_rows else profile), None
 
 
-def update_user_profile(user_id: str, full_name: str, phone_number: str) -> tuple[bool, str, dict[str, Any] | None]:
+def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[str, Any] | None]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error, None
 
     full_name = full_name.strip()
-    phone_number = phone_number.strip()
     if not full_name:
         return False, "Name is required.", None
-    if phone_number and not re.fullmatch(r"[0-9+() .-]{7,20}", phone_number):
-        return False, "Please enter a valid phone number.", None
 
     supabase_url, _ = current_supabase_config()
     try:
@@ -401,7 +395,7 @@ def update_user_profile(user_id: str, full_name: str, phone_number: str) -> tupl
             f"{supabase_url}/rest/v1/app_users",
             headers=supabase_headers("return=representation"),
             params={"id": f"eq.{user_id}"},
-            json={"full_name": full_name, "phone_number": phone_number},
+            json={"full_name": full_name},
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
@@ -409,8 +403,8 @@ def update_user_profile(user_id: str, full_name: str, phone_number: str) -> tupl
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if is_schema_cache_column_error(error_message, "full_name", "phone_number"):
-            return False, schema_cache_fix_message("app_users.full_name", "app_users.phone_number"), None
+        if is_schema_cache_column_error(error_message, "full_name"):
+            return False, schema_cache_fix_message("app_users.full_name"), None
         return False, error_message, None
 
     rows = response.json()
@@ -447,7 +441,6 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
         "full_name": (profile or {}).get("full_name") or default_full_name(user_data.get("email", email)),
-        "phone_number": (profile or {}).get("phone_number") or "",
     }
     if profile_message:
         return True, f"Login successful. {profile_message}", user_session
@@ -513,7 +506,6 @@ def create_order(
     cart: list[dict[str, Any]],
     total_amount: float,
     payment_method: str,
-    customer_phone: str = "",
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
@@ -527,7 +519,6 @@ def create_order(
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
-        "customer_phone": customer_phone,
         "table_number": f"Table {table_number}",
         "items": cart,
         "total_amount": total_amount,
@@ -548,22 +539,7 @@ def create_order(
         error_message = parse_response_error(response)
         if is_schema_cache_column_error(error_message, "payment_method"):
             return False, schema_cache_fix_message("orders.payment_method")
-        if "customer_phone" not in error_message:
-            return False, error_message
-
-        payload.pop("customer_phone", None)
-        try:
-            response = requests.post(
-                f"{supabase_url}/rest/v1/orders",
-                headers=supabase_headers("return=minimal"),
-                json=payload,
-                timeout=REQUEST_TIMEOUT,
-            )
-        except requests.RequestException:
-            return False, "Unable to save the order right now."
-
-        if response.status_code >= 400:
-            return False, parse_response_error(response)
+        return False, error_message
 
     return True, f"Order submitted successfully. Your table number is {table_number}."
 

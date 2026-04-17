@@ -112,7 +112,6 @@ def current_user_profile() -> dict[str, Any]:
         "id": user.get("id"),
         "email": email,
         "full_name": user.get("full_name") or fallback_full_name(email),
-        "phone_number": user.get("phone_number") or "",
     }
 
 
@@ -129,7 +128,6 @@ def refresh_session_profile() -> tuple[dict[str, Any], str | None]:
             {
                 "email": profile.get("email") or user.get("email"),
                 "full_name": profile.get("full_name") or fallback_profile["full_name"],
-                "phone_number": profile.get("phone_number") or "",
             }
         )
         session["user"] = user
@@ -271,7 +269,6 @@ def order():
         flash(profile_message, "error")
     if request.method == "POST":
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
-        customer_phone = user.get("phone_number", "")
         payment_method = request.form.get("payment_method", "").strip()
 
         if not payment_method:
@@ -284,7 +281,7 @@ def order():
             flash("Add menu items before placing an order.", "error")
             return redirect(url_for("menu"))
 
-        success, message = create_order(customer_name, cart, cart_total(cart), payment_method, customer_phone)
+        success, message = create_order(customer_name, cart, cart_total(cart), payment_method)
         flash(message, "success" if success else "error")
         if success:
             # Extract table number from the message
@@ -298,7 +295,6 @@ def order():
             
             session["last_receipt"] = {
                 "customer_name": customer_name,
-                "customer_phone": customer_phone,
                 "table_number": table_number,
                 "items": [dict(item) for item in cart],
                 "total_amount": cart_total(cart),
@@ -461,14 +457,12 @@ def profile():
     user = session.get("user") or {}
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
-        phone_number = request.form.get("phone_number", "").strip()
-        success, message, profile_data = update_user_profile(user.get("id"), full_name, phone_number)
+        success, message, profile_data = update_user_profile(user.get("id"), full_name)
         flash(message, "success" if success else "error")
         if success and profile_data:
             user.update(
                 {
                     "full_name": profile_data.get("full_name", full_name),
-                    "phone_number": profile_data.get("phone_number", phone_number),
                 }
             )
             session["user"] = user
