@@ -3,6 +3,7 @@ import sys
 from functools import wraps
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 CURRENT_DIR = Path(__file__).resolve().parent
 LOCAL_SITE_PACKAGES = CURRENT_DIR / ".venv" / "Lib" / "site-packages"
@@ -12,6 +13,7 @@ if LOCAL_SITE_PACKAGES.exists():
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from env_loader import load_env_file
+from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 load_env_file()
 
@@ -66,8 +68,38 @@ def cart_total(cart: list[dict[str, Any]]) -> float:
     return sum(float(item["price"]) * int(item["quantity"]) for item in cart)
 
 
+def target_allows_get(target: str) -> bool:
+    if not target.startswith("/") or target.startswith("//"):
+        return False
+
+    path = urlsplit(target).path or "/"
+    url_adapter = app.url_map.bind_to_environ(request.environ)
+    try:
+        url_adapter.match(path, method="GET")
+    except (MethodNotAllowed, NotFound):
+        return False
+    return True
+
+
+def next_url_for_auth_redirect() -> str:
+    if request.method == "GET":
+        return request.full_path if request.query_string else request.path
+    if request.endpoint == "order":
+        return url_for("order")
+    if request.endpoint == "remove_from_cart":
+        return url_for("cart")
+    return url_for("menu")
+
+
+def pop_valid_next_url(default_endpoint: str = "home") -> str:
+    next_url = session.pop("next_url", None)
+    if isinstance(next_url, str) and target_allows_get(next_url):
+        return next_url
+    return url_for(default_endpoint)
+
+
 def redirect_to_register_for_order() -> Any:
-    session["next_url"] = request.full_path if request.query_string else request.path
+    session["next_url"] = next_url_for_auth_redirect()
     session.modified = True
     flash("Please register and log in first before adding items to the cart or placing an order.", "error")
     return redirect(url_for("register"))
@@ -307,8 +339,7 @@ def login():
         if success:
             session["user"] = user_session
             session.modified = True
-            next_url = session.pop("next_url", None)
-            return redirect(next_url or url_for("home"))
+            return redirect(pop_valid_next_url())
 
     return render_template("login.html", auth_page=True)
 
