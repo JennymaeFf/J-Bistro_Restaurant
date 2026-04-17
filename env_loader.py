@@ -1,36 +1,34 @@
+"""
+env_loader.py - loads .env for local dev; on Vercel the env vars are already
+injected by the platform, so the file loader is simply skipped silently.
+"""
+
 import os
 from pathlib import Path
 
 
-def _parse_env_line(line: str) -> tuple[str, str] | None:
-    stripped = line.strip()
-    if not stripped or stripped.startswith("#") or "=" not in stripped:
-        return None
+def load_env_file(env_path: str | Path | None = None) -> None:
+    """
+    Try to load a .env file when running locally.
+    On Vercel (or any host that pre-injects env vars) the file won't exist,
+    which is fine: we skip it silently so the app still starts correctly.
+    """
+    if env_path is None:
+        env_path = Path(__file__).resolve().parent / ".env"
 
-    key, value = stripped.split("=", 1)
-    key = key.strip()
-    value = value.strip()
-
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-        value = value[1:-1]
-
-    return key, value
-
-
-def load_env_file(filename: str = ".env") -> None:
-    try:
-        from dotenv import load_dotenv
-    except ModuleNotFoundError:
-        env_path = Path(filename)
-        if not env_path.exists():
-            return
-
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            parsed = _parse_env_line(line)
-            if not parsed:
-                continue
-            key, value = parsed
-            os.environ.setdefault(key, value)
+    env_path = Path(env_path)
+    if not env_path.exists():
         return
 
-    load_dotenv(filename)
+    with env_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+                value = value[1:-1]
+            if key and key not in os.environ:
+                os.environ[key] = value

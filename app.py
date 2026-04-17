@@ -36,6 +36,12 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 
+# SESSION COOKIE SETTINGS - required for login to work on Vercel (HTTPS)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_NAME"] = "jbistro_session"
+
 # Wrap app with WhiteNoise for production static file serving
 try:
     from whitenoise import WhiteNoise
@@ -144,6 +150,7 @@ def add_to_cart(item_id: int):
     existing = next((item for item in cart if item.get("item_key") == item_key), None)
     if existing:
         existing["quantity"] += quantity
+        item_name = existing.get("display_name", selected_item["name"])
     else:
         cart_item = {
             "id": int(selected_item["id"]),
@@ -159,10 +166,10 @@ def add_to_cart(item_id: int):
         else:
             cart_item["display_name"] = selected_item["name"]
         cart.append(cart_item)
+        item_name = cart_item.get("display_name", selected_item["name"])
 
     session["cart"] = cart
     session.modified = True
-    item_name = cart_item.get("display_name", selected_item["name"])
     flash(f"{item_name} added to cart.", "success")
     return redirect(url_for("menu"))
 

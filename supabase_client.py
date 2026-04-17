@@ -193,7 +193,7 @@ def supabase_config_error() -> str | None:
     if supabase_url in PLACEHOLDER_VALUES or supabase_api_key in PLACEHOLDER_VALUES:
         return (
             "Supabase credentials are still using placeholder values. "
-            "Update SUPABASE_URL and SUPABASE_API_KEY in .env with your real project URL and anon key."
+            "Update SUPABASE_URL and SUPABASE_API_KEY in your Vercel environment variables."
         )
     if "your-project" in supabase_url or "your-supabase" in supabase_api_key:
         return (
@@ -206,7 +206,7 @@ def supabase_config_error() -> str | None:
         return "SUPABASE_API_KEY looks too short. Use the full anon public key from Supabase."
     key_type = detect_key_type(supabase_api_key)
     if key_type == "publishable":
-        return "You are using the Supabase publishable key. For this Flask requests setup, use the anon JWT key instead."
+        return "You are using the Supabase publishable key. Use the anon JWT key instead."
     if key_type == "service_role":
         return "You are using the Supabase service_role key. Do not use that in this app. Use the anon key instead."
     if key_type not in {"anon", "authenticated"}:
