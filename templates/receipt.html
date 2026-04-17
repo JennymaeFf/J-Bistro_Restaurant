@@ -20,6 +20,12 @@
                 <span>Customer</span>
                 <span>{{ receipt.customer_name }}</span>
             </div>
+            {% if receipt.customer_phone %}
+                <div class="cash-info">
+                    <span>Phone</span>
+                    <span>{{ receipt.customer_phone }}</span>
+                </div>
+            {% endif %}
             <div class="cash-info">
                 <span>Table</span>
                 <span>{{ receipt.table_number }}</span>

@@ -18,6 +18,20 @@
                 <h2>Account Information</h2>
                 
                 {% if current_user %}
+                    <form action="{{ url_for('profile') }}" method="post" class="profile-form">
+                        <div class="form-group">
+                            <label for="full_name">Full Name</label>
+                            <input id="full_name" name="full_name" type="text" value="{{ profile.full_name }}" placeholder="Enter your full name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone_number">Phone Number</label>
+                            <input id="phone_number" name="phone_number" type="tel" value="{{ profile.phone_number }}" placeholder="Example: 0917 123 4567">
+                        </div>
+
+                        <button type="submit" class="btn-primary profile-save-button">Save Changes</button>
+                    </form>
+
                     <div class="info-group">
                         <label>Email Address</label>
                         <p class="info-value">{{ current_user.email }}</p>

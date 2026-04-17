@@ -25,8 +25,10 @@ from supabase_client import (
     delete_order,
     fetch_menu_items,
     fetch_orders,
+    fetch_user_profile,
     register_user,
     update_order_status,
+    update_user_profile,
     valid_email_message,
 )
 
@@ -96,6 +98,43 @@ def pop_valid_next_url(default_endpoint: str = "home") -> str:
     if isinstance(next_url, str) and target_allows_get(next_url):
         return next_url
     return url_for(default_endpoint)
+
+
+def fallback_full_name(email: str) -> str:
+    username = email.split("@")[0] if email else "Customer"
+    return username.replace(".", " ").replace("_", " ").title()
+
+
+def current_user_profile() -> dict[str, Any]:
+    user = session.get("user") or {}
+    email = user.get("email", "")
+    return {
+        "id": user.get("id"),
+        "email": email,
+        "full_name": user.get("full_name") or fallback_full_name(email),
+        "phone_number": user.get("phone_number") or "",
+    }
+
+
+def refresh_session_profile() -> tuple[dict[str, Any], str | None]:
+    user = session.get("user") or {}
+    user_id = user.get("id")
+    if not user_id:
+        return current_user_profile(), "Please log in first."
+
+    profile, message = fetch_user_profile(user_id, user.get("email", ""))
+    if profile:
+        fallback_profile = current_user_profile()
+        user.update(
+            {
+                "email": profile.get("email") or user.get("email"),
+                "full_name": profile.get("full_name") or fallback_profile["full_name"],
+                "phone_number": profile.get("phone_number") or "",
+            }
+        )
+        session["user"] = user
+        session.modified = True
+    return current_user_profile(), message
 
 
 def redirect_to_register_for_order() -> Any:
@@ -227,19 +266,25 @@ def remove_from_cart(item_id: int):
 @login_required_for_order
 def order():
     cart = get_cart()
-    user = session.get("user", {})
+    user, profile_message = refresh_session_profile()
+    if profile_message:
+        flash(profile_message, "error")
     if request.method == "POST":
-        customer_name = user.get("email", "").split("@")[0]  # Use email prefix as name
+        customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
+        customer_phone = user.get("phone_number", "")
         payment_method = request.form.get("payment_method", "").strip()
 
         if not payment_method:
             flash("Payment method is required.", "error")
             return redirect(url_for("order"))
+        if not customer_name:
+            flash("Please complete your profile name before placing an order.", "error")
+            return redirect(url_for("profile"))
         if not cart:
             flash("Add menu items before placing an order.", "error")
             return redirect(url_for("menu"))
 
-        success, message = create_order(customer_name, cart, cart_total(cart), payment_method)
+        success, message = create_order(customer_name, cart, cart_total(cart), payment_method, customer_phone)
         flash(message, "success" if success else "error")
         if success:
             # Extract table number from the message
@@ -253,6 +298,7 @@ def order():
             
             session["last_receipt"] = {
                 "customer_name": customer_name,
+                "customer_phone": customer_phone,
                 "table_number": table_number,
                 "items": [dict(item) for item in cart],
                 "total_amount": cart_total(cart),
@@ -409,10 +455,30 @@ def cart():
     return render_template("cart.html", cart_items=cart_items, total=total)
 
 
-@app.route("/profile")
+@app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
-    return render_template("profile.html")
+    user = session.get("user") or {}
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        phone_number = request.form.get("phone_number", "").strip()
+        success, message, profile_data = update_user_profile(user.get("id"), full_name, phone_number)
+        flash(message, "success" if success else "error")
+        if success and profile_data:
+            user.update(
+                {
+                    "full_name": profile_data.get("full_name", full_name),
+                    "phone_number": profile_data.get("phone_number", phone_number),
+                }
+            )
+            session["user"] = user
+            session.modified = True
+            return redirect(url_for("profile"))
+
+    profile_data, profile_message = refresh_session_profile()
+    if profile_message:
+        flash(profile_message, "error")
+    return render_template("profile.html", profile=profile_data)
 
 
 if __name__ == "__main__":

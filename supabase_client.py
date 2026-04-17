@@ -164,6 +164,11 @@ def current_supabase_config() -> tuple[str, str]:
     return url, api_key
 
 
+def default_full_name(email: str) -> str:
+    username = email.split("@")[0] if email else "Customer"
+    return username.replace(".", " ").replace("_", " ").title()
+
+
 def decode_jwt_payload(token: str) -> dict[str, Any] | None:
     parts = token.split(".")
     if len(parts) != 3:
@@ -277,16 +282,124 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
         profile_response = requests.post(
             f"{supabase_url}/rest/v1/app_users",
             headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
-            json={"id": user_id, "email": email},
+            params={"on_conflict": "id"},
+            json={
+                "id": user_id,
+                "email": email,
+                "full_name": default_full_name(email),
+                "phone_number": "",
+            },
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
         return False, "Account created, but the app profile could not be saved."
 
     if profile_response.status_code >= 400:
-        return False, parse_response_error(profile_response)
+        error_message = parse_response_error(profile_response)
+        if "full_name" not in error_message and "phone_number" not in error_message:
+            return False, error_message
+
+        try:
+            fallback_response = requests.post(
+                f"{supabase_url}/rest/v1/app_users",
+                headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
+                params={"on_conflict": "id"},
+                json={"id": user_id, "email": email},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return False, "Account created, but the app profile could not be saved."
+
+        if fallback_response.status_code >= 400:
+            return False, parse_response_error(fallback_response)
 
     return True, "Registration successful."
+
+
+def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | None, str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return None, config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers(),
+            params={"id": f"eq.{user_id}", "select": "*", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return None, "Unable to load your profile right now."
+
+    if response.status_code >= 400:
+        return None, parse_response_error(response)
+
+    rows = response.json()
+    if rows:
+        profile = rows[0]
+        profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+        profile.setdefault("phone_number", "")
+        return profile, None
+
+    if not email:
+        return None, "Profile not found."
+
+    profile = {
+        "id": user_id,
+        "email": email,
+        "full_name": default_full_name(email),
+        "phone_number": "",
+    }
+    try:
+        create_response = requests.post(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=representation,resolution=merge-duplicates"),
+            params={"on_conflict": "id"},
+            json=profile,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return profile, "Profile loaded with default details, but could not be saved yet."
+
+    if create_response.status_code >= 400:
+        return profile, parse_response_error(create_response)
+
+    created_rows = create_response.json()
+    return (created_rows[0] if created_rows else profile), None
+
+
+def update_user_profile(user_id: str, full_name: str, phone_number: str) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+
+    full_name = full_name.strip()
+    phone_number = phone_number.strip()
+    if not full_name:
+        return False, "Name is required.", None
+    if phone_number and not re.fullmatch(r"[0-9+() .-]{7,20}", phone_number):
+        return False, "Please enter a valid phone number.", None
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=representation"),
+            params={"id": f"eq.{user_id}"},
+            json={"full_name": full_name, "phone_number": phone_number},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update your profile right now.", None
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response), None
+
+    rows = response.json()
+    if not rows:
+        return False, "Profile not found.", None
+    return True, "Profile updated successfully.", rows[0]
 
 
 def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:
@@ -310,11 +423,17 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
 
     payload = response.json()
     user_data = payload.get("user") or {}
+    user_id = user_data.get("id")
+    profile, profile_message = fetch_user_profile(user_id, user_data.get("email", email)) if user_id else (None, None)
     user_session = {
-        "id": user_data.get("id"),
+        "id": user_id,
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
+        "full_name": (profile or {}).get("full_name") or default_full_name(user_data.get("email", email)),
+        "phone_number": (profile or {}).get("phone_number") or "",
     }
+    if profile_message:
+        return True, f"Login successful. {profile_message}", user_session
     return True, "Login successful.", user_session
 
 
@@ -372,7 +491,13 @@ def get_next_table_number() -> tuple[int, str | None]:
     return max_table + 1, None
 
 
-def create_order(customer_name: str, cart: list[dict[str, Any]], total_amount: float, payment_method: str) -> tuple[bool, str]:
+def create_order(
+    customer_name: str,
+    cart: list[dict[str, Any]],
+    total_amount: float,
+    payment_method: str,
+    customer_phone: str = "",
+) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
@@ -385,6 +510,7 @@ def create_order(customer_name: str, cart: list[dict[str, Any]], total_amount: f
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
+        "customer_phone": customer_phone,
         "table_number": f"Table {table_number}",
         "items": cart,
         "total_amount": total_amount,
@@ -402,7 +528,23 @@ def create_order(customer_name: str, cart: list[dict[str, Any]], total_amount: f
         return False, "Unable to save the order right now."
 
     if response.status_code >= 400:
-        return False, parse_response_error(response)
+        error_message = parse_response_error(response)
+        if "customer_phone" not in error_message:
+            return False, error_message
+
+        payload.pop("customer_phone", None)
+        try:
+            response = requests.post(
+                f"{supabase_url}/rest/v1/orders",
+                headers=supabase_headers("return=minimal"),
+                json=payload,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return False, "Unable to save the order right now."
+
+        if response.status_code >= 400:
+            return False, parse_response_error(response)
 
     return True, f"Order submitted successfully. Your table number is {table_number}."
 

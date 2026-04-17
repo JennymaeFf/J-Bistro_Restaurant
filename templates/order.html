@@ -47,13 +47,18 @@
                         <div class="info-display">
                             <div class="info-row">
                                 <span>Name:</span>
-                                <span>{{ user.email.split('@')[0]|title }}</span>
+                                <span>{{ user.full_name or user.email.split('@')[0]|title }}</span>
                             </div>
                             <div class="info-row">
                                 <span>Email:</span>
                                 <span>{{ user.email }}</span>
                             </div>
+                            <div class="info-row">
+                                <span>Phone:</span>
+                                <span>{{ user.phone_number or "Not added yet" }}</span>
+                            </div>
                         </div>
+                        <a class="profile-edit-link" href="{{ url_for('profile') }}">Edit profile information</a>
                     </div>
 
                     <form action="{{ url_for('order') }}" method="post" class="checkout-form">
