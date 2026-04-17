@@ -36,8 +36,8 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 
-# SESSION COOKIE SETTINGS - required for login to work on Vercel (HTTPS)
-app.config["SESSION_COOKIE_SECURE"] = True
+# SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_NAME"] = "jbistro_session"
