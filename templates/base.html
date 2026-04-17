@@ -37,7 +37,7 @@
                         </div>
                     </div>
                 {% else %}
-                    <span class="guest-mode">Guest</span>
+                    <a href="{{ url_for('login') }}" class="header-login-button">Login</a>
                 {% endif %}
             </div>
         </div>

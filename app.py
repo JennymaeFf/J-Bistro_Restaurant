@@ -101,8 +101,8 @@ def pop_valid_next_url(default_endpoint: str = "home") -> str:
 def redirect_to_register_for_order() -> Any:
     session["next_url"] = next_url_for_auth_redirect()
     session.modified = True
-    flash("Please register and log in first before adding items to the cart or placing an order.", "error")
-    return redirect(url_for("register"))
+    flash("Please log in first before adding items to the cart or placing an order.", "error")
+    return redirect(url_for("login"))
 
 
 def login_required_for_order(view_function):
@@ -119,6 +119,8 @@ def login_required(view_function):
     @wraps(view_function)
     def wrapped_view(*args, **kwargs):
         if not is_logged_in():
+            session["next_url"] = next_url_for_auth_redirect()
+            session.modified = True
             flash("Please log in first.", "error")
             return redirect(url_for("login"))
         return view_function(*args, **kwargs)
@@ -150,6 +152,12 @@ def home():
     # Select some popular items as best sellers
     best_sellers = menu_items[:6]  # First 6 items as best sellers
     return render_template("home.html", best_sellers=best_sellers)
+
+
+@app.route("/best-sellers")
+@login_required
+def best_sellers():
+    return redirect(url_for("home", _anchor="best-sellers"))
 
 
 @app.route("/menu")

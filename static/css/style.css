@@ -1174,6 +1174,25 @@ select {
     font-size: 0.9rem;
 }
 
+.header-login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.header-login-button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
 /* ==================== PROFILE PAGE STYLES ==================== */
 
 .profile-section {
@@ -2531,4 +2550,3 @@ td {
         font-size: 1.1rem;
     }
 }
-

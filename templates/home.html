@@ -18,12 +18,13 @@
             </p>
             <div class="hero-actions">
                 <a class="button primary" href="{{ url_for('menu') }}">Explore Our Menu</a>
-                <a class="button secondary" href="#best-sellers">View Best Sellers</a>
+                <a class="button secondary" href="{{ url_for('best_sellers') }}">View Best Sellers</a>
             </div>
         </div>
     </div>
 </section>
 
+{% if is_logged_in %}
 <section id="best-sellers" class="best-sellers-section">
     <div class="container">
         <div class="section-header">
@@ -56,6 +57,7 @@
         </div>
     </div>
 </section>
+{% endif %}
 
 <section class="features-section">
     <div class="container">
