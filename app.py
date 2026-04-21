@@ -269,8 +269,12 @@ def order():
         flash(profile_message, "error")
     if request.method == "POST":
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
+        order_type = request.form.get("order_type", "").strip()
         payment_method = request.form.get("payment_method", "").strip()
 
+        if order_type not in {"Dine-in", "Take-out"}:
+            flash("Please choose dine-in or take-out.", "error")
+            return redirect(url_for("order"))
         if not payment_method:
             flash("Payment method is required.", "error")
             return redirect(url_for("order"))
@@ -281,21 +285,20 @@ def order():
             flash("Add menu items before placing an order.", "error")
             return redirect(url_for("menu"))
 
-        success, message = create_order(customer_name, cart, cart_total(cart), payment_method)
+        success, message = create_order(customer_name, cart, cart_total(cart), payment_method, order_type)
         flash(message, "success" if success else "error")
         if success:
-            # Extract table number from the message
-            table_number = "N/A"
+            service_label = "Take-out"
             if "Your table number is" in message:
                 try:
-                    table_number = message.split("Your table number is ")[1].split(".")[0]
-                    table_number = f"Table {table_number}"
-                except:
-                    table_number = "N/A"
+                    service_label = message.split("Your table number is ")[1].split(".")[0]
+                except IndexError:
+                    service_label = "N/A"
             
             session["last_receipt"] = {
                 "customer_name": customer_name,
-                "table_number": table_number,
+                "order_type": order_type,
+                "table_number": service_label,
                 "items": [dict(item) for item in cart],
                 "total_amount": cart_total(cart),
                 "payment_method": payment_method,

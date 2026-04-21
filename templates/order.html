@@ -43,29 +43,62 @@
 
                 <div class="checkout-form-section">
                     <div class="customer-info">
-                        <h2>Customer Information</h2>
+                        <div class="customer-info-header">
+                            <div class="customer-avatar" aria-hidden="true">
+                                {{ (user.full_name or user.email or "C")[:1]|upper }}
+                            </div>
+                            <div>
+                                <p class="customer-eyebrow">Ordering as</p>
+                                <h2>Customer Information</h2>
+                            </div>
+                        </div>
                         <div class="info-display">
                             <div class="info-row">
-                                <span>Name:</span>
+                                <span>Name</span>
                                 <span>{{ user.full_name or user.email.split('@')[0]|title }}</span>
                             </div>
                             <div class="info-row">
-                                <span>Email:</span>
+                                <span>Email</span>
                                 <span>{{ user.email }}</span>
                             </div>
                         </div>
-                        <a class="profile-edit-link" href="{{ url_for('profile') }}">Edit profile information</a>
+                        <a class="profile-edit-link" href="{{ url_for('profile') }}">
+                            Edit profile information
+                            <span aria-hidden="true">→</span>
+                        </a>
                     </div>
 
                     <form action="{{ url_for('order') }}" method="post" class="checkout-form">
                         <div class="form-group">
-                            <label for="payment_method">Payment Method</label>
-                            <select id="payment_method" name="payment_method" required>
-                                <option value="">Select payment method</option>
-                                <option value="Cash">Cash</option>
-                                <option value="GCash">GCash</option>
-                                <option value="Card">Card</option>
-                            </select>
+                            <label>Order Type</label>
+                            <div class="order-type-options">
+                                <div class="option order-type-option">
+                                    <input type="radio" name="order_type" id="dinein" value="Dine-in" required>
+                                    <label for="dinein">Dine In</label>
+                                </div>
+                                <div class="option order-type-option">
+                                    <input type="radio" name="order_type" id="takeout" value="Take-out" required>
+                                    <label for="takeout">Take Out</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Payment Method</label>
+                            <div class="payment-options">
+                                <div class="option payment-option">
+                                    <input type="radio" name="payment_method" id="cash" value="Cash" required>
+                                    <label for="cash">Cash</label>
+                                </div>
+                                <div class="option payment-option">
+                                    <input type="radio" name="payment_method" id="gcash" value="GCash" required>
+                                    <label for="gcash">GCash</label>
+                                </div>
+                                <div class="option payment-option">
+                                    <input type="radio" name="payment_method" id="card" value="Card" required>
+                                    <label for="card">Card</label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="checkout-actions">

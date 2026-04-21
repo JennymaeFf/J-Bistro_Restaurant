@@ -24,6 +24,7 @@
                     <thead>
                         <tr>
                             <th>Customer</th>
+                            <th>Type</th>
                             <th>Table</th>
                             <th>Items</th>
                             <th>Total</th>
@@ -35,7 +36,20 @@
                         {% for order in orders %}
                             <tr>
                                 <td>{{ order.customer_name }}</td>
-                                <td>{{ order.table_number or "N/A" }}</td>
+                                <td>
+                                    {% if order.table_number == "Take-out" %}
+                                        Take-out
+                                    {% else %}
+                                        Dine-in
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if order.table_number == "Take-out" %}
+                                        Pickup
+                                    {% else %}
+                                        {{ order.table_number or "N/A" }}
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if order.items %}
                                         <ul class="items-list">

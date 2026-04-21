@@ -506,20 +506,24 @@ def create_order(
     cart: list[dict[str, Any]],
     total_amount: float,
     payment_method: str,
+    order_type: str,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
 
-    # Get next table number
-    table_number, table_error = get_next_table_number()
-    if table_error:
-        return False, f"Unable to generate table number: {table_error}"
+    if order_type == "Dine-in":
+        table_number, table_error = get_next_table_number()
+        if table_error:
+            return False, f"Unable to generate table number: {table_error}"
+        service_label = f"Table {table_number}"
+    else:
+        service_label = "Take-out"
 
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
-        "table_number": f"Table {table_number}",
+        "table_number": service_label,
         "items": cart,
         "total_amount": total_amount,
         "payment_method": payment_method,
@@ -541,7 +545,9 @@ def create_order(
             return False, schema_cache_fix_message("orders.payment_method")
         return False, error_message
 
-    return True, f"Order submitted successfully. Your table number is {table_number}."
+    if order_type == "Dine-in":
+        return True, f"Order submitted successfully. Your table number is {service_label}."
+    return True, "Take-out order submitted successfully. Please wait while your food is being prepared."
 
 
 def update_order_status(order_id: int, status: str) -> tuple[bool, str]:

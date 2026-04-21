@@ -400,11 +400,11 @@ p {
 
 .checkout-form {
     display: grid;
-    gap: 16px;
+    gap: 18px;
     margin-top: 24px;
 }
 
-.checkout-form label {
+.checkout-form > .form-group > label {
     display: grid;
     gap: 8px;
     font-weight: 700;
@@ -1803,30 +1803,76 @@ select {
 }
 
 .customer-info {
-    margin-bottom: 24px;
+    margin-bottom: 22px;
+    padding: 18px;
+    border: 1px solid rgba(141, 85, 36, 0.16);
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(255, 250, 244, 0.96), rgba(246, 231, 210, 0.78));
+}
+
+.customer-info-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.customer-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    font-weight: 800;
+    font-size: 1.15rem;
+    box-shadow: 0 8px 18px rgba(141, 85, 36, 0.22);
+}
+
+.customer-eyebrow {
+    margin: 0 0 2px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .customer-info h2 {
-    margin: 0 0 16px 0;
-    font-size: 1.4rem;
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.2;
 }
 
 .info-display {
-    background: var(--bg);
-    padding: 16px;
-    border-radius: 12px;
+    display: grid;
+    gap: 8px;
 }
 
 .info-row {
     display: flex;
     justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 8px;
+    align-items: center;
+    gap: 14px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid rgba(229, 207, 183, 0.85);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
     font-size: 0.9rem;
 }
 
 .info-row:last-child {
     margin-bottom: 0;
+}
+
+.info-row span:first-child {
+    color: var(--muted);
+    font-weight: 700;
 }
 
 .info-row span:last-child {
@@ -1837,6 +1883,8 @@ select {
 
 .profile-edit-link {
     display: inline-flex;
+    align-items: center;
+    gap: 6px;
     margin-top: 12px;
     color: var(--primary);
     font-weight: 700;
@@ -1848,10 +1896,10 @@ select {
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
-.form-group label {
+.form-group > label {
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
@@ -1874,10 +1922,96 @@ select {
     border-color: var(--primary);
 }
 
+.order-type-options {
+    display: grid;
+    gap: 6px;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 28px;
+    padding: 4px 2px;
+    cursor: pointer;
+    color: var(--text);
+    line-height: 1.2;
+    width: 100%;
+    max-width: 100%;
+}
+
+.option label {
+    display: inline;
+    margin: 0;
+    color: inherit;
+    font-weight: inherit;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.option:hover {
+    color: var(--primary);
+}
+
+.option input[type="radio"] {
+    appearance: auto;
+    display: block;
+    width: 15px;
+    flex: 0 0 15px;
+    height: 15px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.option:has(input:focus-visible) {
+    outline: 3px solid rgba(141, 85, 36, 0.2);
+    outline-offset: 2px;
+}
+
+.option:has(input:checked) {
+    color: var(--primary);
+}
+
+.payment-options {
+    display: grid;
+    gap: 6px;
+}
+
+.payment-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid rgba(229, 207, 183, 0.9);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.72);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.payment-option:hover,
+.payment-option:has(input:checked) {
+    background: #fffaf4;
+    border-color: var(--primary);
+}
+
+.order-type-option label,
+.payment-option label {
+    font-size: 0.98rem;
+}
+
 .checkout-actions {
     display: flex;
     gap: 12px;
-    margin-top: 24px;
+    margin-top: 8px;
+    position: relative;
+    z-index: 1;
 }
 
 .empty-checkout {

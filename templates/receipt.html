@@ -21,7 +21,11 @@
                 <span>{{ receipt.customer_name }}</span>
             </div>
             <div class="cash-info">
-                <span>Table</span>
+                <span>Order Type</span>
+                <span>{{ receipt.order_type or "Dine-in" }}</span>
+            </div>
+            <div class="cash-info">
+                <span>{% if receipt.order_type == "Take-out" %}Pickup{% else %}Table{% endif %}</span>
                 <span>{{ receipt.table_number }}</span>
             </div>
             <div class="cash-info">
@@ -54,7 +58,13 @@
         </div>
 
         <div class="footer">
-            <p class="thank-you">Thank you for dining with us!</p>
+            <p class="thank-you">
+                {% if receipt.order_type == "Take-out" %}
+                    Thank you for ordering from us!
+                {% else %}
+                    Thank you for dining with us!
+                {% endif %}
+            </p>
             <a class="receipt-menu-link" href="{{ url_for('menu') }}">Go to Menu</a>
         </div>
     </div>
