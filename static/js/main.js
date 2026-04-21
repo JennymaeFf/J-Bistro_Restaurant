@@ -9,6 +9,27 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
+    const checkoutSlides = document.querySelectorAll(".checkout-carousel-slide");
+    const checkoutDots = document.querySelectorAll(".checkout-carousel-dots span");
+
+    if (checkoutSlides.length > 1) {
+        let activeSlide = 0;
+
+        window.setInterval(function () {
+            checkoutSlides[activeSlide].classList.remove("active");
+            if (checkoutDots[activeSlide]) {
+                checkoutDots[activeSlide].classList.remove("active");
+            }
+
+            activeSlide = (activeSlide + 1) % checkoutSlides.length;
+
+            checkoutSlides[activeSlide].classList.add("active");
+            if (checkoutDots[activeSlide]) {
+                checkoutDots[activeSlide].classList.add("active");
+            }
+        }, 3000);
+    }
 });
 
 // Modal functionality for menu items

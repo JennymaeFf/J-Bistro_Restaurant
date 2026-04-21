@@ -1736,6 +1736,56 @@ select {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+.checkout-left-column {
+    display: grid;
+    gap: 18px;
+}
+
+.checkout-carousel {
+    position: relative;
+}
+
+.checkout-carousel-track {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(60, 37, 22, 0.1);
+}
+
+.checkout-carousel-slide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+}
+
+.checkout-carousel-slide.active {
+    opacity: 1;
+}
+
+.checkout-carousel-dots {
+    position: absolute;
+    inset: auto 0 10px;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.checkout-carousel-dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.checkout-carousel-dots span.active {
+    background: white;
+}
+
 .order-summary h2 {
     margin: 0 0 20px 0;
     font-size: 1.4rem;
@@ -2147,6 +2197,10 @@ select {
 @media (max-width: 480px) {
     .container {
         width: calc(100% - 16px);
+    }
+
+    .checkout-carousel-track {
+        height: 160px;
     }
 
     .site-nav {

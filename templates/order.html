@@ -12,31 +12,46 @@
 
         {% if cart %}
             <div class="checkout-container">
-                <div class="order-summary">
-                    <h2>Order Summary</h2>
-                    <div class="order-items">
-                        {% for item in cart %}
-                            <div class="order-item">
-                                <div class="item-info">
-                                    <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
-                                    <div>
-                                        <h4>{{ item.display_name }}</h4>
-                                        <p>Quantity: {{ item.quantity }}</p>
-                                        {% if item.size %}
-                                            <p>Size: {{ item.size|capitalize }}</p>
-                                        {% endif %}
+                <div class="checkout-left-column">
+                    <div class="order-summary">
+                        <h2>Order Summary</h2>
+                        <div class="order-items">
+                            {% for item in cart %}
+                                <div class="order-item">
+                                    <div class="item-info">
+                                        <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
+                                        <div>
+                                            <h4>{{ item.display_name }}</h4>
+                                            <p>Quantity: {{ item.quantity }}</p>
+                                            {% if item.size %}
+                                                <p>Size: {{ item.size|capitalize }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="item-price">
+                                        PHP {{ "%.2f"|format(item.price * item.quantity) }}
                                     </div>
                                 </div>
-                                <div class="item-price">
-                                    PHP {{ "%.2f"|format(item.price * item.quantity) }}
-                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="order-total">
+                            <div class="total-row">
+                                <span>Total Amount</span>
+                                <span>PHP {{ "%.2f"|format(total_amount) }}</span>
                             </div>
-                        {% endfor %}
+                        </div>
                     </div>
-                    <div class="order-total">
-                        <div class="total-row">
-                            <span>Total Amount</span>
-                            <span>PHP {{ "%.2f"|format(total_amount) }}</span>
+
+                    <div class="checkout-carousel" aria-label="J'Bistro featured dishes">
+                        <div class="checkout-carousel-track">
+                            <img class="checkout-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
+                            <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
+                            <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                        </div>
+                        <div class="checkout-carousel-dots" aria-hidden="true">
+                            <span class="active"></span>
+                            <span></span>
+                            <span></span>
                         </div>
                     </div>
                 </div>
