@@ -37,7 +37,9 @@
                             <tr>
                                 <td>{{ order.customer_name }}</td>
                                 <td>
-                                    {% if order.table_number == "Take-out" %}
+                                    {% if order.order_type %}
+                                        {{ order.order_type }}
+                                    {% elif order.table_number == "Take-out" %}
                                         Take-out
                                     {% else %}
                                         Dine-in

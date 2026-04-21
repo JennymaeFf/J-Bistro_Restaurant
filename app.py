@@ -272,11 +272,18 @@ def order():
         order_type = request.form.get("order_type", "").strip()
         payment_method = request.form.get("payment_method", "").strip()
 
+        app.logger.info(
+            "Submitting order: order_type=%s payment_method=%s cart_items=%s",
+            order_type or "missing",
+            payment_method or "missing",
+            len(cart),
+        )
+
         if order_type not in {"Dine-in", "Take-out"}:
             flash("Please choose dine-in or take-out.", "error")
             return redirect(url_for("order"))
-        if not payment_method:
-            flash("Payment method is required.", "error")
+        if payment_method not in {"Cash", "GCash", "Card"}:
+            flash("Please choose a valid payment method.", "error")
             return redirect(url_for("order"))
         if not customer_name:
             flash("Please complete your profile name before placing an order.", "error")
@@ -285,7 +292,13 @@ def order():
             flash("Add menu items before placing an order.", "error")
             return redirect(url_for("menu"))
 
-        success, message = create_order(customer_name, cart, cart_total(cart), payment_method, order_type)
+        try:
+            success, message = create_order(customer_name, cart, cart_total(cart), payment_method, order_type)
+        except Exception:
+            app.logger.exception("Unexpected error while placing an order.")
+            flash("Something went wrong while placing your order. Please try again.", "error")
+            return redirect(url_for("order"))
+
         flash(message, "success" if success else "error")
         if success:
             service_label = "Take-out"

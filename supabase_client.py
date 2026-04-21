@@ -471,7 +471,11 @@ def fetch_orders() -> tuple[list[dict[str, Any]], str | None]:
     if response.status_code >= 400:
         return [], parse_response_error(response)
 
-    orders = response.json()
+    try:
+        orders = response.json()
+    except ValueError:
+        return [], f"Unable to read orders from Supabase. Status code: {response.status_code}."
+
     for order in orders:
         if isinstance(order.get("items"), str):
             try:
@@ -511,6 +515,12 @@ def create_order(
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
+    if order_type not in {"Dine-in", "Take-out"}:
+        return False, "Please choose dine-in or take-out."
+    if payment_method not in {"Cash", "GCash", "Card"}:
+        return False, "Please choose a valid payment method."
+    if not cart:
+        return False, "Add menu items before placing an order."
 
     if order_type == "Dine-in":
         table_number, table_error = get_next_table_number()
@@ -527,6 +537,7 @@ def create_order(
         "items": cart,
         "total_amount": total_amount,
         "payment_method": payment_method,
+        "order_type": order_type,
         "status": "Pending",
     }
     try:
@@ -543,6 +554,25 @@ def create_order(
         error_message = parse_response_error(response)
         if is_schema_cache_column_error(error_message, "payment_method"):
             return False, schema_cache_fix_message("orders.payment_method")
+        if is_schema_cache_column_error(error_message, "order_type"):
+            fallback_payload = dict(payload)
+            fallback_payload.pop("order_type", None)
+            try:
+                fallback_response = requests.post(
+                    f"{supabase_url}/rest/v1/orders",
+                    headers=supabase_headers("return=minimal"),
+                    json=fallback_payload,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to save the order right now."
+
+            if fallback_response.status_code >= 400:
+                return False, parse_response_error(fallback_response)
+
+            if order_type == "Dine-in":
+                return True, f"Order submitted successfully. Your table number is {service_label}."
+            return True, "Take-out order submitted successfully. Please wait while your food is being prepared."
         return False, error_message
 
     if order_type == "Dine-in":

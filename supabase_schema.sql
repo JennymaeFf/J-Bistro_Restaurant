@@ -27,17 +27,26 @@ create table if not exists public.orders (
     items jsonb not null,
     total_amount numeric(10,2) not null,
     payment_method text not null,
+    order_type text not null default 'Dine-in',
     status text not null default 'Pending',
     created_at timestamptz not null default now()
 );
 
 alter table public.orders add column if not exists payment_method text;
+alter table public.orders add column if not exists order_type text not null default 'Dine-in';
 alter table public.app_users add column if not exists full_name text;
 
 -- Keep existing rows valid after adding these columns to an older database.
 update public.orders
 set payment_method = 'Cash'
 where payment_method is null;
+
+update public.orders
+set order_type = case
+    when table_number = 'Take-out' then 'Take-out'
+    else 'Dine-in'
+end
+where order_type is null or btrim(order_type) = '';
 
 update public.app_users
 set full_name = initcap(replace(split_part(email, '@', 1), '.', ' '))
@@ -112,7 +121,7 @@ select table_name, column_name, data_type
 from information_schema.columns
 where table_schema = 'public'
   and (
-      (table_name = 'orders' and column_name in ('payment_method'))
+      (table_name = 'orders' and column_name in ('payment_method', 'order_type'))
       or (table_name = 'app_users' and column_name in ('full_name'))
   )
 order by table_name, column_name;
