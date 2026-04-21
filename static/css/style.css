@@ -1741,15 +1741,23 @@ select {
     gap: 18px;
 }
 
+.carousel-container {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0 0;
+    width: 100%;
+}
+
 .checkout-carousel {
     position: relative;
+    width: min(300px, 100%);
 }
 
 .checkout-carousel-track {
     position: relative;
-    height: 200px;
+    height: 160px;
     overflow: hidden;
-    border-radius: 10px;
+    border-radius: 12px;
     box-shadow: 0 4px 12px rgba(60, 37, 22, 0.1);
 }
 
@@ -2199,8 +2207,12 @@ select {
         width: calc(100% - 16px);
     }
 
+    .checkout-carousel {
+        width: min(280px, 100%);
+    }
+
     .checkout-carousel-track {
-        height: 160px;
+        height: 140px;
     }
 
     .site-nav {
