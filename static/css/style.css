@@ -1744,18 +1744,19 @@ select {
 .carousel-container {
     display: flex;
     justify-content: center;
-    margin: 6px 0 0;
+    align-items: center;
+    margin: 48px 0 0;
     width: 100%;
 }
 
 .checkout-carousel {
     position: relative;
-    width: min(300px, 100%);
+    width: min(360px, 100%);
 }
 
 .checkout-carousel-track {
     position: relative;
-    height: 160px;
+    height: 200px;
     overflow: hidden;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(60, 37, 22, 0.1);
@@ -2208,11 +2209,11 @@ select {
     }
 
     .checkout-carousel {
-        width: min(280px, 100%);
+        width: min(320px, 100%);
     }
 
     .checkout-carousel-track {
-        height: 140px;
+        height: 170px;
     }
 
     .site-nav {
