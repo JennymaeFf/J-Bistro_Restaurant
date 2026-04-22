@@ -485,6 +485,50 @@ def fetch_orders() -> tuple[list[dict[str, Any]], str | None]:
     return orders, None
 
 
+def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return None, config_error
+
+    supabase_url, _ = current_supabase_config()
+    params = {
+        "select": "id,customer_name,order_type,table_number,items,total_amount,payment_method,status,created_at",
+        "order": "created_at.desc,id.desc",
+        "limit": "1",
+    }
+    if customer_name:
+        params["customer_name"] = f"eq.{customer_name}"
+
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers(),
+            params=params,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return None, "Unable to load the latest order right now."
+
+    if response.status_code >= 400:
+        return None, parse_response_error(response)
+
+    try:
+        rows = response.json()
+    except ValueError:
+        return None, "Unable to read latest order data from Supabase."
+
+    if not rows:
+        return None, None
+
+    latest_order = rows[0]
+    if isinstance(latest_order.get("items"), str):
+        try:
+            latest_order["items"] = json.loads(latest_order["items"])
+        except json.JSONDecodeError:
+            latest_order["items"] = []
+    return latest_order, None
+
+
 def get_next_table_number() -> tuple[int, str | None]:
     """Get the next table number based on existing orders."""
     orders, error = fetch_orders()

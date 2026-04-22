@@ -24,6 +24,7 @@ from supabase_client import (
     detect_key_type,
     delete_order,
     fetch_menu_items,
+    fetch_latest_order,
     fetch_orders,
     fetch_user_profile,
     register_user,
@@ -68,6 +69,68 @@ def get_cart() -> list[dict[str, Any]]:
 
 def cart_total(cart: list[dict[str, Any]]) -> float:
     return sum(float(item["price"]) * int(item["quantity"]) for item in cart)
+
+
+def coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_receipt_items(raw_items: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_items, list):
+        return []
+
+    normalized_items: list[dict[str, Any]] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        quantity = max(1, coerce_int(item.get("quantity"), 1))
+        normalized_items.append(
+            {
+                "name": item.get("display_name") or item.get("name") or "Menu Item",
+                "quantity": quantity,
+                "price": max(0.0, coerce_float(item.get("price"), 0.0)),
+            }
+        )
+    return normalized_items
+
+
+def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer") -> dict[str, Any]:
+    data = source if isinstance(source, dict) else {}
+    customer_name = (data.get("customer_name") or fallback_customer_name or "Customer").strip()
+    order_type = (data.get("order_type") or "Dine-in").strip()
+    if order_type not in {"Dine-in", "Take-out"}:
+        order_type = "Dine-in"
+    table_number = data.get("table_number")
+    if not table_number:
+        table_number = "Take-out" if order_type == "Take-out" else "N/A"
+    payment_method = (data.get("payment_method") or "Cash").strip() or "Cash"
+    items = normalize_receipt_items(data.get("items"))
+
+    total_amount = coerce_float(data.get("total_amount"), 0.0)
+    if total_amount <= 0 and items:
+        total_amount = sum(item["price"] * item["quantity"] for item in items)
+
+    return {
+        "id": data.get("id"),
+        "customer_name": customer_name,
+        "order_type": order_type,
+        "table_number": table_number,
+        "payment_method": payment_method,
+        "items": items,
+        "total_amount": max(0.0, total_amount),
+        "status": data.get("status") or "Pending",
+        "created_at": data.get("created_at"),
+    }
 
 
 def target_allows_get(target: str) -> bool:
@@ -301,21 +364,32 @@ def order():
 
         flash(message, "success" if success else "error")
         if success:
-            service_label = "Take-out"
-            if "Your table number is" in message:
-                try:
-                    service_label = message.split("Your table number is ")[1].split(".")[0]
-                except IndexError:
-                    service_label = "N/A"
-            
-            session["last_receipt"] = {
-                "customer_name": customer_name,
-                "order_type": order_type,
-                "table_number": service_label,
-                "items": [dict(item) for item in cart],
-                "total_amount": cart_total(cart),
-                "payment_method": payment_method,
-            }
+            latest_order, latest_order_error = fetch_latest_order(customer_name)
+            if latest_order_error:
+                app.logger.warning("Failed to load latest order for receipt: %s", latest_order_error)
+
+            if latest_order:
+                receipt_payload = build_receipt_payload(latest_order, customer_name)
+            else:
+                service_label = "Take-out" if order_type == "Take-out" else "N/A"
+                if "Your table number is" in message:
+                    try:
+                        service_label = message.split("Your table number is ")[1].split(".")[0]
+                    except IndexError:
+                        service_label = "N/A"
+                receipt_payload = build_receipt_payload(
+                    {
+                        "customer_name": customer_name,
+                        "order_type": order_type,
+                        "table_number": service_label,
+                        "items": [dict(item) for item in cart],
+                        "total_amount": cart_total(cart),
+                        "payment_method": payment_method,
+                    },
+                    customer_name,
+                )
+
+            session["last_receipt"] = receipt_payload
             session["cart"] = []
             session.modified = True
             return redirect(url_for("receipt"))
@@ -326,12 +400,24 @@ def order():
 @app.route("/receipt")
 @login_required_for_order
 def receipt():
-    receipt_data = session.get("last_receipt")
-    if not receipt_data:
-        flash("No recent receipt found. Please place an order first.", "error")
-        return redirect(url_for("menu"))
+    user_profile = current_user_profile()
+    fallback_name = user_profile.get("full_name") or fallback_full_name(user_profile.get("email", ""))
+    session_receipt = build_receipt_payload(session.get("last_receipt"), fallback_name)
 
-    return render_template("receipt.html", receipt=receipt_data)
+    if session_receipt.get("items"):
+        return render_template("receipt.html", receipt=session_receipt)
+
+    latest_order, latest_order_error = fetch_latest_order(fallback_name)
+    if latest_order_error:
+        app.logger.warning("Failed to fetch latest order on receipt page: %s", latest_order_error)
+    if latest_order:
+        receipt_data = build_receipt_payload(latest_order, fallback_name)
+        session["last_receipt"] = receipt_data
+        session.modified = True
+        return render_template("receipt.html", receipt=receipt_data)
+
+    flash("No recent receipt found. Please place an order first.", "error")
+    return redirect(url_for("menu"))
 
 
 @app.route("/dashboard")

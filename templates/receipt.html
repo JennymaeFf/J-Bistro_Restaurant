@@ -18,30 +18,36 @@
         <div class="receipt-meta">
             <div class="cash-info">
                 <span>Customer</span>
-                <span>{{ receipt.customer_name }}</span>
+                <span>{{ receipt["customer_name"] or "Customer" }}</span>
             </div>
             <div class="cash-info">
                 <span>Order Type</span>
-                <span>{{ receipt.order_type or "Dine-in" }}</span>
+                <span>{{ receipt["order_type"] or "Dine-in" }}</span>
             </div>
             <div class="cash-info">
-                <span>{% if receipt.order_type == "Take-out" %}Pickup{% else %}Table{% endif %}</span>
-                <span>{{ receipt.table_number }}</span>
+                <span>{% if receipt["order_type"] == "Take-out" %}Pickup{% else %}Table{% endif %}</span>
+                <span>{{ receipt["table_number"] or "N/A" }}</span>
             </div>
             <div class="cash-info">
                 <span>Payment</span>
-                <span>{{ receipt.payment_method }}</span>
+                <span>{{ receipt["payment_method"] or "Cash" }}</span>
             </div>
         </div>
 
         <div class="dashed"></div>
 
         <div class="receipt-items">
-            {% for item in receipt.items %}
+            {% for item in receipt["items"] %}
                 <div class="item">
-                    <span class="item-name">{{ item.name }}</span>
-                    <span class="item-qty">x{{ item.quantity }}</span>
-                    <span class="item-price">PHP {{ "%.2f"|format(item.price * item.quantity) }}</span>
+                    <span class="item-name">{{ item["name"] }}</span>
+                    <span class="item-qty">x{{ item["quantity"] }}</span>
+                    <span class="item-price">PHP {{ "%.2f"|format(item["price"] * item["quantity"]) }}</span>
+                </div>
+            {% else %}
+                <div class="item">
+                    <span class="item-name">No items available</span>
+                    <span class="item-qty">x0</span>
+                    <span class="item-price">PHP 0.00</span>
                 </div>
             {% endfor %}
         </div>
@@ -50,7 +56,7 @@
 
         <div class="total">
             <span>Total</span>
-            <span>PHP {{ "%.2f"|format(receipt.total_amount) }}</span>
+            <span>PHP {{ "%.2f"|format(receipt["total_amount"] or 0) }}</span>
         </div>
 
         <div class="receipt-info">
@@ -59,7 +65,7 @@
 
         <div class="footer">
             <p class="thank-you">
-                {% if receipt.order_type == "Take-out" %}
+                {% if receipt["order_type"] == "Take-out" %}
                     Thank you for ordering from us!
                 {% else %}
                     Thank you for dining with us!
