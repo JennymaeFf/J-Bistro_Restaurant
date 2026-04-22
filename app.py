@@ -259,6 +259,14 @@ def is_allowed_profile_image(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
 
 
+def safe_upload_redirect(next_target: str = ""):
+    if next_target and target_allows_get(next_target):
+        return redirect(next_target)
+    if current_session_role() == "admin":
+        return redirect(url_for("admin_settings"))
+    return redirect(url_for("profile"))
+
+
 def redirect_to_register_for_order() -> Any:
     session["next_url"] = next_url_for_auth_redirect()
     session.modified = True
@@ -740,27 +748,42 @@ def admin_settings():
     )
 
 
-@app.route("/upload-profile", methods=["POST"])
+@app.route("/upload-profile", methods=["GET", "POST"])
 @login_required
 def upload_profile():
+    if request.method == "GET":
+        flash("Please choose a profile picture from your profile or settings page.", "error")
+        return safe_upload_redirect()
+
     user = session.get("user") or {}
     image_file = request.files.get("profile_image")
     next_target = request.form.get("next", "").strip()
 
     if not image_file or not image_file.filename:
         flash("Please choose an image to upload.", "error")
-        return redirect(next_target if next_target and target_allows_get(next_target) else url_for("profile"))
+        return safe_upload_redirect(next_target)
 
     if not is_allowed_profile_image(image_file.filename):
         flash("Profile picture must be a JPG, JPEG, or PNG file.", "error")
-        return redirect(next_target if next_target and target_allows_get(next_target) else url_for("profile"))
+        return safe_upload_redirect(next_target)
 
     original_name = secure_filename(image_file.filename)
+    if not original_name:
+        flash("The uploaded file name is not valid.", "error")
+        return safe_upload_redirect(next_target)
+
     extension = original_name.rsplit(".", 1)[1].lower()
     owner_id = secure_filename(str(user.get("id") or "user"))
     filename = f"profile-{owner_id}-{uuid4().hex}.{extension}"
     upload_path = UPLOAD_DIR / filename
-    image_file.save(upload_path)
+
+    try:
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        image_file.save(upload_path)
+    except OSError:
+        app.logger.exception("Unable to save uploaded profile picture to %s", upload_path)
+        flash("Unable to save the profile picture on the server right now.", "error")
+        return safe_upload_redirect(next_target)
 
     profile_image = f"uploads/{filename}"
     success, message, profile_data = update_user_profile_image(user.get("id", ""), profile_image)
@@ -769,12 +792,13 @@ def upload_profile():
         user["profile_image"] = (profile_data or {}).get("profile_image") or profile_image
         session["user"] = user
         session.modified = True
+    else:
+        try:
+            upload_path.unlink(missing_ok=True)
+        except OSError:
+            app.logger.warning("Could not remove unused uploaded profile picture: %s", upload_path)
 
-    if next_target and target_allows_get(next_target):
-        return redirect(next_target)
-    if current_session_role() == "admin":
-        return redirect(url_for("admin_settings"))
-    return redirect(url_for("profile"))
+    return safe_upload_redirect(next_target)
 
 
 @app.route("/debug/supabase-config")
