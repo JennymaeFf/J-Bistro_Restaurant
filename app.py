@@ -260,7 +260,10 @@ def admin_required(view_function):
     @wraps(view_function)
     def wrapped_view(*args, **kwargs):
         if not is_admin_logged_in():
-            flash("Admin access required. Please log in with an admin account.", "error")
+            if is_logged_in():
+                flash("Admin access required for that page.", "error")
+                return redirect(url_for("home"))
+            flash("Please log in with an admin account.", "error")
             session["next_url"] = request.path
             session.modified = True
             return redirect(url_for("login"))
