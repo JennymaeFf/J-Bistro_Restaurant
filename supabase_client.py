@@ -262,6 +262,16 @@ def user_auth_headers(access_token: str) -> dict[str, str]:
     }
 
 
+def storage_upload_headers(access_token: str, content_type: str) -> dict[str, str]:
+    _, supabase_api_key = current_supabase_config()
+    return {
+        "apikey": supabase_api_key,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+
+
 def parse_response_error(response: requests.Response) -> str:
     try:
         payload = response.json()
@@ -623,6 +633,47 @@ def update_user_profile_image(user_id: str, profile_image: str) -> tuple[bool, s
         rows = []
     profile = rows[0] if rows else {"id": user_id, "profile_image": profile_image}
     return True, "Profile picture updated successfully.", profile
+
+
+def upload_profile_image_to_storage(
+    access_token: str,
+    owner_id: str,
+    filename: str,
+    content_type: str,
+    image_bytes: bytes,
+) -> tuple[bool, str, str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+    if not access_token:
+        return False, "Please log in again before uploading a profile picture.", None
+    if not owner_id:
+        return False, "Please log in first.", None
+    if not image_bytes:
+        return False, "The uploaded image is empty.", None
+
+    bucket = os.environ.get("SUPABASE_PROFILE_BUCKET", "profile-images").strip() or "profile-images"
+    object_path = f"{owner_id}/{filename}"
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/storage/v1/object/{bucket}/{object_path}",
+            headers=storage_upload_headers(access_token, content_type),
+            data=image_bytes,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to upload profile picture to Supabase Storage right now.", None
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        return False, (
+            f"Supabase Storage upload failed: {error_message}. "
+            f"Make sure the '{bucket}' bucket exists and allows authenticated uploads."
+        ), None
+
+    public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{object_path}"
+    return True, "Profile picture uploaded successfully.", public_url
 
 
 def update_admin_account_profile(

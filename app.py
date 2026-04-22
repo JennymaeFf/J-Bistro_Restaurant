@@ -43,6 +43,7 @@ from supabase_client import (
     update_admin_menu_item,
     update_admin_user,
     update_order_status,
+    upload_profile_image_to_storage,
     update_user_profile,
     update_user_profile_image,
     valid_email_message,
@@ -257,6 +258,10 @@ def profile_image_url(profile: dict[str, Any] | None) -> str:
 
 def is_allowed_profile_image(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
+
+
+def profile_image_content_type(extension: str) -> str:
+    return "image/png" if extension == "png" else "image/jpeg"
 
 
 def safe_upload_redirect(next_target: str = ""):
@@ -775,28 +780,49 @@ def upload_profile():
     extension = original_name.rsplit(".", 1)[1].lower()
     owner_id = secure_filename(str(user.get("id") or "user"))
     filename = f"profile-{owner_id}-{uuid4().hex}.{extension}"
-    upload_path = UPLOAD_DIR / filename
+    content_type = profile_image_content_type(extension)
 
-    try:
-        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        image_file.save(upload_path)
-    except OSError:
-        app.logger.exception("Unable to save uploaded profile picture to %s", upload_path)
-        flash("Unable to save the profile picture on the server right now.", "error")
-        return safe_upload_redirect(next_target)
+    if os.environ.get("PROFILE_UPLOAD_STORAGE", "supabase").strip().lower() == "local":
+        upload_path = UPLOAD_DIR / filename
+        try:
+            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+            image_file.save(upload_path)
+        except OSError:
+            app.logger.exception("Unable to save uploaded profile picture to %s", upload_path)
+            flash(
+                "Unable to save the profile picture locally. Use Supabase Storage for deployed uploads.",
+                "error",
+            )
+            return safe_upload_redirect(next_target)
+        profile_image = f"uploads/{filename}"
+    else:
+        image_bytes = image_file.read()
+        if len(image_bytes) > 5 * 1024 * 1024:
+            flash("Profile picture must be 5 MB or smaller.", "error")
+            return safe_upload_redirect(next_target)
+        storage_success, storage_message, storage_url = upload_profile_image_to_storage(
+            user.get("access_token", ""),
+            str(user.get("id") or ""),
+            filename,
+            content_type,
+            image_bytes,
+        )
+        if not storage_success or not storage_url:
+            flash(storage_message, "error")
+            return safe_upload_redirect(next_target)
+        profile_image = storage_url
 
-    profile_image = f"uploads/{filename}"
     success, message, profile_data = update_user_profile_image(user.get("id", ""), profile_image)
     flash(message, "success" if success else "error")
     if success:
         user["profile_image"] = (profile_data or {}).get("profile_image") or profile_image
         session["user"] = user
         session.modified = True
-    else:
+    elif not profile_image.startswith(("http://", "https://")):
         try:
-            upload_path.unlink(missing_ok=True)
+            (UPLOAD_DIR / filename).unlink(missing_ok=True)
         except OSError:
-            app.logger.warning("Could not remove unused uploaded profile picture: %s", upload_path)
+            app.logger.warning("Could not remove unused uploaded profile picture: %s", UPLOAD_DIR / filename)
 
     return safe_upload_redirect(next_target)
 
