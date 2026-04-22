@@ -479,6 +479,8 @@ def receipt():
 
 @app.route("/dashboard")
 def dashboard():
+    if current_session_role() == "admin":
+        return redirect(url_for("admin_dashboard"))
     orders, message = fetch_orders()
     return render_template("dashboard.html", orders=orders, info_message=message)
 
@@ -518,9 +520,20 @@ def admin_logout():
 
 
 @app.route("/admin")
+@app.route("/admin/dashboard")
 @admin_required
 def admin_dashboard():
-    stats, info_message = fetch_admin_dashboard_stats()
+    try:
+        stats, info_message = fetch_admin_dashboard_stats()
+    except Exception:
+        app.logger.exception("Unexpected error while loading admin dashboard.")
+        stats = {
+            "total_orders": 0,
+            "total_sales": 0.0,
+            "total_users": 0,
+            "total_menu_items": 0,
+        }
+        info_message = "Unable to load dashboard data right now."
     return render_template(
         "admin/dashboard.html",
         stats=stats,

@@ -704,23 +704,33 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
 
 
 def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
+    empty_stats = {
+        "total_orders": 0,
+        "total_sales": 0.0,
+        "total_users": 0,
+        "total_menu_items": 0,
+    }
     config_error = supabase_config_error()
     if config_error:
-        return {
-            "total_orders": 0,
-            "total_sales": 0.0,
-            "total_users": 0,
-            "total_menu_items": 0,
-        }, config_error
+        return empty_stats, config_error
 
     orders, order_error = fetch_orders()
     if order_error:
-        return {
-            "total_orders": 0,
-            "total_sales": 0.0,
-            "total_users": 0,
-            "total_menu_items": 0,
-        }, order_error
+        return empty_stats, order_error
+
+    total_sales = 0.0
+    for order in orders:
+        try:
+            total_sales += float(order.get("total_amount") or 0)
+        except (TypeError, ValueError):
+            continue
+
+    partial_stats = {
+        "total_orders": len(orders),
+        "total_sales": total_sales,
+        "total_users": 0,
+        "total_menu_items": 0,
+    }
 
     supabase_url, _ = current_supabase_config()
     try:
@@ -737,41 +747,28 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return {
-            "total_orders": len(orders),
-            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
-            "total_users": 0,
-            "total_menu_items": 0,
-        }, "Unable to load some dashboard data from Supabase right now."
+        return partial_stats, "Unable to load some dashboard data from Supabase right now."
 
     if users_response.status_code >= 400:
-        return {
-            "total_orders": len(orders),
-            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
-            "total_users": 0,
-            "total_menu_items": 0,
-        }, parse_response_error(users_response)
+        return partial_stats, parse_response_error(users_response)
+
+    try:
+        users = users_response.json()
+    except ValueError:
+        return partial_stats, "Unable to read admin user data from Supabase."
+
+    partial_stats["total_users"] = len(users) if isinstance(users, list) else 0
+
     if menu_response.status_code >= 400:
-        return {
-            "total_orders": len(orders),
-            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
-            "total_users": len(users_response.json()),
-            "total_menu_items": 0,
-        }, parse_response_error(menu_response)
+        return partial_stats, parse_response_error(menu_response)
 
-    total_sales = 0.0
-    for order in orders:
-        try:
-            total_sales += float(order.get("total_amount") or 0)
-        except (TypeError, ValueError):
-            continue
+    try:
+        menu_items = menu_response.json()
+    except ValueError:
+        return partial_stats, "Unable to read admin menu data from Supabase."
 
-    return {
-        "total_orders": len(orders),
-        "total_sales": total_sales,
-        "total_users": len(users_response.json()),
-        "total_menu_items": len(menu_response.json()),
-    }, None
+    partial_stats["total_menu_items"] = len(menu_items) if isinstance(menu_items, list) else 0
+    return partial_stats, None
 
 
 def fetch_admin_menu_items() -> tuple[list[dict[str, Any]], str | None]:
