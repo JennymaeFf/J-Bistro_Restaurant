@@ -4,26 +4,47 @@
 
 {% block admin_content %}
 <section class="admin-page-header">
-    <h1>Dashboard</h1>
-    <p>Overview of orders, sales, users, and menu items.</p>
+    <div class="admin-page-title">
+        <span class="admin-page-icon">▦</span>
+        <div>
+            <h1>Dashboard</h1>
+            <p>Overview of orders, sales, users, and menu items.</p>
+        </div>
+    </div>
 </section>
 
 <section class="admin-stats-grid">
-    <article class="admin-stat-card">
-        <p>Total Orders</p>
+    <article class="admin-stat-card orders-card">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">▤</span>
+            <p>Total Orders</p>
+        </div>
         <strong>{{ stats.total_orders }}</strong>
+        <span class="admin-stat-note">Kitchen workflow</span>
     </article>
-    <article class="admin-stat-card">
-        <p>Total Sales</p>
+    <article class="admin-stat-card sales-card">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">₱</span>
+            <p>Total Sales</p>
+        </div>
         <strong>PHP {{ "%.2f"|format(stats.total_sales|float) }}</strong>
+        <span class="admin-stat-note">Revenue tracker</span>
     </article>
-    <article class="admin-stat-card">
-        <p>Total Users</p>
+    <article class="admin-stat-card users-card">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">◉</span>
+            <p>Total Users</p>
+        </div>
         <strong>{{ stats.total_users }}</strong>
+        <span class="admin-stat-note">Customer records</span>
     </article>
-    <article class="admin-stat-card">
-        <p>Total Menu Items</p>
+    <article class="admin-stat-card menu-card-admin">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">☰</span>
+            <p>Total Menu Items</p>
+        </div>
         <strong>{{ stats.total_menu_items }}</strong>
+        <span class="admin-stat-note">Available dishes</span>
     </article>
 </section>
 {% endblock %}

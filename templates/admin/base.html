@@ -18,14 +18,32 @@
             </a>
 
             <nav class="admin-nav">
-                <a href="{{ url_for('admin_dashboard') }}" class="{% if admin_section == 'dashboard' %}active{% endif %}">Dashboard</a>
-                <a href="{{ url_for('admin_orders') }}" class="{% if admin_section == 'orders' %}active{% endif %}">Orders</a>
-                <a href="{{ url_for('admin_menu') }}" class="{% if admin_section == 'menu' %}active{% endif %}">Menu</a>
-                <a href="{{ url_for('admin_users') }}" class="{% if admin_section == 'users' %}active{% endif %}">Users</a>
-                <a href="{{ url_for('admin_settings') }}" class="{% if admin_section == 'settings' %}active{% endif %}">Settings</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="{% if admin_section == 'dashboard' %}active{% endif %}">
+                    <span class="admin-nav-icon">▦</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('admin_orders') }}" class="{% if admin_section == 'orders' %}active{% endif %}">
+                    <span class="admin-nav-icon">▤</span>
+                    <span>Orders</span>
+                </a>
+                <a href="{{ url_for('admin_menu') }}" class="{% if admin_section == 'menu' %}active{% endif %}">
+                    <span class="admin-nav-icon">☰</span>
+                    <span>Menu</span>
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="{% if admin_section == 'users' %}active{% endif %}">
+                    <span class="admin-nav-icon">◉</span>
+                    <span>Users</span>
+                </a>
+                <a href="{{ url_for('admin_settings') }}" class="{% if admin_section == 'settings' %}active{% endif %}">
+                    <span class="admin-nav-icon">⚙</span>
+                    <span>Settings</span>
+                </a>
             </nav>
 
-            <a href="{{ url_for('admin_logout') }}" class="admin-logout">Log Out</a>
+            <a href="{{ url_for('admin_logout') }}" class="admin-logout">
+                <span class="admin-nav-icon">↗</span>
+                <span>Log Out</span>
+            </a>
         </aside>
 
         <main class="admin-main">
