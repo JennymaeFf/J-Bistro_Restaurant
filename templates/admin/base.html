@@ -22,6 +22,7 @@
                 <a href="{{ url_for('admin_orders') }}" class="{% if admin_section == 'orders' %}active{% endif %}">Orders</a>
                 <a href="{{ url_for('admin_menu') }}" class="{% if admin_section == 'menu' %}active{% endif %}">Menu</a>
                 <a href="{{ url_for('admin_users') }}" class="{% if admin_section == 'users' %}active{% endif %}">Users</a>
+                <a href="{{ url_for('admin_settings') }}" class="{% if admin_section == 'settings' %}active{% endif %}">Settings</a>
             </nav>
 
             <a href="{{ url_for('admin_logout') }}" class="admin-logout">Log Out</a>

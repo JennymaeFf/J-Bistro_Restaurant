@@ -653,6 +653,16 @@ def admin_users():
     )
 
 
+@app.route("/admin/settings")
+@admin_required
+def admin_settings():
+    return render_template(
+        "admin/settings.html",
+        admin_section="settings",
+        info_message=None,
+    )
+
+
 @app.route("/debug/supabase-config")
 def debug_supabase_config():
     supabase_url, supabase_api_key = current_supabase_config()

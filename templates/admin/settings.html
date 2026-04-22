@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Settings | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Settings</h1>
+    <p>Review the current admin panel configuration.</p>
+</section>
+
+<section class="admin-settings-grid">
+    <article class="admin-card admin-settings-card">
+        <h2>Account Access</h2>
+        <dl class="admin-settings-list">
+            <div>
+                <dt>Signed in as</dt>
+                <dd>{{ current_user.email if current_user else "Admin" }}</dd>
+            </div>
+            <div>
+                <dt>Role</dt>
+                <dd>{{ current_user.role|default("admin")|title if current_user else "Admin" }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="admin-card admin-settings-card">
+        <h2>Panel Sections</h2>
+        <dl class="admin-settings-list">
+            <div>
+                <dt>Dashboard</dt>
+                <dd>Orders, sales, users, and menu summary</dd>
+            </div>
+            <div>
+                <dt>Management</dt>
+                <dd>Orders, menu items, and user records</dd>
+            </div>
+        </dl>
+    </article>
+</section>
+{% endblock %}
