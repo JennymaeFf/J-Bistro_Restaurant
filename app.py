@@ -535,7 +535,7 @@ def admin_dashboard():
         }
         info_message = "Unable to load dashboard data right now."
     return render_template(
-        "admin/dashboard.html",
+        "admin/admin_dashboard.html",
         stats=stats,
         info_message=info_message,
         admin_section="dashboard",
