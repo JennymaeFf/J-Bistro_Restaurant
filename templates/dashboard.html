@@ -5,9 +5,16 @@
 {% block content %}
 <section class="page-banner">
     <div class="container">
-        <p class="eyebrow">Dashboard</p>
-        <h1>Order Activity</h1>
-        <p>Guests can view this page. Logged-in users can manage the saved orders.</p>
+        <div class="dashboard-profile-heading">
+            {% if current_user %}
+                <img src="{{ current_user_image_url }}" alt="Profile picture" class="dashboard-profile-image">
+            {% endif %}
+            <div>
+                <p class="eyebrow">Dashboard</p>
+                <h1>Order Activity</h1>
+                <p>Guests can view this page. Logged-in users can manage the saved orders.</p>
+            </div>
+        </div>
         {% if info_message %}
             <div class="notice-card">{{ info_message }}</div>
         {% endif %}

@@ -31,7 +31,10 @@
                 </a>
                 {% if current_user %}
                     <div class="user-profile-menu">
-                        <button class="user-profile-btn">{{ current_user.email.split('@')[0] }}</button>
+                        <button class="user-profile-btn">
+                            <img src="{{ current_user_image_url }}" alt="Profile picture" class="nav-profile-image">
+                            <span>{{ current_user.email.split('@')[0] }}</span>
+                        </button>
                         <div class="dropdown-menu">
                             <a href="{{ url_for('profile') }}" class="dropdown-item">My Profile</a>
                             <a href="{{ url_for('logout') }}" class="dropdown-item">Logout</a>

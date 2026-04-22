@@ -9,6 +9,7 @@ create table if not exists public.app_users (
     full_name text,
     role text not null default 'user',
     phone_number text,
+    profile_image text,
     created_at timestamptz not null default now()
 );
 
@@ -39,6 +40,7 @@ alter table public.orders add column if not exists order_type text not null defa
 alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists phone_number text;
+alter table public.app_users add column if not exists profile_image text;
 
 -- Keep existing rows valid after adding these columns to an older database.
 update public.orders
@@ -130,7 +132,7 @@ from information_schema.columns
 where table_schema = 'public'
   and (
       (table_name = 'orders' and column_name in ('payment_method', 'order_type'))
-      or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number'))
+      or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number', 'profile_image'))
   )
 order by table_name, column_name;
 

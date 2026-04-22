@@ -591,6 +591,40 @@ def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[s
     return True, "Profile updated successfully.", rows[0]
 
 
+def update_user_profile_image(user_id: str, profile_image: str) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+
+    if not user_id:
+        return False, "Please log in first.", None
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=representation"),
+            params={"id": f"eq.{user_id}"},
+            json={"profile_image": profile_image.strip() or None},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update profile picture right now.", None
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "profile_image") or "profile_image" in error_message.lower():
+            return False, schema_cache_fix_message("app_users.profile_image"), None
+        return False, error_message, None
+
+    try:
+        rows = response.json()
+    except ValueError:
+        rows = []
+    profile = rows[0] if rows else {"id": user_id, "profile_image": profile_image}
+    return True, "Profile picture updated successfully.", profile
+
+
 def update_admin_account_profile(
     user_id: str,
     access_token: str,
@@ -724,6 +758,8 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "access_token": payload.get("access_token"),
         "full_name": profile.get("full_name") or default_full_name(user_data.get("email", email)),
         "role": user_role,
+        "phone_number": profile.get("phone_number") or "",
+        "profile_image": profile.get("profile_image") or "",
     }
     return True, "Login successful.", user_session
 

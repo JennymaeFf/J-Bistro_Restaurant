@@ -18,6 +18,21 @@
                 <h2>Account Information</h2>
                 
                 {% if current_user %}
+                    <div class="profile-photo-card">
+                        <div class="profile-photo-wrap">
+                            <img src="{{ profile_image_url(profile) }}" alt="Profile picture" class="profile-photo">
+                            <span class="profile-photo-hover">Change Photo</span>
+                        </div>
+                        <form action="{{ url_for('upload_profile') }}" method="post" enctype="multipart/form-data" class="profile-upload-form">
+                            <input type="hidden" name="next" value="{{ url_for('profile') }}">
+                            <label>
+                                Upload Profile Picture
+                                <input type="file" name="profile_image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+                            </label>
+                            <button type="submit" class="btn-primary profile-save-button">Upload Photo</button>
+                        </form>
+                    </div>
+
                     <form action="{{ url_for('profile') }}" method="post" class="profile-form">
                         <div class="form-group">
                             <label for="full_name">Full Name</label>

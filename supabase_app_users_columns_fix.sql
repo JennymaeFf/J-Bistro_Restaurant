@@ -2,6 +2,7 @@
 -- column app_users.full_name does not exist
 alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists phone_number text;
+alter table public.app_users add column if not exists profile_image text;
 alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists created_at timestamptz not null default now();
 

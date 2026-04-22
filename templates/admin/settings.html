@@ -15,7 +15,18 @@
 
 <section class="admin-settings-layout">
     <aside class="admin-settings-profile-card">
-        <span class="admin-settings-avatar">{{ (profile.full_name or profile.email or "A")[:1]|upper }}</span>
+        <div class="admin-settings-photo-wrap">
+            <img src="{{ profile_image_url(profile) }}" alt="Admin profile picture" class="admin-settings-photo">
+            <span>Change Photo</span>
+        </div>
+        <form action="{{ url_for('upload_profile') }}" method="post" enctype="multipart/form-data" class="admin-photo-upload-form">
+            <input type="hidden" name="next" value="{{ url_for('admin_settings') }}">
+            <label>
+                Upload Profile Picture
+                <input type="file" name="profile_image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+            </label>
+            <button type="submit" class="admin-btn admin-btn-create">Upload Photo</button>
+        </form>
         <h2>{{ profile.full_name or "Admin Account" }}</h2>
         <p>{{ profile.email }}</p>
         <div class="admin-settings-badges">

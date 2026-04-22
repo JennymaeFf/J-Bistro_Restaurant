@@ -1,6 +1,7 @@
 import os
 import sys
 import hmac
+from uuid import uuid4
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ if LOCAL_SITE_PACKAGES.exists():
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from env_loader import load_env_file
 from werkzeug.exceptions import MethodNotAllowed, NotFound
+from werkzeug.utils import secure_filename
 
 load_env_file()
 
@@ -42,6 +44,7 @@ from supabase_client import (
     update_admin_user,
     update_order_status,
     update_user_profile,
+    update_user_profile_image,
     valid_email_message,
 )
 
@@ -52,6 +55,9 @@ app = Flask(
     static_url_path="/static",
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
+UPLOAD_DIR = CURRENT_DIR / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 
 # SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
@@ -213,6 +219,7 @@ def current_user_profile() -> dict[str, Any]:
         "full_name": user.get("full_name") or fallback_full_name(email),
         "phone_number": user.get("phone_number") or "",
         "role": user.get("role") or current_session_role(),
+        "profile_image": user.get("profile_image") or "",
     }
 
 
@@ -231,11 +238,25 @@ def refresh_session_profile() -> tuple[dict[str, Any], str | None]:
                 "full_name": profile.get("full_name") or fallback_profile["full_name"],
                 "phone_number": profile.get("phone_number") or fallback_profile.get("phone_number", ""),
                 "role": profile.get("role") or user.get("role") or current_session_role(),
+                "profile_image": profile.get("profile_image") or fallback_profile.get("profile_image", ""),
             }
         )
         session["user"] = user
         session.modified = True
     return current_user_profile(), message
+
+
+def profile_image_url(profile: dict[str, Any] | None) -> str:
+    image_path = ((profile or {}).get("profile_image") or "").strip()
+    if image_path:
+        if image_path.startswith(("http://", "https://")):
+            return image_path
+        return url_for("static", filename=image_path)
+    return url_for("static", filename="images/plogo.png")
+
+
+def is_allowed_profile_image(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
 
 
 def redirect_to_register_for_order() -> Any:
@@ -291,13 +312,16 @@ def admin_required(view_function):
 @app.context_processor
 def inject_layout_data() -> dict[str, Any]:
     cart = get_cart()
+    current_user = session.get("user")
     return {
         "cart_count": sum(int(item["quantity"]) for item in cart),
-        "current_user": session.get("user"),
+        "current_user": current_user,
+        "current_user_image_url": profile_image_url(current_user),
         "is_logged_in": is_logged_in(),
         "is_admin_logged_in": is_admin_logged_in(),
         "get_cart": get_cart,
         "cart_total": cart_total,
+        "profile_image_url": profile_image_url,
     }
 
 
@@ -685,6 +709,7 @@ def admin_settings():
                         "full_name": profile_data.get("full_name") or full_name,
                         "phone_number": profile_data.get("phone_number") or phone_number,
                         "role": profile_data.get("role") or user.get("role") or "admin",
+                        "profile_image": profile_data.get("profile_image") or user.get("profile_image", ""),
                     }
                 )
                 session["user"] = user
@@ -713,6 +738,43 @@ def admin_settings():
         info_message=profile_message,
         profile=profile_data,
     )
+
+
+@app.route("/upload-profile", methods=["POST"])
+@login_required
+def upload_profile():
+    user = session.get("user") or {}
+    image_file = request.files.get("profile_image")
+    next_target = request.form.get("next", "").strip()
+
+    if not image_file or not image_file.filename:
+        flash("Please choose an image to upload.", "error")
+        return redirect(next_target if next_target and target_allows_get(next_target) else url_for("profile"))
+
+    if not is_allowed_profile_image(image_file.filename):
+        flash("Profile picture must be a JPG, JPEG, or PNG file.", "error")
+        return redirect(next_target if next_target and target_allows_get(next_target) else url_for("profile"))
+
+    original_name = secure_filename(image_file.filename)
+    extension = original_name.rsplit(".", 1)[1].lower()
+    owner_id = secure_filename(str(user.get("id") or "user"))
+    filename = f"profile-{owner_id}-{uuid4().hex}.{extension}"
+    upload_path = UPLOAD_DIR / filename
+    image_file.save(upload_path)
+
+    profile_image = f"uploads/{filename}"
+    success, message, profile_data = update_user_profile_image(user.get("id", ""), profile_image)
+    flash(message, "success" if success else "error")
+    if success:
+        user["profile_image"] = (profile_data or {}).get("profile_image") or profile_image
+        session["user"] = user
+        session.modified = True
+
+    if next_target and target_allows_get(next_target):
+        return redirect(next_target)
+    if current_session_role() == "admin":
+        return redirect(url_for("admin_settings"))
+    return redirect(url_for("profile"))
 
 
 @app.route("/debug/supabase-config")
