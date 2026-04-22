@@ -169,6 +169,10 @@ def default_full_name(email: str) -> str:
     return username.replace(".", " ").replace("_", " ").title()
 
 
+def normalize_role(role_value: Any) -> str:
+    return str(role_value or "user").strip().lower()
+
+
 def decode_jwt_payload(token: str) -> dict[str, Any] | None:
     parts = token.split(".")
     if len(parts) != 3:
@@ -357,11 +361,31 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     if rows:
         profile = rows[0]
         profile.setdefault("full_name", default_full_name(profile.get("email", email)))
-        profile["role"] = str(profile.get("role") or "user").strip().lower()
+        profile["role"] = normalize_role(profile.get("role"))
         return profile, None
 
     if not email:
         return None, "Profile not found."
+
+    # If the id-based lookup fails, try matching by email first.
+    # This preserves role assignments like 'admin' on existing rows.
+    try:
+        email_lookup_response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers(),
+            params={"email": f"eq.{email}", "select": "*", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        email_lookup_response = None
+
+    if email_lookup_response and email_lookup_response.status_code < 400:
+        email_rows = email_lookup_response.json()
+        if email_rows:
+            profile = email_rows[0]
+            profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+            profile["role"] = normalize_role(profile.get("role"))
+            return profile, None
 
     profile = {
         "id": user_id,
@@ -382,6 +406,26 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
 
     if create_response.status_code >= 400:
         error_message = parse_response_error(create_response)
+        lowered_error = error_message.lower()
+        if "email" in lowered_error and "duplicate" in lowered_error:
+            try:
+                duplicate_email_lookup = requests.get(
+                    f"{supabase_url}/rest/v1/app_users",
+                    headers=supabase_headers(),
+                    params={"email": f"eq.{email}", "select": "*", "limit": "1"},
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                duplicate_email_lookup = None
+
+            if duplicate_email_lookup and duplicate_email_lookup.status_code < 400:
+                duplicate_rows = duplicate_email_lookup.json()
+                if duplicate_rows:
+                    resolved_profile = duplicate_rows[0]
+                    resolved_profile.setdefault("full_name", default_full_name(resolved_profile.get("email", email)))
+                    resolved_profile["role"] = normalize_role(resolved_profile.get("role"))
+                    return resolved_profile, None
+
         if is_schema_cache_column_error(error_message, "role") or "role" in error_message.lower():
             fallback_profile = dict(profile)
             fallback_profile.pop("role", None)
@@ -403,7 +447,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
 
     created_rows = create_response.json()
     final_profile = created_rows[0] if created_rows else profile
-    final_profile["role"] = str(final_profile.get("role") or "user").strip().lower()
+    final_profile["role"] = normalize_role(final_profile.get("role"))
     return final_profile, None
 
 
@@ -468,7 +512,7 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
         "full_name": (profile or {}).get("full_name") or default_full_name(user_data.get("email", email)),
-        "role": str((profile or {}).get("role") or "user").strip().lower(),
+        "role": normalize_role((profile or {}).get("role")),
     }
     if profile_message:
         return True, f"Login successful. {profile_message}", user_session

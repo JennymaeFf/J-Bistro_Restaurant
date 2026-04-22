@@ -653,9 +653,10 @@ def login():
         flash(message, "success" if success else "error")
         if success:
             session["user"] = user_session
-            session["role"] = user_session.get("role", "user")
+            user_role = str(user_session.get("role", "user")).strip().lower()
+            session["role"] = user_role
             session.modified = True
-            if session["role"] == "admin":
+            if user_role == "admin":
                 return redirect(url_for("admin_dashboard"))
             return redirect(url_for("home"))
 
