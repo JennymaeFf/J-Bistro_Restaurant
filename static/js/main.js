@@ -1,4 +1,15 @@
 document.addEventListener("DOMContentLoaded", function () {
+    const toastMessages = document.querySelectorAll(".toast-region .flash");
+
+    toastMessages.forEach(function (toast) {
+        window.setTimeout(function () {
+            toast.classList.add("toast-hiding");
+            window.setTimeout(function () {
+                toast.remove();
+            }, 300);
+        }, 3000);
+    });
+
     const deleteButtons = document.querySelectorAll(".confirm-delete");
 
     deleteButtons.forEach(function (button) {

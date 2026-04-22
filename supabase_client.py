@@ -291,12 +291,23 @@ def supabase_service_config_error() -> str | None:
     if supabase_url in PLACEHOLDER_VALUES:
         return "SUPABASE_URL is missing or still using a placeholder value."
     if not service_key:
-        return "SUPABASE_SERVICE_ROLE_KEY is missing. Add it to your server environment variables."
-    if len(service_key) < 80:
-        return "SUPABASE_SERVICE_ROLE_KEY looks too short. Use the full service_role key from Supabase."
+        return (
+            "SUPABASE_SERVICE_ROLE_KEY is missing. Add the full service_role key to your server "
+            "environment variables, then restart or redeploy the app."
+        )
+    if "..." in service_key or len(service_key) < 80:
+        return (
+            "SUPABASE_SERVICE_ROLE_KEY looks truncated or too short. Paste the full service_role key "
+            "from Supabase API settings into the server environment. If this is deployed on Vercel, "
+            "update the Vercel Environment Variables and redeploy; editing local .env will not change "
+            "the deployed app."
+        )
     key_type = detect_key_type(service_key)
     if key_type != "service_role":
-        return f"SUPABASE_SERVICE_ROLE_KEY must be the service_role key. Detected key type: {key_type}."
+        return (
+            f"SUPABASE_SERVICE_ROLE_KEY must be the service_role key. Detected key type: {key_type}. "
+            "Do not use the anon key for this variable."
+        )
     return None
 
 

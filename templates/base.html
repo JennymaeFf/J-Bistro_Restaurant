@@ -49,12 +49,12 @@
     {% endif %}
 
     <main>
-        <div class="container {% if auth_page %}auth-flash-container{% endif %}">
+        <div class="toast-region {% if auth_page %}auth-toast-region{% endif %}" aria-live="polite" aria-atomic="true">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <section class="flash-stack">
                         {% for category, message in messages %}
-                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                            <div class="flash flash-{{ category }}" role="status">{{ message }}</div>
                         {% endfor %}
                     </section>
                 {% endif %}

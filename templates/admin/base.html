@@ -47,15 +47,17 @@
         </aside>
 
         <main class="admin-main">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <section class="flash-stack">
-                        {% for category, message in messages %}
-                            <div class="flash flash-{{ category }}">{{ message }}</div>
-                        {% endfor %}
-                    </section>
-                {% endif %}
-            {% endwith %}
+            <div class="toast-region" aria-live="polite" aria-atomic="true">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <section class="flash-stack">
+                            {% for category, message in messages %}
+                                <div class="flash flash-{{ category }}" role="status">{{ message }}</div>
+                            {% endfor %}
+                        </section>
+                    {% endif %}
+                {% endwith %}
+            </div>
 
             {% if info_message %}
                 <div class="notice-card">{{ info_message }}</div>
@@ -64,5 +66,6 @@
             {% block admin_content %}{% endblock %}
         </main>
     </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

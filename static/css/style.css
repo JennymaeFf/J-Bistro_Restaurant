@@ -728,16 +728,81 @@ select {
     color: var(--text);
 }
 
+.toast-region {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 9999;
+    width: min(360px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
 .flash-stack {
     display: grid;
     gap: 10px;
-    padding-top: 18px;
 }
 
-.auth-flash-container {
-    position: absolute;
-    inset: 24px 0 auto;
-    z-index: 5;
+.flash {
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(60, 37, 22, 0.18);
+    font-weight: 700;
+    line-height: 1.45;
+    padding: 13px 15px;
+    pointer-events: auto;
+    transform: translateX(18px);
+    opacity: 0;
+    animation: toastIn 0.28s ease forwards;
+}
+
+.flash.toast-hiding {
+    animation: toastOut 0.28s ease forwards;
+}
+
+.flash-success {
+    background: #e1f3ea;
+    border: 1px solid rgba(47, 125, 87, 0.22);
+    color: var(--success);
+}
+
+.flash-error {
+    background: #f8e0dd;
+    border: 1px solid rgba(165, 61, 52, 0.22);
+    color: var(--error);
+}
+
+.flash-warning {
+    background: #fff4d6;
+    border: 1px solid rgba(141, 85, 36, 0.22);
+    color: #7a4d12;
+}
+
+.flash-message,
+.flash-info {
+    background: #fffaf4;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateX(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes toastOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(18px);
+    }
 }
 
 /* Menu Layout */
@@ -2310,6 +2375,17 @@ select {
 }
 
 @media (max-width: 480px) {
+    .toast-region {
+        top: 12px;
+        right: 12px;
+        width: calc(100vw - 24px);
+    }
+
+    .flash {
+        padding: 12px 13px;
+        font-size: 0.92rem;
+    }
+
     .container {
         width: calc(100% - 16px);
     }
@@ -2349,22 +2425,6 @@ select {
     .best-sellers-grid {
         grid-template-columns: 1fr;
     }
-}
-
-.flash {
-    padding: 14px 16px;
-    border-radius: 16px;
-    font-weight: 600;
-}
-
-.flash-success {
-    background: #e1f3ea;
-    color: var(--success);
-}
-
-.flash-error {
-    background: #f8e0dd;
-    color: var(--error);
 }
 
 .table-wrapper {
