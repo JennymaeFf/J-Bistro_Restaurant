@@ -241,6 +241,10 @@ def login_required(view_function):
 
 
 def is_admin_logged_in() -> bool:
+    # Primary admin auth flag follows requested session convention.
+    if session.get("role") == "admin":
+        return True
+    # Backward compatibility with older admin session shape.
     admin_session = session.get("admin")
     return bool(isinstance(admin_session, dict) and admin_session.get("logged_in"))
 
@@ -263,6 +267,7 @@ def inject_layout_data() -> dict[str, Any]:
         "cart_count": sum(int(item["quantity"]) for item in cart),
         "current_user": session.get("user"),
         "is_logged_in": is_logged_in(),
+        "is_admin_logged_in": is_admin_logged_in(),
         "get_cart": get_cart,
         "cart_total": cart_total,
     }
@@ -486,6 +491,9 @@ def admin_login():
         password = request.form.get("password", "").strip()
 
         if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
+            session["role"] = "admin"
+            session["admin_email"] = email
+            # Keep compatibility for older checks/templates.
             session["admin"] = {"logged_in": True, "email": email}
             session.modified = True
             flash("Welcome to the admin panel.", "success")
@@ -501,6 +509,8 @@ def admin_login():
 
 @app.route("/admin/logout")
 def admin_logout():
+    session.pop("role", None)
+    session.pop("admin_email", None)
     session.pop("admin", None)
     session.modified = True
     flash("Admin logged out.", "success")
@@ -712,6 +722,8 @@ def register():
 @app.route("/logout")
 def logout():
     session.pop("user", None)
+    session.pop("role", None)
+    session.pop("admin_email", None)
     session.pop("admin", None)
     session.pop("cart", None)
     session.pop("next_url", None)
