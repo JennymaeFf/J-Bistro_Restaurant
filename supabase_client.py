@@ -895,21 +895,28 @@ def fetch_admin_users() -> tuple[list[dict[str, Any]], str | None]:
 
     supabase_url, _ = current_supabase_config()
     select_variants = [
-        ("id,email,full_name,phone_number,created_at,role", None),
-        ("id,email,full_name,created_at,role", "phone_number"),
-        ("id,email,phone_number,created_at,role", "full_name"),
-        ("id,email,created_at,role", "full_name and phone_number"),
-        ("id,email", "full_name, phone_number, created_at, and role"),
+        ("id,email,full_name,phone_number,created_at,role", "created_at.desc", None),
+        ("id,email,full_name,created_at,role", "created_at.desc", "phone_number"),
+        ("id,email,phone_number,created_at,role", "created_at.desc", "full_name"),
+        ("id,email,created_at,role", "created_at.desc", "full_name and phone_number"),
+        ("id,email,full_name,phone_number,role", None, "created_at"),
+        ("id,email,full_name,role", None, "phone_number and created_at"),
+        ("id,email,phone_number,role", None, "full_name and created_at"),
+        ("id,email,role", None, "full_name, phone_number, and created_at"),
+        ("id,email", None, "full_name, phone_number, created_at, and role"),
     ]
     last_error = None
     missing_columns_note = None
 
-    for select_clause, missing_note in select_variants:
+    for select_clause, order_clause, missing_note in select_variants:
+        params = {"select": select_clause}
+        if order_clause:
+            params["order"] = order_clause
         try:
             response = requests.get(
                 f"{supabase_url}/rest/v1/app_users",
                 headers=supabase_headers(),
-                params={"select": select_clause, "order": "created_at.desc"},
+                params=params,
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
