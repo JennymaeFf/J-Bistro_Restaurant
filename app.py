@@ -63,10 +63,6 @@ try:
 except ImportError:
     pass  # WhiteNoise not installed, Flask will handle static files
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@jbistro.com").strip().lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
-
-
 def is_logged_in() -> bool:
     return bool(session.get("user"))
 
@@ -241,20 +237,17 @@ def login_required(view_function):
 
 
 def is_admin_logged_in() -> bool:
-    # Primary admin auth flag follows requested session convention.
-    if session.get("role") == "admin":
-        return True
-    # Backward compatibility with older admin session shape.
-    admin_session = session.get("admin")
-    return bool(isinstance(admin_session, dict) and admin_session.get("logged_in"))
+    return session.get("role") == "admin"
 
 
 def admin_required(view_function):
     @wraps(view_function)
     def wrapped_view(*args, **kwargs):
         if not is_admin_logged_in():
-            flash("Please log in as admin to continue.", "error")
-            return redirect(url_for("admin_login", next=request.path))
+            flash("Admin access required. Please log in with an admin account.", "error")
+            session["next_url"] = request.path
+            session.modified = True
+            return redirect(url_for("login"))
         return view_function(*args, **kwargs)
 
     return wrapped_view
@@ -482,39 +475,15 @@ def dashboard_delete(order_id: int):
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
-    if is_admin_logged_in():
-        return redirect(url_for("admin_dashboard"))
-
-    next_target = request.args.get("next", url_for("admin_dashboard"))
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "").strip()
-
-        if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
-            session["role"] = "admin"
-            session["admin_email"] = email
-            # Keep compatibility for older checks/templates.
-            session["admin"] = {"logged_in": True, "email": email}
-            session.modified = True
-            flash("Welcome to the admin panel.", "success")
-            if target_allows_get(next_target):
-                return redirect(next_target)
-            return redirect(url_for("admin_dashboard"))
-
-        flash("Invalid admin credentials.", "error")
-        return redirect(url_for("admin_login", next=next_target))
-
-    return render_template("admin/login.html", auth_page=True, next_target=next_target)
+    return redirect(url_for("login"))
 
 
 @app.route("/admin/logout")
 def admin_logout():
-    session.pop("role", None)
-    session.pop("admin_email", None)
-    session.pop("admin", None)
+    session.clear()
     session.modified = True
     flash("Admin logged out.", "success")
-    return redirect(url_for("admin_login"))
+    return redirect(url_for("login"))
 
 
 @app.route("/admin")
@@ -664,6 +633,8 @@ def debug_supabase_config():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if is_logged_in():
+        if session.get("role") == "admin":
+            return redirect(url_for("admin_dashboard"))
         return redirect(url_for("home"))
 
     if request.method == "POST":
@@ -682,8 +653,11 @@ def login():
         flash(message, "success" if success else "error")
         if success:
             session["user"] = user_session
+            session["role"] = user_session.get("role", "user")
             session.modified = True
-            return redirect(pop_valid_next_url())
+            if session["role"] == "admin":
+                return redirect(url_for("admin_dashboard"))
+            return redirect(url_for("home"))
 
     return render_template("login.html", auth_page=True)
 
@@ -723,8 +697,6 @@ def register():
 def logout():
     session.pop("user", None)
     session.pop("role", None)
-    session.pop("admin_email", None)
-    session.pop("admin", None)
     session.pop("cart", None)
     session.pop("next_url", None)
     flash("You have been logged out.", "success")

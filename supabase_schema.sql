@@ -7,6 +7,7 @@ create table if not exists public.app_users (
     id uuid primary key,
     email text unique not null,
     full_name text,
+    role text not null default 'user',
     phone_number text,
     created_at timestamptz not null default now()
 );
@@ -36,6 +37,7 @@ create table if not exists public.orders (
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists order_type text not null default 'Dine-in';
 alter table public.app_users add column if not exists full_name text;
+alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists phone_number text;
 
 -- Keep existing rows valid after adding these columns to an older database.
@@ -53,6 +55,10 @@ where order_type is null or btrim(order_type) = '';
 update public.app_users
 set full_name = initcap(replace(split_part(email, '@', 1), '.', ' '))
 where full_name is null or btrim(full_name) = '';
+
+update public.app_users
+set role = 'user'
+where role is null or btrim(role) = '';
 
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
@@ -124,7 +130,7 @@ from information_schema.columns
 where table_schema = 'public'
   and (
       (table_name = 'orders' and column_name in ('payment_method', 'order_type'))
-      or (table_name = 'app_users' and column_name in ('full_name', 'phone_number'))
+      or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number'))
   )
 order by table_name, column_name;
 

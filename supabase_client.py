@@ -301,6 +301,7 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
                 "id": user_id,
                 "email": email,
                 "full_name": default_full_name(email),
+                "role": "user",
             },
             timeout=REQUEST_TIMEOUT,
         )
@@ -309,15 +310,21 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
-        if "full_name" not in error_message:
+        if "full_name" not in error_message and "role" not in error_message:
             return False, error_message
+
+        fallback_payload = {"id": user_id, "email": email}
+        if "full_name" not in error_message:
+            fallback_payload["full_name"] = default_full_name(email)
+        if "role" not in error_message:
+            fallback_payload["role"] = "user"
 
         try:
             fallback_response = requests.post(
                 f"{supabase_url}/rest/v1/app_users",
                 headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
                 params={"on_conflict": "id"},
-                json={"id": user_id, "email": email},
+                json=fallback_payload,
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
@@ -352,6 +359,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     if rows:
         profile = rows[0]
         profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+        profile["role"] = str(profile.get("role") or "user").strip().lower()
         return profile, None
 
     if not email:
@@ -361,6 +369,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         "id": user_id,
         "email": email,
         "full_name": default_full_name(email),
+        "role": "user",
     }
     try:
         create_response = requests.post(
@@ -374,10 +383,30 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         return profile, "Profile loaded with default details, but could not be saved yet."
 
     if create_response.status_code >= 400:
-        return profile, parse_response_error(create_response)
+        error_message = parse_response_error(create_response)
+        if is_schema_cache_column_error(error_message, "role") or "role" in error_message.lower():
+            fallback_profile = dict(profile)
+            fallback_profile.pop("role", None)
+            try:
+                fallback_response = requests.post(
+                    f"{supabase_url}/rest/v1/app_users",
+                    headers=supabase_headers("return=representation,resolution=merge-duplicates"),
+                    params={"on_conflict": "id"},
+                    json=fallback_profile,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return profile, "Profile loaded with default details, but could not be saved yet."
+
+            if fallback_response.status_code >= 400:
+                return profile, parse_response_error(fallback_response)
+            return profile, None
+        return profile, error_message
 
     created_rows = create_response.json()
-    return (created_rows[0] if created_rows else profile), None
+    final_profile = created_rows[0] if created_rows else profile
+    final_profile["role"] = str(final_profile.get("role") or "user").strip().lower()
+    return final_profile, None
 
 
 def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[str, Any] | None]:
@@ -441,6 +470,7 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
         "full_name": (profile or {}).get("full_name") or default_full_name(user_data.get("email", email)),
+        "role": str((profile or {}).get("role") or "user").strip().lower(),
     }
     if profile_message:
         return True, f"Login successful. {profile_message}", user_session
