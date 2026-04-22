@@ -1,6 +1,7 @@
 import os
 import sys
 import hmac
+import time
 from uuid import uuid4
 from functools import wraps
 from pathlib import Path
@@ -37,7 +38,10 @@ from supabase_client import (
     fetch_latest_order,
     fetch_orders,
     fetch_user_profile,
+    jwt_expiration_timestamp,
     register_user,
+    refresh_auth_session,
+    token_is_expired,
     update_admin_account_profile,
     update_admin_password,
     update_admin_menu_item,
@@ -270,6 +274,40 @@ def safe_upload_redirect(next_target: str = ""):
     if current_session_role() == "admin":
         return redirect(url_for("admin_settings"))
     return redirect(url_for("profile"))
+
+
+def ensure_fresh_upload_token(user: dict[str, Any]) -> tuple[bool, str, str | None]:
+    access_token = user.get("access_token") or ""
+    refresh_token = user.get("refresh_token") or ""
+    exp = jwt_expiration_timestamp(access_token)
+    app.logger.info(
+        "Profile upload token check: user_id=%s exp=%s now=%s has_refresh=%s",
+        user.get("id"),
+        exp,
+        int(time.time()),
+        bool(refresh_token),
+    )
+
+    if access_token and not token_is_expired(access_token):
+        return True, "Token is valid.", access_token
+
+    success, message, refreshed = refresh_auth_session(refresh_token)
+    if not success or not refreshed or not refreshed.get("access_token"):
+        app.logger.warning("Profile upload token refresh failed for user_id=%s: %s", user.get("id"), message)
+        return False, message, None
+
+    user.update(
+        {
+            "access_token": refreshed.get("access_token"),
+            "refresh_token": refreshed.get("refresh_token") or refresh_token,
+            "expires_in": refreshed.get("expires_in"),
+            "expires_at": refreshed.get("expires_at"),
+        }
+    )
+    session["user"] = user
+    session.modified = True
+    app.logger.info("Profile upload token refreshed for user_id=%s", user.get("id"))
+    return True, "Token refreshed.", user.get("access_token")
 
 
 def redirect_to_register_for_order() -> Any:
@@ -800,14 +838,19 @@ def upload_profile():
         if len(image_bytes) > 5 * 1024 * 1024:
             flash("Profile picture must be 5 MB or smaller.", "error")
             return safe_upload_redirect(next_target)
+        token_ok, token_message, upload_token = ensure_fresh_upload_token(user)
+        if not token_ok or not upload_token:
+            flash(token_message, "error")
+            return safe_upload_redirect(next_target)
         storage_success, storage_message, storage_url = upload_profile_image_to_storage(
-            user.get("access_token", ""),
+            upload_token,
             str(user.get("id") or ""),
             filename,
             content_type,
             image_bytes,
         )
         if not storage_success or not storage_url:
+            app.logger.warning("Profile image storage upload failed for user_id=%s: %s", user.get("id"), storage_message)
             flash(storage_message, "error")
             return safe_upload_redirect(next_target)
         profile_image = storage_url

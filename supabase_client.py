@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from base64 import urlsafe_b64decode
 from typing import Any
 
@@ -204,6 +205,23 @@ def detect_key_type(api_key: str) -> str:
     if not payload:
         return "unknown"
     return str(payload.get("role", "unknown"))
+
+
+def jwt_expiration_timestamp(token: str) -> int | None:
+    payload = decode_jwt_payload(token)
+    if not payload:
+        return None
+    try:
+        return int(payload.get("exp"))
+    except (TypeError, ValueError):
+        return None
+
+
+def token_is_expired(token: str, leeway_seconds: int = 60) -> bool:
+    exp = jwt_expiration_timestamp(token)
+    if exp is None:
+        return True
+    return exp <= int(time.time()) + leeway_seconds
 
 
 def supabase_config_error() -> str | None:
@@ -667,6 +685,8 @@ def upload_profile_image_to_storage(
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
+        if "exp" in error_message.lower() or "jwt" in error_message.lower():
+            return False, "Your session expired. Please log in again and try uploading your profile photo.", None
         return False, (
             f"Supabase Storage upload failed: {error_message}. "
             f"Make sure the '{bucket}' bucket exists and allows authenticated uploads."
@@ -774,6 +794,36 @@ def update_admin_password(access_token: str, password: str) -> tuple[bool, str]:
     return True, "Password updated successfully."
 
 
+def refresh_auth_session(refresh_token: str) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+    if not refresh_token:
+        return False, "Your session expired. Please log in again and try uploading your profile photo.", None
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/auth/v1/token?grant_type=refresh_token",
+            headers=auth_headers(),
+            json={"refresh_token": refresh_token},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to refresh your session right now. Please log in again.", None
+
+    if response.status_code >= 400:
+        return False, "Your session expired. Please log in again and try uploading your profile photo.", None
+
+    payload = response.json()
+    return True, "Session refreshed.", {
+        "access_token": payload.get("access_token"),
+        "refresh_token": payload.get("refresh_token") or refresh_token,
+        "expires_in": payload.get("expires_in"),
+        "expires_at": payload.get("expires_at"),
+    }
+
+
 def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:
     config_error = supabase_config_error()
     if config_error:
@@ -807,6 +857,9 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "id": user_id,
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
+        "refresh_token": payload.get("refresh_token"),
+        "expires_in": payload.get("expires_in"),
+        "expires_at": payload.get("expires_at"),
         "full_name": profile.get("full_name") or default_full_name(user_data.get("email", email)),
         "role": user_role,
         "phone_number": profile.get("phone_number") or "",
