@@ -7,6 +7,7 @@ create table if not exists public.app_users (
     id uuid primary key,
     email text unique not null,
     full_name text,
+    phone_number text,
     created_at timestamptz not null default now()
 );
 
@@ -35,6 +36,7 @@ create table if not exists public.orders (
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists order_type text not null default 'Dine-in';
 alter table public.app_users add column if not exists full_name text;
+alter table public.app_users add column if not exists phone_number text;
 
 -- Keep existing rows valid after adding these columns to an older database.
 update public.orders
@@ -122,7 +124,7 @@ from information_schema.columns
 where table_schema = 'public'
   and (
       (table_name = 'orders' and column_name in ('payment_method', 'order_type'))
-      or (table_name = 'app_users' and column_name in ('full_name'))
+      or (table_name = 'app_users' and column_name in ('full_name', 'phone_number'))
   )
 order by table_name, column_name;
 

@@ -529,6 +529,312 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
     return latest_order, None
 
 
+def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return {
+            "total_orders": 0,
+            "total_sales": 0.0,
+            "total_users": 0,
+            "total_menu_items": 0,
+        }, config_error
+
+    orders, order_error = fetch_orders()
+    if order_error:
+        return {
+            "total_orders": 0,
+            "total_sales": 0.0,
+            "total_users": 0,
+            "total_menu_items": 0,
+        }, order_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        users_response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers(),
+            params={"select": "id"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        menu_response = requests.get(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers(),
+            params={"select": "id"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return {
+            "total_orders": len(orders),
+            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
+            "total_users": 0,
+            "total_menu_items": 0,
+        }, "Unable to load some dashboard data from Supabase right now."
+
+    if users_response.status_code >= 400:
+        return {
+            "total_orders": len(orders),
+            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
+            "total_users": 0,
+            "total_menu_items": 0,
+        }, parse_response_error(users_response)
+    if menu_response.status_code >= 400:
+        return {
+            "total_orders": len(orders),
+            "total_sales": sum(float(order.get("total_amount") or 0) for order in orders),
+            "total_users": len(users_response.json()),
+            "total_menu_items": 0,
+        }, parse_response_error(menu_response)
+
+    total_sales = 0.0
+    for order in orders:
+        try:
+            total_sales += float(order.get("total_amount") or 0)
+        except (TypeError, ValueError):
+            continue
+
+    return {
+        "total_orders": len(orders),
+        "total_sales": total_sales,
+        "total_users": len(users_response.json()),
+        "total_menu_items": len(menu_response.json()),
+    }, None
+
+
+def fetch_admin_menu_items() -> tuple[list[dict[str, Any]], str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return [], config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers(),
+            params={"select": "*", "order": "id.asc"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return [], "Unable to load menu items right now."
+
+    if response.status_code >= 400:
+        return [], parse_response_error(response)
+
+    try:
+        rows = response.json()
+    except ValueError:
+        return [], "Unable to read menu items right now."
+    return rows if isinstance(rows, list) else [], None
+
+
+def create_admin_menu_item(
+    name: str,
+    description: str,
+    category: str,
+    price: float,
+    image: str,
+) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    payload = {
+        "name": name.strip(),
+        "description": description.strip(),
+        "category": category.strip(),
+        "price": price,
+        "image": image.strip() or "plogo.png",
+    }
+    try:
+        response = requests.post(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers("return=minimal"),
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to add menu item right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Menu item added successfully."
+
+
+def update_admin_menu_item(
+    item_id: int,
+    name: str,
+    description: str,
+    category: str,
+    price: float,
+    image: str,
+) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    payload = {
+        "name": name.strip(),
+        "description": description.strip(),
+        "category": category.strip(),
+        "price": price,
+        "image": image.strip() or "plogo.png",
+    }
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{item_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update menu item right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Menu item updated successfully."
+
+
+def delete_admin_menu_item(item_id: int) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.delete(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{item_id}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to delete menu item right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Menu item deleted successfully."
+
+
+def fetch_admin_users() -> tuple[list[dict[str, Any]], str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return [], config_error
+
+    supabase_url, _ = current_supabase_config()
+    params = {"select": "id,email,full_name,phone_number,created_at", "order": "created_at.desc"}
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers(),
+            params=params,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return [], "Unable to load users right now."
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "phone_number"):
+            try:
+                fallback_response = requests.get(
+                    f"{supabase_url}/rest/v1/app_users",
+                    headers=supabase_headers(),
+                    params={"select": "id,email,full_name,created_at", "order": "created_at.desc"},
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return [], "Unable to load users right now."
+
+            if fallback_response.status_code >= 400:
+                return [], parse_response_error(fallback_response)
+
+            rows = fallback_response.json()
+            normalized = []
+            for row in rows:
+                row["phone_number"] = ""
+                normalized.append(row)
+            return normalized, None
+        return [], error_message
+
+    rows = response.json()
+    for row in rows:
+        row.setdefault("phone_number", "")
+    return rows, None
+
+
+def update_admin_user(user_id: str, full_name: str, phone_number: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    payload = {
+        "full_name": full_name.strip() or None,
+        "phone_number": phone_number.strip() or None,
+    }
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{user_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update user right now."
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "phone_number"):
+            fallback_payload = {"full_name": full_name.strip() or None}
+            try:
+                fallback_response = requests.patch(
+                    f"{supabase_url}/rest/v1/app_users",
+                    headers=supabase_headers("return=minimal"),
+                    params={"id": f"eq.{user_id}"},
+                    json=fallback_payload,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to update user right now."
+
+            if fallback_response.status_code >= 400:
+                return False, parse_response_error(fallback_response)
+            return True, "User updated successfully (phone number column not available)."
+        return False, error_message
+
+    return True, "User updated successfully."
+
+
+def delete_admin_user(user_id: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.delete(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{user_id}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to delete user right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "User deleted successfully."
+
+
+def admin_update_order_status(order_id: int, status: str) -> tuple[bool, str]:
+    if status not in {"Pending", "Preparing", "Completed"}:
+        return False, "Please choose a valid status."
+    return update_order_status(order_id, status)
+
+
 def get_next_table_number() -> tuple[int, str | None]:
     """Get the next table number based on existing orders."""
     orders, error = fetch_orders()

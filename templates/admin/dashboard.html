@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Admin Dashboard | J'Bistro{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Dashboard</h1>
+    <p>Overview of orders, sales, users, and menu items.</p>
+</section>
+
+<section class="admin-stats-grid">
+    <article class="admin-stat-card">
+        <p>Total Orders</p>
+        <strong>{{ stats.total_orders }}</strong>
+    </article>
+    <article class="admin-stat-card">
+        <p>Total Sales</p>
+        <strong>PHP {{ "%.2f"|format(stats.total_sales|float) }}</strong>
+    </article>
+    <article class="admin-stat-card">
+        <p>Total Users</p>
+        <strong>{{ stats.total_users }}</strong>
+    </article>
+    <article class="admin-stat-card">
+        <p>Total Menu Items</p>
+        <strong>{{ stats.total_menu_items }}</strong>
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel | J'Bistro{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="admin-body">
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
+                <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro logo">
+                <div>
+                    <strong>J'Bistro</strong>
+                    <span>Admin Panel</span>
+                </div>
+            </a>
+
+            <nav class="admin-nav">
+                <a href="{{ url_for('admin_dashboard') }}" class="{% if admin_section == 'dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="{{ url_for('admin_orders') }}" class="{% if admin_section == 'orders' %}active{% endif %}">Orders</a>
+                <a href="{{ url_for('admin_menu') }}" class="{% if admin_section == 'menu' %}active{% endif %}">Menu</a>
+                <a href="{{ url_for('admin_users') }}" class="{% if admin_section == 'users' %}active{% endif %}">Users</a>
+            </nav>
+
+            <a href="{{ url_for('admin_logout') }}" class="admin-logout">Log Out</a>
+        </aside>
+
+        <main class="admin-main">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <section class="flash-stack">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+
+            {% if info_message %}
+                <div class="notice-card">{{ info_message }}</div>
+            {% endif %}
+
+            {% block admin_content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

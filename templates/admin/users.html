@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Manage Users | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Manage Users</h1>
+    <p>View and update customer details.</p>
+</section>
+
+<section class="admin-card">
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone Number</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.full_name or "N/A" }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.phone_number or "N/A" }}</td>
+                        <td>
+                            <form method="post" class="admin-edit-row">
+                                <input type="hidden" name="action" value="update">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <input type="text" name="full_name" value="{{ user.full_name or '' }}" placeholder="Full name">
+                                <input type="text" name="phone_number" value="{{ user.phone_number or '' }}" placeholder="Phone number">
+                                <button type="submit" class="admin-btn">Save</button>
+                            </form>
+                            <form method="post" onsubmit="return confirm('Delete this user?');">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <button type="submit" class="admin-btn danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4">No users found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

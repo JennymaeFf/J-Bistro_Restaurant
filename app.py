@@ -18,16 +18,25 @@ from werkzeug.exceptions import MethodNotAllowed, NotFound
 load_env_file()
 
 from supabase_client import (
+    admin_update_order_status,
     authenticate_user,
+    create_admin_menu_item,
     current_supabase_config,
     create_order,
+    delete_admin_menu_item,
+    delete_admin_user,
     detect_key_type,
     delete_order,
+    fetch_admin_dashboard_stats,
+    fetch_admin_menu_items,
+    fetch_admin_users,
     fetch_menu_items,
     fetch_latest_order,
     fetch_orders,
     fetch_user_profile,
     register_user,
+    update_admin_menu_item,
+    update_admin_user,
     update_order_status,
     update_user_profile,
     valid_email_message,
@@ -53,6 +62,9 @@ try:
     app.wsgi_app = WhiteNoise(app.wsgi_app, root=str(CURRENT_DIR / "static"), prefix="/static/")
 except ImportError:
     pass  # WhiteNoise not installed, Flask will handle static files
+
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@jbistro.com").strip().lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
 
 
 def is_logged_in() -> bool:
@@ -223,6 +235,22 @@ def login_required(view_function):
             session.modified = True
             flash("Please log in first.", "error")
             return redirect(url_for("login"))
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
+
+
+def is_admin_logged_in() -> bool:
+    admin_session = session.get("admin")
+    return bool(isinstance(admin_session, dict) and admin_session.get("logged_in"))
+
+
+def admin_required(view_function):
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        if not is_admin_logged_in():
+            flash("Please log in as admin to continue.", "error")
+            return redirect(url_for("admin_login", next=request.path))
         return view_function(*args, **kwargs)
 
     return wrapped_view
@@ -447,6 +475,161 @@ def dashboard_delete(order_id: int):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if is_admin_logged_in():
+        return redirect(url_for("admin_dashboard"))
+
+    next_target = request.args.get("next", url_for("admin_dashboard"))
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+
+        if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
+            session["admin"] = {"logged_in": True, "email": email}
+            session.modified = True
+            flash("Welcome to the admin panel.", "success")
+            if target_allows_get(next_target):
+                return redirect(next_target)
+            return redirect(url_for("admin_dashboard"))
+
+        flash("Invalid admin credentials.", "error")
+        return redirect(url_for("admin_login", next=next_target))
+
+    return render_template("admin/login.html", auth_page=True, next_target=next_target)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin", None)
+    session.modified = True
+    flash("Admin logged out.", "success")
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    stats, info_message = fetch_admin_dashboard_stats()
+    return render_template(
+        "admin/dashboard.html",
+        stats=stats,
+        info_message=info_message,
+        admin_section="dashboard",
+    )
+
+
+@app.route("/admin/orders")
+@admin_required
+def admin_orders():
+    orders, info_message = fetch_orders()
+    return render_template(
+        "admin/orders.html",
+        orders=orders,
+        info_message=info_message,
+        admin_section="orders",
+    )
+
+
+@app.route("/admin/orders/<int:order_id>/status", methods=["POST"])
+@admin_required
+def admin_orders_update_status(order_id: int):
+    status = request.form.get("status", "").strip()
+    success, message = admin_update_order_status(order_id, status)
+    flash(message, "success" if success else "error")
+    return redirect(url_for("admin_orders"))
+
+
+@app.route("/admin/menu", methods=["GET", "POST"])
+@admin_required
+def admin_menu():
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        if action == "create":
+            name = request.form.get("name", "")
+            description = request.form.get("description", "")
+            category = request.form.get("category", "")
+            image = request.form.get("image", "")
+            price = coerce_float(request.form.get("price"), 0.0)
+            if not name.strip() or not description.strip() or not category.strip() or price <= 0:
+                flash("Name, description, category, and a valid price are required.", "error")
+                return redirect(url_for("admin_menu"))
+            success, message = create_admin_menu_item(name, description, category, price, image)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_menu"))
+
+        if action == "update":
+            item_id = coerce_int(request.form.get("item_id"), 0)
+            name = request.form.get("name", "")
+            description = request.form.get("description", "")
+            category = request.form.get("category", "")
+            image = request.form.get("image", "")
+            price = coerce_float(request.form.get("price"), 0.0)
+            if item_id <= 0:
+                flash("Invalid menu item id.", "error")
+                return redirect(url_for("admin_menu"))
+            if not name.strip() or not description.strip() or not category.strip() or price <= 0:
+                flash("Name, description, category, and a valid price are required.", "error")
+                return redirect(url_for("admin_menu"))
+            success, message = update_admin_menu_item(item_id, name, description, category, price, image)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_menu"))
+
+        if action == "delete":
+            item_id = coerce_int(request.form.get("item_id"), 0)
+            if item_id <= 0:
+                flash("Invalid menu item id.", "error")
+                return redirect(url_for("admin_menu"))
+            success, message = delete_admin_menu_item(item_id)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_menu"))
+
+        flash("Unknown menu action.", "error")
+        return redirect(url_for("admin_menu"))
+
+    menu_items, info_message = fetch_admin_menu_items()
+    return render_template(
+        "admin/menu.html",
+        menu_items=menu_items,
+        info_message=info_message,
+        admin_section="menu",
+    )
+
+
+@app.route("/admin/users", methods=["GET", "POST"])
+@admin_required
+def admin_users():
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        user_id = request.form.get("user_id", "").strip()
+        if not user_id:
+            flash("User id is required.", "error")
+            return redirect(url_for("admin_users"))
+
+        if action == "update":
+            full_name = request.form.get("full_name", "").strip()
+            phone_number = request.form.get("phone_number", "").strip()
+            success, message = update_admin_user(user_id, full_name, phone_number)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_users"))
+
+        if action == "delete":
+            success, message = delete_admin_user(user_id)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_users"))
+
+        flash("Unknown user action.", "error")
+        return redirect(url_for("admin_users"))
+
+    users, info_message = fetch_admin_users()
+    return render_template(
+        "admin/users.html",
+        users=users,
+        info_message=info_message,
+        admin_section="users",
+    )
+
+
 @app.route("/debug/supabase-config")
 def debug_supabase_config():
     supabase_url, supabase_api_key = current_supabase_config()
@@ -529,6 +712,7 @@ def register():
 @app.route("/logout")
 def logout():
     session.pop("user", None)
+    session.pop("admin", None)
     session.pop("cart", None)
     session.pop("next_url", None)
     flash("You have been logged out.", "success")

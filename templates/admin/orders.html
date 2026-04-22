@@ -1,0 +1,62 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Manage Orders | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Manage Orders</h1>
+    <p>Review every order and update its status.</p>
+</section>
+
+<section class="admin-card">
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>User</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                    <tr>
+                        <td>#{{ order["id"] }}</td>
+                        <td>{{ order["customer_name"] }}</td>
+                        <td>
+                            {% if order["items"] %}
+                                {% for item in order["items"] %}
+                                    <div>{{ item.get("display_name") or item.get("name") }} x{{ item.get("quantity", 1) }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <div>No items</div>
+                            {% endif %}
+                        </td>
+                        <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
+                        <td>{{ order["payment_method"] or "N/A" }}</td>
+                        <td>{{ order["status"] }}</td>
+                        <td>
+                            <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-inline-form">
+                                <select name="status" required>
+                                    <option value="Pending" {% if order["status"] == "Pending" %}selected{% endif %}>Pending</option>
+                                    <option value="Preparing" {% if order["status"] == "Preparing" %}selected{% endif %}>Preparing</option>
+                                    <option value="Completed" {% if order["status"] == "Completed" %}selected{% endif %}>Completed</option>
+                                </select>
+                                <button type="submit" class="admin-btn">Save</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7">No orders found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

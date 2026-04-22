@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login | J'Bistro{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-background"></div>
+    <div class="auth-overlay"></div>
+    <div class="wood-strip"></div>
+
+    <div class="auth-card-wrap">
+        <div class="auth-card">
+            <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro Restaurant Logo" class="auth-logo">
+            <p class="auth-title">Admin Login</p>
+
+            <form action="{{ url_for('admin_login', next=next_target) }}" method="post" class="auth-form">
+                <label>
+                    Admin Email
+                    <input type="email" name="email" placeholder="Enter admin email" required>
+                </label>
+                <label>
+                    Password
+                    <input type="password" name="password" placeholder="Enter admin password" required>
+                </label>
+                <button type="submit" class="auth-button">Sign In</button>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

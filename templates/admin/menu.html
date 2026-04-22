@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Manage Menu | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Manage Menu</h1>
+    <p>Add, edit, and remove menu items.</p>
+</section>
+
+<section class="admin-card admin-form-card">
+    <h2>Add New Item</h2>
+    <form method="post" class="admin-form-grid">
+        <input type="hidden" name="action" value="create">
+        <input type="text" name="name" placeholder="Item name" required>
+        <input type="text" name="category" placeholder="Category" required>
+        <input type="number" step="0.01" min="0" name="price" placeholder="Price" required>
+        <input type="text" name="image" placeholder="Image filename (e.g. adobo.png)">
+        <textarea name="description" placeholder="Description" rows="2" required></textarea>
+        <button type="submit" class="admin-btn">Add Item</button>
+    </form>
+</section>
+
+<section class="admin-card">
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Image</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in menu_items %}
+                    <tr>
+                        <td>#{{ item.id }}</td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.category }}</td>
+                        <td>PHP {{ "%.2f"|format(item.price|float) }}</td>
+                        <td>{{ item.image }}</td>
+                        <td>
+                            <form method="post" class="admin-edit-row">
+                                <input type="hidden" name="action" value="update">
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <input type="text" name="name" value="{{ item.name }}" required>
+                                <input type="text" name="category" value="{{ item.category }}" required>
+                                <input type="number" step="0.01" min="0" name="price" value="{{ item.price }}" required>
+                                <input type="text" name="image" value="{{ item.image }}">
+                                <input type="text" name="description" value="{{ item.description }}" required>
+                                <button type="submit" class="admin-btn">Update</button>
+                            </form>
+                            <form method="post" onsubmit="return confirm('Delete this item?');">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <button type="submit" class="admin-btn danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6">No menu items found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
