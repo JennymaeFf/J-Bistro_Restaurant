@@ -297,11 +297,12 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
             f"{supabase_url}/rest/v1/app_users",
             headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
             params={"on_conflict": "id"},
+            # Role is set by database default ('user') to avoid registration
+            # failures when the schema cache has not refreshed yet.
             json={
                 "id": user_id,
                 "email": email,
                 "full_name": default_full_name(email),
-                "role": "user",
             },
             timeout=REQUEST_TIMEOUT,
         )
@@ -310,14 +311,11 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
-        if "full_name" not in error_message and "role" not in error_message:
+        lowered_error = error_message.lower()
+        if "full_name" not in lowered_error:
             return False, error_message
 
         fallback_payload = {"id": user_id, "email": email}
-        if "full_name" not in error_message:
-            fallback_payload["full_name"] = default_full_name(email)
-        if "role" not in error_message:
-            fallback_payload["role"] = "user"
 
         try:
             fallback_response = requests.post(
