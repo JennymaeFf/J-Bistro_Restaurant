@@ -165,6 +165,12 @@ def current_supabase_config() -> tuple[str, str]:
     return url, api_key
 
 
+def current_supabase_service_config() -> tuple[str, str]:
+    url = normalize_env_value(os.environ.get("SUPABASE_URL"), "")
+    service_key = normalize_env_value(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"), "")
+    return url, service_key
+
+
 def default_full_name(email: str) -> str:
     username = email.split("@")[0] if email else "Customer"
     return username.replace(".", " ").replace("_", " ").title()
@@ -280,11 +286,25 @@ def user_auth_headers(access_token: str) -> dict[str, str]:
     }
 
 
-def storage_upload_headers(access_token: str, content_type: str) -> dict[str, str]:
-    _, supabase_api_key = current_supabase_config()
+def supabase_service_config_error() -> str | None:
+    supabase_url, service_key = current_supabase_service_config()
+    if supabase_url in PLACEHOLDER_VALUES:
+        return "SUPABASE_URL is missing or still using a placeholder value."
+    if not service_key:
+        return "SUPABASE_SERVICE_ROLE_KEY is missing. Add it to your server environment variables."
+    if len(service_key) < 80:
+        return "SUPABASE_SERVICE_ROLE_KEY looks too short. Use the full service_role key from Supabase."
+    key_type = detect_key_type(service_key)
+    if key_type != "service_role":
+        return f"SUPABASE_SERVICE_ROLE_KEY must be the service_role key. Detected key type: {key_type}."
+    return None
+
+
+def storage_upload_headers(content_type: str) -> dict[str, str]:
+    _, service_key = current_supabase_service_config()
     return {
-        "apikey": supabase_api_key,
-        "Authorization": f"Bearer {access_token}",
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
         "Content-Type": content_type,
         "x-upsert": "true",
     }
@@ -654,17 +674,14 @@ def update_user_profile_image(user_id: str, profile_image: str) -> tuple[bool, s
 
 
 def upload_profile_image_to_storage(
-    access_token: str,
     owner_id: str,
     filename: str,
     content_type: str,
     image_bytes: bytes,
 ) -> tuple[bool, str, str | None]:
-    config_error = supabase_config_error()
+    config_error = supabase_service_config_error()
     if config_error:
         return False, config_error, None
-    if not access_token:
-        return False, "Please log in again before uploading a profile picture.", None
     if not owner_id:
         return False, "Please log in first.", None
     if not image_bytes:
@@ -672,11 +689,11 @@ def upload_profile_image_to_storage(
 
     bucket = os.environ.get("SUPABASE_PROFILE_BUCKET", "profile-images").strip() or "profile-images"
     object_path = f"{owner_id}/{filename}"
-    supabase_url, _ = current_supabase_config()
+    supabase_url, _ = current_supabase_service_config()
     try:
         response = requests.post(
             f"{supabase_url}/storage/v1/object/{bucket}/{object_path}",
-            headers=storage_upload_headers(access_token, content_type),
+            headers=storage_upload_headers(content_type),
             data=image_bytes,
             timeout=REQUEST_TIMEOUT,
         )
@@ -685,11 +702,9 @@ def upload_profile_image_to_storage(
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if "exp" in error_message.lower() or "jwt" in error_message.lower():
-            return False, "Your session expired. Please log in again and try uploading your profile photo.", None
         return False, (
             f"Supabase Storage upload failed: {error_message}. "
-            f"Make sure the '{bucket}' bucket exists and allows authenticated uploads."
+            f"Make sure the '{bucket}' bucket exists and SUPABASE_SERVICE_ROLE_KEY is configured server-side."
         ), None
 
     public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{object_path}"
