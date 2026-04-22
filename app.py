@@ -708,9 +708,12 @@ def admin_settings():
             full_name = request.form.get("full_name", "").strip()
             email = request.form.get("email", "").strip()
             phone_number = request.form.get("phone_number", "").strip()
+            current_email = (user.get("email") or "").strip().lower()
+            requested_email = email.strip().lower()
+            auth_update_token = user.get("access_token", "") if requested_email != current_email else ""
             success, message, profile_data = update_admin_account_profile(
                 user.get("id", ""),
-                user.get("access_token", ""),
+                auth_update_token,
                 full_name,
                 email,
                 phone_number,

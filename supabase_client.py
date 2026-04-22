@@ -770,6 +770,13 @@ def update_admin_account_profile(
     except ValueError:
         rows = []
 
+    profile = rows[0] if rows else {
+        "id": user_id,
+        "email": email,
+        "full_name": full_name,
+        "phone_number": phone_number,
+    }
+
     if access_token:
         try:
             auth_response = requests.put(
@@ -782,14 +789,14 @@ def update_admin_account_profile(
             return False, "Profile saved, but the auth email could not be updated right now.", None
 
         if auth_response.status_code >= 400:
-            return False, f"Profile saved, but auth email update failed: {parse_response_error(auth_response)}", None
+            auth_error = parse_response_error(auth_response)
+            if "expired" in auth_error.lower() or "jwt" in auth_error.lower():
+                return True, (
+                    "Profile saved. To change your sign-in email, please log out, log in again, "
+                    "then update the email while your session is fresh."
+                ), profile
+            return True, f"Profile saved, but auth email update failed: {auth_error}", profile
 
-    profile = rows[0] if rows else {
-        "id": user_id,
-        "email": email,
-        "full_name": full_name,
-        "phone_number": phone_number,
-    }
     return True, "Admin profile updated successfully.", profile
 
 
