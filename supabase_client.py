@@ -894,44 +894,58 @@ def fetch_admin_users() -> tuple[list[dict[str, Any]], str | None]:
         return [], config_error
 
     supabase_url, _ = current_supabase_config()
-    params = {"select": "id,email,full_name,phone_number,created_at", "order": "created_at.desc"}
-    try:
-        response = requests.get(
-            f"{supabase_url}/rest/v1/app_users",
-            headers=supabase_headers(),
-            params=params,
-            timeout=REQUEST_TIMEOUT,
-        )
-    except requests.RequestException:
-        return [], "Unable to load users right now."
+    select_variants = [
+        ("id,email,full_name,phone_number,created_at,role", None),
+        ("id,email,full_name,created_at,role", "phone_number"),
+        ("id,email,phone_number,created_at,role", "full_name"),
+        ("id,email,created_at,role", "full_name and phone_number"),
+        ("id,email", "full_name, phone_number, created_at, and role"),
+    ]
+    last_error = None
+    missing_columns_note = None
 
-    if response.status_code >= 400:
-        error_message = parse_response_error(response)
-        if is_schema_cache_column_error(error_message, "phone_number"):
+    for select_clause, missing_note in select_variants:
+        try:
+            response = requests.get(
+                f"{supabase_url}/rest/v1/app_users",
+                headers=supabase_headers(),
+                params={"select": select_clause, "order": "created_at.desc"},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return [], "Unable to load users right now."
+
+        if response.status_code < 400:
             try:
-                fallback_response = requests.get(
-                    f"{supabase_url}/rest/v1/app_users",
-                    headers=supabase_headers(),
-                    params={"select": "id,email,full_name,created_at", "order": "created_at.desc"},
-                    timeout=REQUEST_TIMEOUT,
-                )
-            except requests.RequestException:
-                return [], "Unable to load users right now."
+                rows = response.json()
+            except ValueError:
+                return [], "Unable to read users right now."
+            missing_columns_note = missing_note
+            break
 
-            if fallback_response.status_code >= 400:
-                return [], parse_response_error(fallback_response)
+        last_error = parse_response_error(response)
+        if not any(column in last_error.lower() for column in ("full_name", "phone_number", "created_at", "role")):
+            return [], last_error
+    else:
+        return [], last_error or "Unable to load users right now."
 
-            rows = fallback_response.json()
-            normalized = []
-            for row in rows:
-                row["phone_number"] = ""
-                normalized.append(row)
-            return normalized, None
-        return [], error_message
+    if not isinstance(rows, list):
+        return [], "Unable to read users right now."
 
-    rows = response.json()
     for row in rows:
-        row.setdefault("phone_number", "")
+        row.setdefault("email", "")
+        if not str(row.get("full_name") or "").strip():
+            row["full_name"] = default_full_name(row.get("email", ""))
+        if not str(row.get("phone_number") or "").strip():
+            row["phone_number"] = ""
+        if not str(row.get("role") or "").strip():
+            row["role"] = "user"
+
+    if missing_columns_note:
+        return rows, (
+            f"Loaded users, but app_users is missing or has not refreshed: {missing_columns_note}. "
+            "Run the latest supabase_schema.sql in Supabase SQL Editor, then run NOTIFY pgrst, 'reload schema'."
+        )
     return rows, None
 
 
@@ -958,8 +972,16 @@ def update_admin_user(user_id: str, full_name: str, phone_number: str) -> tuple[
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if is_schema_cache_column_error(error_message, "phone_number"):
-            fallback_payload = {"full_name": full_name.strip() or None}
+        if is_schema_cache_column_error(error_message, "full_name", "phone_number") or any(
+            column in error_message.lower() for column in ("full_name", "phone_number")
+        ):
+            fallback_payload = {}
+            if "full_name" not in error_message.lower():
+                fallback_payload["full_name"] = full_name.strip() or None
+            if "phone_number" not in error_message.lower():
+                fallback_payload["phone_number"] = phone_number.strip() or None
+            if not fallback_payload:
+                return False, schema_cache_fix_message("app_users.full_name", "app_users.phone_number")
             try:
                 fallback_response = requests.patch(
                     f"{supabase_url}/rest/v1/app_users",
@@ -973,7 +995,7 @@ def update_admin_user(user_id: str, full_name: str, phone_number: str) -> tuple[
 
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
-            return True, "User updated successfully (phone number column not available)."
+            return True, "User updated successfully. Some optional profile columns are not available yet."
         return False, error_message
 
     return True, "User updated successfully."
