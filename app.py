@@ -67,6 +67,21 @@ def is_logged_in() -> bool:
     return bool(session.get("user"))
 
 
+def current_session_role() -> str:
+    role = session.get("role")
+    if isinstance(role, str) and role.strip():
+        return role.strip().lower()
+
+    user = session.get("user") or {}
+    inferred = user.get("role")
+    if isinstance(inferred, str) and inferred.strip():
+        normalized = inferred.strip().lower()
+        session["role"] = normalized
+        session.modified = True
+        return normalized
+    return "user"
+
+
 def get_cart() -> list[dict[str, Any]]:
     cart = session.get("cart")
     if isinstance(cart, list):
@@ -274,6 +289,8 @@ def index():
 
 @app.route("/home")
 def home():
+    if current_session_role() == "admin":
+        return redirect(url_for("admin_dashboard"))
     menu_items, _ = fetch_menu_items()
     # Select some popular items as best sellers
     best_sellers = menu_items[:6]  # First 6 items as best sellers
@@ -633,7 +650,7 @@ def debug_supabase_config():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if is_logged_in():
-        if session.get("role") == "admin":
+        if current_session_role() == "admin":
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("home"))
 
@@ -655,6 +672,7 @@ def login():
             session["user"] = user_session
             user_role = str(user_session.get("role", "user")).strip().lower()
             session["role"] = user_role
+            session["user_email"] = (user_session.get("email") or email).strip().lower()
             session.modified = True
             if user_role == "admin":
                 return redirect(url_for("admin_dashboard"))
@@ -698,6 +716,7 @@ def register():
 def logout():
     session.pop("user", None)
     session.pop("role", None)
+    session.pop("user_email", None)
     session.pop("cart", None)
     session.pop("next_url", None)
     flash("You have been logged out.", "success")
