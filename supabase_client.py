@@ -281,6 +281,36 @@ def register_user(email: str, password: str, role: str = "user") -> tuple[bool, 
 
     supabase_url, _ = current_supabase_config()
     try:
+        existing_response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers(),
+            params={"email": f"eq.{email}", "select": "id,email,role", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        existing_response = None
+
+    if existing_response and existing_response.status_code < 400:
+        existing_rows = existing_response.json()
+        if existing_rows:
+            if requested_role == "admin":
+                try:
+                    promote_response = requests.patch(
+                        f"{supabase_url}/rest/v1/app_users",
+                        headers=supabase_headers("return=minimal"),
+                        params={"email": f"eq.{email}"},
+                        json={"role": "admin"},
+                        timeout=REQUEST_TIMEOUT,
+                    )
+                except requests.RequestException:
+                    return False, "Email already exists. Could not promote this account to admin right now."
+
+                if promote_response.status_code >= 400:
+                    return False, parse_response_error(promote_response)
+                return True, "Existing account updated to admin."
+            return False, "Email already exists."
+
+    try:
         signup_response = requests.post(
             f"{supabase_url}/auth/v1/signup",
             headers=auth_headers(),
@@ -291,7 +321,29 @@ def register_user(email: str, password: str, role: str = "user") -> tuple[bool, 
         return False, "Unable to contact Supabase right now."
 
     if signup_response.status_code >= 400:
-        return False, parse_response_error(signup_response)
+        signup_error = parse_response_error(signup_response)
+        lowered_signup_error = signup_error.lower()
+        if (
+            "already registered" in lowered_signup_error
+            or "already exists" in lowered_signup_error
+            or "duplicate" in lowered_signup_error
+        ):
+            if requested_role == "admin":
+                try:
+                    promote_existing_response = requests.patch(
+                        f"{supabase_url}/rest/v1/app_users",
+                        headers=supabase_headers("return=minimal"),
+                        params={"email": f"eq.{email}"},
+                        json={"role": "admin"},
+                        timeout=REQUEST_TIMEOUT,
+                    )
+                except requests.RequestException:
+                    return False, "Email already exists."
+
+                if promote_existing_response.status_code < 400:
+                    return True, "Existing account updated to admin."
+            return False, "Email already exists."
+        return False, signup_error
 
     payload = signup_response.json()
     user_data = payload.get("user") or {}
@@ -319,6 +371,22 @@ def register_user(email: str, password: str, role: str = "user") -> tuple[bool, 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
         lowered_error = error_message.lower()
+        if "duplicate" in lowered_error or "already exists" in lowered_error:
+            if requested_role == "admin":
+                try:
+                    promote_profile_response = requests.patch(
+                        f"{supabase_url}/rest/v1/app_users",
+                        headers=supabase_headers("return=minimal"),
+                        params={"email": f"eq.{email}"},
+                        json={"role": "admin"},
+                        timeout=REQUEST_TIMEOUT,
+                    )
+                except requests.RequestException:
+                    return False, "Email already exists."
+
+                if promote_profile_response.status_code < 400:
+                    return True, "Existing account updated to admin."
+            return False, "Email already exists."
         if "full_name" not in lowered_error:
             return False, error_message
 

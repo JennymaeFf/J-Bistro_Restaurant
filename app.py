@@ -653,7 +653,7 @@ def debug_supabase_config():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if is_logged_in():
+    if request.method == "GET" and is_logged_in():
         if current_session_role() == "admin":
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("home"))
@@ -673,6 +673,10 @@ def login():
         success, message, user_session = authenticate_user(email, password)
         flash(message, "success" if success else "error")
         if success:
+            # Replace any previous session identity (e.g., switching user -> admin).
+            session.pop("user", None)
+            session.pop("role", None)
+            session.pop("user_email", None)
             session["user"] = user_session
             user_role = str(user_session.get("role", "user")).strip().lower()
             session["role"] = user_role
