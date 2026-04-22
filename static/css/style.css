@@ -743,48 +743,61 @@ select {
 /* Menu Layout */
 .menu-layout {
     display: grid;
-    grid-template-columns: 250px 1fr;
-    gap: 40px;
+    grid-template-columns: 1fr;
+    gap: 28px;
     padding: 40px 0 56px;
 }
 
 .menu-sidebar {
-    background: var(--panel);
-    padding: 24px;
-    border-radius: 18px;
-    box-shadow: var(--shadow);
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
     height: fit-content;
 }
 
 .menu-sidebar h3 {
-    margin: 0 0 20px 0;
+    margin: 0 0 16px 0;
     font-size: 1.2rem;
     color: var(--primary);
+    text-align: center;
 }
 
 .category-nav {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 860px;
+    margin: 0 auto;
 }
 
 .category-link {
-    padding: 12px 16px;
-    border-radius: 8px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid #e8dac5;
+    background: #fffdf8;
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.2s ease;
     text-decoration: none;
+    box-shadow: 0 8px 18px rgba(67, 35, 14, 0.08);
 }
 
 .category-link:hover {
     background: #f6e7d2;
     color: var(--primary);
+    border-color: #ddc6a5;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(67, 35, 14, 0.12);
 }
 
 .category-link.active {
-    background: var(--primary);
+    background: linear-gradient(135deg, #6f3b14, #8f5427);
     color: white;
+    border-color: transparent;
+    box-shadow: 0 12px 24px rgba(67, 35, 14, 0.25);
 }
 
 .menu-content {
@@ -2129,26 +2142,19 @@ select {
     }
 
     .menu-layout {
-        grid-template-columns: 1fr;
         gap: 24px;
     }
 
     .menu-sidebar {
-        order: 2;
-    }
-
-    .menu-content {
         order: 1;
     }
 
-    .category-nav {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 12px;
+    .menu-content {
+        order: 2;
     }
 
     .category-link {
-        padding: 8px 12px;
+        padding: 9px 16px;
         font-size: 0.9rem;
     }
 
@@ -2225,7 +2231,8 @@ select {
     }
 
     .category-nav {
-        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
     }
 
     .hero-actions {
