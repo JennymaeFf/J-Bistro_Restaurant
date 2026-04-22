@@ -71,16 +71,26 @@ def is_logged_in() -> bool:
 def current_session_role() -> str:
     role = session.get("role")
     if isinstance(role, str) and role.strip():
-        return role.strip().lower()
+        normalized = role.strip().lower()
+        return normalized if normalized in {"admin", "user"} else "user"
 
     user = session.get("user") or {}
     inferred = user.get("role")
     if isinstance(inferred, str) and inferred.strip():
         normalized = inferred.strip().lower()
+        if normalized not in {"admin", "user"}:
+            normalized = "user"
         session["role"] = normalized
         session.modified = True
         return normalized
     return "user"
+
+
+def redirect_for_role(role: str):
+    normalized_role = role.strip().lower() if isinstance(role, str) else "user"
+    if normalized_role == "admin":
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("dashboard"))
 
 
 def get_cart() -> list[dict[str, Any]]:
@@ -253,7 +263,7 @@ def login_required(view_function):
 
 
 def is_admin_logged_in() -> bool:
-    return session.get("role") == "admin"
+    return current_session_role() == "admin"
 
 
 def admin_required(view_function):
@@ -654,9 +664,7 @@ def debug_supabase_config():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET" and is_logged_in():
-        if current_session_role() == "admin":
-            return redirect(url_for("admin_dashboard"))
-        return redirect(url_for("home"))
+        return redirect_for_role(current_session_role())
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -673,18 +681,22 @@ def login():
         success, message, user_session = authenticate_user(email, password)
         flash(message, "success" if success else "error")
         if success:
+            if user_session is None:
+                flash("Login successful, but the app could not load your session details.", "error")
+                return redirect(url_for("login"))
             # Replace any previous session identity (e.g., switching user -> admin).
             session.pop("user", None)
             session.pop("role", None)
             session.pop("user_email", None)
+            user_role = str((user_session or {}).get("role", "user")).strip().lower()
+            if user_role not in {"admin", "user"}:
+                user_role = "user"
+            user_session["role"] = user_role
             session["user"] = user_session
-            user_role = str(user_session.get("role", "user")).strip().lower()
             session["role"] = user_role
             session["user_email"] = (user_session.get("email") or email).strip().lower()
             session.modified = True
-            if user_role == "admin":
-                return redirect(url_for("admin_dashboard"))
-            return redirect(url_for("home"))
+            return redirect_for_role(user_role)
 
     return render_template("login.html", auth_page=True)
 

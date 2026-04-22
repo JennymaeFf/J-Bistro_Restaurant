@@ -170,7 +170,16 @@ def default_full_name(email: str) -> str:
 
 
 def normalize_role(role_value: Any) -> str:
-    return str(role_value or "user").strip().lower()
+    role = str(role_value or "user").strip().lower()
+    return role if role in {"admin", "user"} else "user"
+
+
+def profile_role_error() -> str:
+    return (
+        "Login successful, but the app could not verify your account role from app_users.role. "
+        "Check that the role column exists, the Supabase schema cache is refreshed, and the account "
+        "is saved with role 'admin' or 'user'."
+    )
 
 
 def decode_jwt_payload(token: str) -> dict[str, Any] | None:
@@ -448,12 +457,17 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         return None, "Unable to load your profile right now."
 
     if response.status_code >= 400:
-        return None, parse_response_error(response)
+        error_message = parse_response_error(response)
+        if is_schema_cache_column_error(error_message, "role") or "role" in error_message.lower():
+            return None, schema_cache_fix_message("app_users.role")
+        return None, error_message
 
     rows = response.json()
     if rows:
         profile = rows[0]
         profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+        if "role" not in profile:
+            return None, profile_role_error()
         profile["role"] = normalize_role(profile.get("role"))
         return profile, None
 
@@ -477,6 +491,8 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         if email_rows:
             profile = email_rows[0]
             profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+            if "role" not in profile:
+                return None, profile_role_error()
             profile["role"] = normalize_role(profile.get("role"))
             return profile, None
 
@@ -516,30 +532,19 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
                 if duplicate_rows:
                     resolved_profile = duplicate_rows[0]
                     resolved_profile.setdefault("full_name", default_full_name(resolved_profile.get("email", email)))
+                    if "role" not in resolved_profile:
+                        return None, profile_role_error()
                     resolved_profile["role"] = normalize_role(resolved_profile.get("role"))
                     return resolved_profile, None
 
         if is_schema_cache_column_error(error_message, "role") or "role" in error_message.lower():
-            fallback_profile = dict(profile)
-            fallback_profile.pop("role", None)
-            try:
-                fallback_response = requests.post(
-                    f"{supabase_url}/rest/v1/app_users",
-                    headers=supabase_headers("return=representation,resolution=merge-duplicates"),
-                    params={"on_conflict": "id"},
-                    json=fallback_profile,
-                    timeout=REQUEST_TIMEOUT,
-                )
-            except requests.RequestException:
-                return profile, "Profile loaded with default details, but could not be saved yet."
-
-            if fallback_response.status_code >= 400:
-                return profile, parse_response_error(fallback_response)
-            return profile, None
+            return None, schema_cache_fix_message("app_users.role")
         return profile, error_message
 
     created_rows = create_response.json()
     final_profile = created_rows[0] if created_rows else profile
+    if "role" not in final_profile:
+        return None, profile_role_error()
     final_profile["role"] = normalize_role(final_profile.get("role"))
     return final_profile, None
 
@@ -600,15 +605,19 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
     user_data = payload.get("user") or {}
     user_id = user_data.get("id")
     profile, profile_message = fetch_user_profile(user_id, user_data.get("email", email)) if user_id else (None, None)
+    if not profile:
+        return False, profile_message or "Login successful, but no app_users profile was found for this account.", None
+    if profile_message:
+        return False, profile_message, None
+
+    user_role = normalize_role(profile.get("role"))
     user_session = {
         "id": user_id,
         "email": user_data.get("email", email),
         "access_token": payload.get("access_token"),
-        "full_name": (profile or {}).get("full_name") or default_full_name(user_data.get("email", email)),
-        "role": normalize_role((profile or {}).get("role")),
+        "full_name": profile.get("full_name") or default_full_name(user_data.get("email", email)),
+        "role": user_role,
     }
-    if profile_message:
-        return True, f"Login successful. {profile_message}", user_session
     return True, "Login successful.", user_session
 
 
