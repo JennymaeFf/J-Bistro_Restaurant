@@ -253,6 +253,15 @@ def auth_headers() -> dict[str, str]:
     }
 
 
+def user_auth_headers(access_token: str) -> dict[str, str]:
+    _, supabase_api_key = current_supabase_config()
+    return {
+        "apikey": supabase_api_key,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+
 def parse_response_error(response: requests.Response) -> str:
     try:
         payload = response.json()
@@ -580,6 +589,104 @@ def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[s
     if not rows:
         return False, "Profile not found.", None
     return True, "Profile updated successfully.", rows[0]
+
+
+def update_admin_account_profile(
+    user_id: str,
+    access_token: str,
+    full_name: str,
+    email: str,
+    phone_number: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+
+    full_name = full_name.strip()
+    email = email.strip().lower()
+    phone_number = phone_number.strip()
+    if not full_name:
+        return False, "Full name is required.", None
+    email_error = valid_email_message(email)
+    if email_error:
+        return False, email_error, None
+
+    supabase_url, _ = current_supabase_config()
+    profile_payload = {
+        "full_name": full_name,
+        "email": email,
+        "phone_number": phone_number or None,
+    }
+    try:
+        profile_response = requests.patch(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=supabase_headers("return=representation"),
+            params={"id": f"eq.{user_id}"},
+            json=profile_payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update admin profile right now.", None
+
+    if profile_response.status_code >= 400:
+        error_message = parse_response_error(profile_response)
+        if is_schema_cache_column_error(error_message, "full_name", "phone_number"):
+            return False, schema_cache_fix_message("app_users.full_name", "app_users.phone_number"), None
+        return False, error_message, None
+
+    try:
+        rows = profile_response.json()
+    except ValueError:
+        rows = []
+
+    if access_token:
+        try:
+            auth_response = requests.put(
+                f"{supabase_url}/auth/v1/user",
+                headers=user_auth_headers(access_token),
+                json={"email": email},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return False, "Profile saved, but the auth email could not be updated right now.", None
+
+        if auth_response.status_code >= 400:
+            return False, f"Profile saved, but auth email update failed: {parse_response_error(auth_response)}", None
+
+    profile = rows[0] if rows else {
+        "id": user_id,
+        "email": email,
+        "full_name": full_name,
+        "phone_number": phone_number,
+    }
+    return True, "Admin profile updated successfully.", profile
+
+
+def update_admin_password(access_token: str, password: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    if not access_token:
+        return False, "Please log in again before changing your password."
+
+    password = password.strip()
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters long."
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.put(
+            f"{supabase_url}/auth/v1/user",
+            headers=user_auth_headers(access_token),
+            json={"password": password},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update password right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Password updated successfully."
 
 
 def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:

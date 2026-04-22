@@ -4,37 +4,82 @@
 
 {% block admin_content %}
 <section class="admin-page-header">
-    <h1>Settings</h1>
-    <p>Review the current admin panel configuration.</p>
+    <div class="admin-page-title">
+        <span class="admin-page-icon">&#9881;</span>
+        <div>
+            <h1>Settings</h1>
+            <p>Manage your admin account information and password.</p>
+        </div>
+    </div>
 </section>
 
-<section class="admin-settings-grid">
-    <article class="admin-card admin-settings-card">
-        <h2>Account Access</h2>
-        <dl class="admin-settings-list">
-            <div>
-                <dt>Signed in as</dt>
-                <dd>{{ current_user.email if current_user else "Admin" }}</dd>
-            </div>
-            <div>
-                <dt>Role</dt>
-                <dd>{{ current_user.role|default("admin")|title if current_user else "Admin" }}</dd>
-            </div>
-        </dl>
-    </article>
+<section class="admin-settings-layout">
+    <aside class="admin-settings-profile-card">
+        <span class="admin-settings-avatar">{{ (profile.full_name or profile.email or "A")[:1]|upper }}</span>
+        <h2>{{ profile.full_name or "Admin Account" }}</h2>
+        <p>{{ profile.email }}</p>
+        <div class="admin-settings-badges">
+            <span>&#9670; {{ profile.role|default("admin")|title }}</span>
+            <span>&#9742; {{ profile.phone_number or "No phone number" }}</span>
+        </div>
+    </aside>
 
-    <article class="admin-card admin-settings-card">
-        <h2>Panel Sections</h2>
-        <dl class="admin-settings-list">
-            <div>
-                <dt>Dashboard</dt>
-                <dd>Orders, sales, users, and menu summary</dd>
+    <div class="admin-settings-forms">
+        <section class="admin-card admin-settings-card">
+            <div class="admin-section-title">
+                <span class="admin-section-icon">&#9998;</span>
+                <div>
+                    <h2>Edit Profile</h2>
+                    <p>Update the account details shown across the admin panel.</p>
+                </div>
             </div>
-            <div>
-                <dt>Management</dt>
-                <dd>Orders, menu items, and user records</dd>
+
+            <form method="post" class="admin-settings-form">
+                <input type="hidden" name="action" value="profile">
+                <label>
+                    Full name
+                    <input type="text" name="full_name" value="{{ profile.full_name or '' }}" placeholder="Full name" required>
+                </label>
+                <label>
+                    Email address
+                    <input type="email" name="email" value="{{ profile.email or '' }}" placeholder="admin@example.com" required>
+                </label>
+                <label>
+                    Phone number
+                    <input type="text" name="phone_number" value="{{ profile.phone_number or '' }}" placeholder="Phone number">
+                </label>
+                <button type="submit" class="admin-btn admin-btn-update">
+                    <span>&#10003;</span>
+                    Save Profile
+                </button>
+            </form>
+        </section>
+
+        <section class="admin-card admin-settings-card">
+            <div class="admin-section-title">
+                <span class="admin-section-icon">&#9679;</span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p>Use at least 6 characters. You may need to log in again after changing it.</p>
+                </div>
             </div>
-        </dl>
-    </article>
+
+            <form method="post" class="admin-settings-form">
+                <input type="hidden" name="action" value="password">
+                <label>
+                    New password
+                    <input type="password" name="password" placeholder="New password" minlength="6" required>
+                </label>
+                <label>
+                    Confirm password
+                    <input type="password" name="confirm_password" placeholder="Confirm password" minlength="6" required>
+                </label>
+                <button type="submit" class="admin-btn admin-btn-create">
+                    <span>&#8635;</span>
+                    Update Password
+                </button>
+            </form>
+        </section>
+    </div>
 </section>
 {% endblock %}

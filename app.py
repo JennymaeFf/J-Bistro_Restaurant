@@ -36,6 +36,8 @@ from supabase_client import (
     fetch_orders,
     fetch_user_profile,
     register_user,
+    update_admin_account_profile,
+    update_admin_password,
     update_admin_menu_item,
     update_admin_user,
     update_order_status,
@@ -209,6 +211,8 @@ def current_user_profile() -> dict[str, Any]:
         "id": user.get("id"),
         "email": email,
         "full_name": user.get("full_name") or fallback_full_name(email),
+        "phone_number": user.get("phone_number") or "",
+        "role": user.get("role") or current_session_role(),
     }
 
 
@@ -225,6 +229,8 @@ def refresh_session_profile() -> tuple[dict[str, Any], str | None]:
             {
                 "email": profile.get("email") or user.get("email"),
                 "full_name": profile.get("full_name") or fallback_profile["full_name"],
+                "phone_number": profile.get("phone_number") or fallback_profile.get("phone_number", ""),
+                "role": profile.get("role") or user.get("role") or current_session_role(),
             }
         )
         session["user"] = user
@@ -653,13 +659,59 @@ def admin_users():
     )
 
 
-@app.route("/admin/settings")
+@app.route("/admin/settings", methods=["GET", "POST"])
 @admin_required
 def admin_settings():
+    user = session.get("user") or {}
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+
+        if action == "profile":
+            full_name = request.form.get("full_name", "").strip()
+            email = request.form.get("email", "").strip()
+            phone_number = request.form.get("phone_number", "").strip()
+            success, message, profile_data = update_admin_account_profile(
+                user.get("id", ""),
+                user.get("access_token", ""),
+                full_name,
+                email,
+                phone_number,
+            )
+            flash(message, "success" if success else "error")
+            if success and profile_data:
+                user.update(
+                    {
+                        "email": profile_data.get("email") or email,
+                        "full_name": profile_data.get("full_name") or full_name,
+                        "phone_number": profile_data.get("phone_number") or phone_number,
+                        "role": profile_data.get("role") or user.get("role") or "admin",
+                    }
+                )
+                session["user"] = user
+                session["role"] = str(user.get("role", "admin")).strip().lower()
+                session["user_email"] = (user.get("email") or email).strip().lower()
+                session.modified = True
+            return redirect(url_for("admin_settings"))
+
+        if action == "password":
+            password = request.form.get("password", "")
+            confirm_password = request.form.get("confirm_password", "")
+            if password != confirm_password:
+                flash("Passwords do not match.", "error")
+                return redirect(url_for("admin_settings"))
+            success, message = update_admin_password(user.get("access_token", ""), password)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_settings"))
+
+        flash("Unknown settings action.", "error")
+        return redirect(url_for("admin_settings"))
+
+    profile_data, profile_message = refresh_session_profile()
     return render_template(
         "admin/settings.html",
         admin_section="settings",
-        info_message=None,
+        info_message=profile_message,
+        profile=profile_data,
     )
 
 
