@@ -3,24 +3,51 @@
 {% block title %}Register | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
-<section class="auth-page">
+<section class="auth-page register-page">
     <div class="auth-background"></div>
     <div class="auth-overlay"></div>
     <div class="wood-strip"></div>
 
     <div class="auth-card-wrap">
-        <div class="auth-card">
+        <div class="auth-card register-card">
             <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro Restaurant Logo" class="auth-logo">
-            <p class="auth-title">Create Your J'Bistro Account</p>
+            <p class="auth-title register-title">Create Your J'Bistro Account</p>
+            <p class="register-subtitle">Fill in your details to start ordering delicious meals.</p>
 
-            <form action="{{ url_for('register') }}" method="post" class="auth-form">
+            <form action="{{ url_for('register') }}" method="post" class="auth-form register-form" id="registerForm">
                 <label>
-                    Email
-                    <input type="email" name="email" placeholder="Enter your email" required>
+                    Full name
+                    <input type="text" name="full_name" placeholder="Enter your full name" required>
+                </label>
+                <label>
+                    Email address
+                    <input type="email" name="email" placeholder="Enter your email address" required>
+                </label>
+                <label>
+                    Phone number
+                    <input type="tel" name="phone_number" placeholder="Enter your phone number" required>
+                </label>
+                <label>
+                    Address
+                    <input type="text" name="address" placeholder="Enter your address" required>
                 </label>
                 <label>
                     Password
-                    <input type="password" name="password" placeholder="At least 6 characters" required>
+                    <span class="password-field">
+                        <input type="password" id="password" name="password" placeholder="At least 6 characters" required>
+                        <button type="button" class="password-toggle" data-target="password" aria-label="Show password">&#128065;</button>
+                    </span>
+                </label>
+                <label>
+                    Confirm password
+                    <span class="password-field">
+                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter your password" required>
+                        <button type="button" class="password-toggle" data-target="confirm_password" aria-label="Show confirm password">&#128065;</button>
+                    </span>
+                </label>
+                <label>
+                    Admin Code (Optional)
+                    <input type="password" name="admin_code" placeholder="Enter admin code if authorized">
                 </label>
                 <button type="submit" class="auth-button">Register</button>
             </form>
@@ -32,4 +59,39 @@
         </div>
     </div>
 </section>
+<script>
+    (function () {
+        var form = document.getElementById("registerForm");
+        var passwordInput = document.getElementById("password");
+        var confirmPasswordInput = document.getElementById("confirm_password");
+        var toggleButtons = document.querySelectorAll(".password-toggle");
+
+        toggleButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                var targetId = button.getAttribute("data-target");
+                var target = document.getElementById(targetId);
+                if (!target) return;
+                var show = target.type === "password";
+                target.type = show ? "text" : "password";
+                button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+            });
+        });
+
+        form.addEventListener("submit", function (event) {
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                event.preventDefault();
+                confirmPasswordInput.setCustomValidity("Passwords do not match.");
+                confirmPasswordInput.reportValidity();
+                return;
+            }
+            confirmPasswordInput.setCustomValidity("");
+        });
+
+        confirmPasswordInput.addEventListener("input", function () {
+            if (passwordInput.value === confirmPasswordInput.value) {
+                confirmPasswordInput.setCustomValidity("");
+            }
+        });
+    })();
+</script>
 {% endblock %}

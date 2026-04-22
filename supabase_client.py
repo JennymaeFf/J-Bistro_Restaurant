@@ -271,10 +271,13 @@ def schema_cache_fix_message(*columns: str) -> str:
     )
 
 
-def register_user(email: str, password: str) -> tuple[bool, str]:
+def register_user(email: str, password: str, role: str = "user") -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
+    requested_role = normalize_role(role)
+    if requested_role not in {"user", "admin"}:
+        requested_role = "user"
 
     supabase_url, _ = current_supabase_config()
     try:
@@ -334,6 +337,28 @@ def register_user(email: str, password: str) -> tuple[bool, str]:
 
         if fallback_response.status_code >= 400:
             return False, parse_response_error(fallback_response)
+
+    if requested_role == "admin":
+        try:
+            role_response = requests.patch(
+                f"{supabase_url}/rest/v1/app_users",
+                headers=supabase_headers("return=minimal"),
+                params={"id": f"eq.{user_id}"},
+                json={"role": "admin"},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return True, "Registration successful, but admin role could not be assigned right now."
+
+        if role_response.status_code >= 400:
+            role_error = parse_response_error(role_response)
+            if is_schema_cache_column_error(role_error, "role") or "role" in role_error.lower():
+                return True, (
+                    "Registration successful, but admin role could not be assigned because the role column "
+                    "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
+                )
+            return True, f"Registration successful, but admin role assignment failed: {role_error}"
+        return True, "Admin registration successful."
 
     return True, "Registration successful."
 

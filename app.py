@@ -1,5 +1,6 @@
 import os
 import sys
+import hmac
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -689,6 +690,8 @@ def register():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
+        admin_code = request.form.get("admin_code", "").strip()
+        configured_admin_code = os.environ.get("ADMIN_REGISTRATION_CODE", "").strip()
 
         if not email or not password:
             flash("Please fill in all registration fields.", "error")
@@ -703,10 +706,20 @@ def register():
             flash("Password must be at least 6 characters long.", "error")
             return redirect(url_for("register"))
 
-        success, message = register_user(email, password)
+        target_role = "user"
+        if admin_code:
+            if configured_admin_code and hmac.compare_digest(admin_code, configured_admin_code):
+                target_role = "admin"
+            else:
+                flash("Admin code not recognized. Account will be created as a user.", "error")
+
+        success, message = register_user(email, password, role=target_role)
         flash(message, "success" if success else "error")
         if success:
-            flash("Registration complete. Please log in to continue ordering.", "success")
+            if target_role == "admin":
+                flash("Admin account created. Please log in.", "success")
+            else:
+                flash("Registration complete. Please log in to continue ordering.", "success")
             return redirect(url_for("login"))
 
     return render_template("register.html", auth_page=True)

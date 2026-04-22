@@ -2436,6 +2436,104 @@ td {
     font-weight: 700;
 }
 
+/* Register Page Redesign */
+.register-page .auth-overlay {
+    background: linear-gradient(180deg, rgba(48, 31, 20, 0.14) 0%, rgba(48, 31, 20, 0.5) 100%);
+}
+
+.register-card {
+    width: min(500px, 100%);
+    background: #f7efe6;
+    border-radius: 28px;
+    padding: 30px 28px 24px;
+    box-shadow: 0 24px 60px rgba(27, 15, 9, 0.24);
+}
+
+.register-title {
+    margin-bottom: 8px;
+    color: #5b3926;
+    text-shadow: none;
+    font-size: clamp(1.6rem, 3.5vw, 2rem);
+}
+
+.register-subtitle {
+    margin: 0 0 20px;
+    text-align: center;
+    color: #7b5b47;
+    font-size: 0.92rem;
+}
+
+.register-form {
+    gap: 12px;
+}
+
+.register-form label {
+    gap: 6px;
+    color: #6b4a35;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.register-form input {
+    height: 48px;
+    border-radius: 14px;
+    border: 1px solid #eadbcf;
+    background: #fffefd;
+    padding: 12px 14px;
+}
+
+.register-form input:focus {
+    border-color: #c58a57;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(197, 138, 87, 0.16);
+}
+
+.password-field {
+    position: relative;
+    display: block;
+}
+
+.password-field input {
+    padding-right: 50px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #8b5a3a;
+    font-size: 1rem;
+}
+
+.password-toggle:hover {
+    background: #f5e9dd;
+}
+
+.register-form .auth-button {
+    margin-top: 10px;
+    border-radius: 14px;
+    height: 48px;
+}
+
+@media (max-width: 640px) {
+    .register-card {
+        padding: 24px 18px 20px;
+        border-radius: 22px;
+    }
+
+    .register-form input,
+    .register-form .auth-button {
+        height: 46px;
+    }
+}
+
 @media (max-width: 900px) {
     .order-layout {
         grid-template-columns: 1fr;
