@@ -25,6 +25,7 @@ from supabase_client import (
     authenticate_user,
     create_admin_menu_item,
     current_supabase_config,
+    current_supabase_service_config,
     create_order,
     delete_admin_menu_item,
     delete_admin_user,
@@ -830,10 +831,15 @@ def upload_profile():
 @app.route("/debug/supabase-config")
 def debug_supabase_config():
     supabase_url, supabase_api_key = current_supabase_config()
+    _, supabase_service_key = current_supabase_service_config()
     key_type = detect_key_type(supabase_api_key) if supabase_api_key else "missing"
+    service_key_type = detect_key_type(supabase_service_key) if supabase_service_key else "missing"
     masked_key = ""
     if supabase_api_key:
         masked_key = f"{supabase_api_key[:10]}...{supabase_api_key[-6:]}"
+    masked_service_key = ""
+    if supabase_service_key:
+        masked_service_key = f"{supabase_service_key[:10]}...{supabase_service_key[-6:]}"
 
     return {
         "supabase_url": supabase_url,
@@ -843,6 +849,11 @@ def debug_supabase_config():
         "supabase_api_key_type": key_type,
         "supabase_api_key_has_spaces": supabase_api_key != supabase_api_key.strip(),
         "supabase_api_key_preview": masked_key,
+        "supabase_service_role_key_present": bool(supabase_service_key),
+        "supabase_service_role_key_length": len(supabase_service_key),
+        "supabase_service_role_key_type": service_key_type,
+        "supabase_service_role_key_has_spaces": supabase_service_key != supabase_service_key.strip(),
+        "supabase_service_role_key_preview": masked_service_key,
         "using_placeholder_url": "your-project" in supabase_url,
         "using_placeholder_key": "your-supabase" in supabase_api_key,
     }
