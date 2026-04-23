@@ -122,14 +122,23 @@ on public.orders for delete
 to anon
 using (true);
 
-insert into public.menu_items (name, description, category, price, image)
+insert into public.menu_items (name, description, category, price, image, is_available)
 values
-    ('Cheeseburger', 'Juicy beef burger with melted cheese and fresh vegetables.', 'Main Course', 60.00, 'cheeseburger.png'),
-    ('Cheese Sandwich', 'Toasted sandwich filled with cheese and a creamy spread.', 'Snack', 50.00, 'cheesesandwich.png'),
-    ('Chicken Burger', 'Crispy chicken burger served with a soft toasted bun.', 'Main Course', 60.00, 'chickenburger.png'),
-    ('Spicy Chicken', 'Flavorful chicken meal for customers who like some heat.', 'Main Course', 99.00, 'spicychicken.png'),
-    ('Beef Steak', 'Classic beef steak cooked with a rich savory taste.', 'Main Course', 99.00, 'beefsteak.png'),
-    ('Salmon Fillet', 'Tender salmon fillet with a clean and premium flavor.', 'Main Course', 99.00, 'salmonfillet.png')
+    ('Cheeseburger', 'Juicy beef burger with melted cheese and fresh vegetables.', 'Main Course', 60.00, 'cheeseburger.png', true),
+    ('Chicken Burger', 'Crispy chicken burger served with a soft toasted bun.', 'Main Course', 60.00, 'chickenburger.png', true),
+    ('Spicy Chicken', 'Flavorful chicken meal for customers who like some heat.', 'Main Course', 99.00, 'spicychicken.png', true),
+    ('Beef Steak', 'Classic beef steak cooked with a rich savory taste.', 'Main Course', 99.00, 'beefsteak.png', true),
+    ('Salmon Fillet', 'Tender salmon fillet with a clean and premium flavor.', 'Main Course', 99.00, 'salmonfillet.png', true),
+    ('French Fries', 'Crispy golden fries served hot with a classic dip.', 'Appetizers', 40.00, 'french_fries.png', true),
+    ('Spring Rolls', 'Crispy rolls filled with vegetables and savory meat.', 'Appetizers', 50.00, 'spring_rolls.png', true),
+    ('Nachos', 'Tortilla chips topped with cheese and flavorful toppings.', 'Appetizers', 60.00, 'nachos.png', true),
+    ('Calamares', 'Golden fried squid rings with a crunchy coating.', 'Appetizers', 70.00, 'calamares.png', true),
+    ('Garlic Bread', 'Toasted bread brushed with garlic butter.', 'Appetizers', 45.00, 'garlic_bread.png', true),
+    ('Coke', 'Refreshing carbonated cola drink.', 'Beverages', 25.00, 'coke.png', true),
+    ('Iced Tea', 'Chilled tea with a bright lemon flavor.', 'Beverages', 20.00, 'ice_tea.png', true),
+    ('Mango Juice', 'Fresh mango juice with a smooth tropical taste.', 'Beverages', 30.00, 'mango_juice.png', true),
+    ('Lemonade', 'Sweet and tangy lemonade served cold.', 'Beverages', 25.00, 'lemonade.png', true),
+    ('Water', 'Pure drinking water.', 'Beverages', 15.00, 'water.png', true)
 on conflict do nothing;
 
 -- Verify the columns exist in Postgres.
