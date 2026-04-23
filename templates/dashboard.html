@@ -32,7 +32,8 @@
                         <tr>
                             <th>Order No.</th>
                             <th>Customer</th>
-                            <th>Type</th>
+                            <th>Fulfillment</th>
+                            <th>Address</th>
                             <th>Items</th>
                             <th>Payment</th>
                             <th>Total</th>
@@ -44,13 +45,8 @@
                             <tr>
                                 <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
                                 <td>{{ order["customer_name"] }}</td>
-                                <td>
-                                    {% if order["order_type"] %}
-                                        {{ order["order_type"] }}
-                                    {% else %}
-                                        Dine-in
-                                    {% endif %}
-                                </td>
+                                <td>Delivery</td>
+                                <td>{{ order["delivery_address"] or "Address unavailable" }}</td>
                                 <td>
                                     {% if order["items"] %}
                                         <ul class="items-list">

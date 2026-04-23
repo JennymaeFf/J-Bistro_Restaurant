@@ -217,13 +217,13 @@ def receipt_order_number_label(data: dict[str, Any]) -> str:
 def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer") -> dict[str, Any]:
     data = source if isinstance(source, dict) else {}
     customer_name = (data.get("customer_name") or fallback_customer_name or "Customer").strip()
-    order_type = (data.get("order_type") or "Dine-in").strip()
-    if order_type not in {"Dine-in", "Take-out"}:
-        order_type = "Dine-in"
+    order_type = "Delivery"
     order_number_label = receipt_order_number_label(data)
     payment_method = (data.get("payment_method") or "Cash").strip() or "Cash"
     payment_bank = (data.get("payment_bank") or "").strip()
     payment_reference = (data.get("payment_reference") or "").strip()
+    delivery_address = (data.get("delivery_address") or "").strip()
+    delivery_notes = (data.get("delivery_notes") or "").strip()
     items = normalize_receipt_items(data.get("items"))
 
     total_amount = coerce_float(data.get("total_amount"), 0.0)
@@ -239,6 +239,8 @@ def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer")
         "payment_method": payment_method,
         "payment_bank": payment_bank,
         "payment_reference": payment_reference,
+        "delivery_address": delivery_address,
+        "delivery_notes": delivery_notes,
         "items": items,
         "total_amount": max(0.0, total_amount),
         "status": data.get("status") or "Pending",
@@ -510,20 +512,20 @@ def order():
         flash(profile_message, "error")
     if request.method == "POST":
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
-        order_type = request.form.get("order_type", "").strip()
+        delivery_address = request.form.get("delivery_address", "").strip()
+        delivery_notes = request.form.get("delivery_notes", "").strip()
         payment_method = request.form.get("payment_method", "").strip()
         payment_bank = request.form.get("payment_bank", "").strip()
         payment_reference = request.form.get("payment_reference", "").strip()
 
         app.logger.info(
-            "Submitting order: order_type=%s payment_method=%s cart_items=%s",
-            order_type or "missing",
+            "Submitting order: payment_method=%s cart_items=%s",
             payment_method or "missing",
             len(cart),
         )
 
-        if order_type not in {"Dine-in", "Take-out"}:
-            flash("Please choose dine-in or take-out.", "error")
+        if not delivery_address:
+            flash("Please enter a delivery address.", "error")
             return redirect(url_for("order"))
         if payment_method not in {"Cash", "GCash", "Card"}:
             flash("Please choose a valid payment method.", "error")
@@ -550,8 +552,9 @@ def order():
                 customer_name,
                 cart,
                 cart_total(cart),
+                delivery_address,
+                delivery_notes,
                 payment_method,
-                order_type,
                 payment_bank,
                 payment_reference,
             )
@@ -578,10 +581,12 @@ def order():
                 receipt_payload = build_receipt_payload(
                     {
                         "customer_name": customer_name,
-                        "order_type": order_type,
+                        "order_type": "Delivery",
                         "order_number_label": order_number_label,
                         "items": [dict(item) for item in cart],
                         "total_amount": cart_total(cart),
+                        "delivery_address": delivery_address,
+                        "delivery_notes": delivery_notes,
                         "payment_method": payment_method,
                         "payment_bank": payment_bank,
                         "payment_reference": payment_reference,

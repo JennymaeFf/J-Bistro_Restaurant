@@ -6,8 +6,8 @@
 <section class="checkout-shell">
     <div class="container">
         <div class="checkout-header">
-            <h1>Checkout</h1>
-            <p class="checkout-subtitle">Complete your delicious order</p>
+            <h1>Delivery Checkout</h1>
+            <p class="checkout-subtitle">Confirm your drop-off details and payment to place your order.</p>
         </div>
 
         {% if cart %}
@@ -81,22 +81,45 @@
                         </div>
                         <a class="profile-edit-link" href="{{ url_for('profile') }}">
                             Edit profile information
-                            <span aria-hidden="true">→</span>
+                            <span aria-hidden="true">&rarr;</span>
                         </a>
                     </div>
 
                     <form action="{{ url_for('order') }}" method="post" class="checkout-form">
                         <div class="form-group">
-                            <label>Order Type</label>
-                            <div class="order-type-options">
-                                <div class="option order-type-option">
-                                    <input type="radio" name="order_type" id="dinein" value="Dine-in" required>
-                                    <label for="dinein">Dine In</label>
-                                </div>
-                                <div class="option order-type-option">
-                                    <input type="radio" name="order_type" id="takeout" value="Take-out" required>
-                                    <label for="takeout">Take Out</label>
-                                </div>
+                            <label for="deliveryAddress">Delivery Address</label>
+                            <input
+                                type="text"
+                                id="deliveryAddress"
+                                name="delivery_address"
+                                placeholder="House no., street, barangay, city"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="deliveryNotes">Delivery Notes (Optional)</label>
+                            <textarea
+                                id="deliveryNotes"
+                                name="delivery_notes"
+                                rows="3"
+                                placeholder="Landmark, gate instructions, or rider notes"
+                            ></textarea>
+                        </div>
+
+                        <div class="delivery-type-badge" aria-label="Fulfillment mode">
+                            <span>Fulfillment</span>
+                            <strong>Delivery Only</strong>
+                        </div>
+
+                        <div class="delivery-contact-row">
+                            <div class="contact-chip">
+                                <span>Name</span>
+                                <strong>{{ user.full_name or user.email.split('@')[0]|title }}</strong>
+                            </div>
+                            <div class="contact-chip">
+                                <span>Phone</span>
+                                <strong>{{ user.phone_number or "Add on profile" }}</strong>
                             </div>
                         </div>
 
@@ -105,7 +128,7 @@
                             <div class="payment-options">
                                 <div class="option payment-option">
                                     <input type="radio" name="payment_method" id="cash" value="Cash" required>
-                                    <label for="cash">Cash</label>
+                                    <label for="cash">Cash on Delivery</label>
                                 </div>
                                 <div class="option payment-option">
                                     <input type="radio" name="payment_method" id="gcash" value="GCash" required>
@@ -113,7 +136,7 @@
                                 </div>
                                 <div class="option payment-option">
                                     <input type="radio" name="payment_method" id="card" value="Card" required>
-                                    <label for="card">Card</label>
+                                    <label for="card">Card / Bank Transfer</label>
                                 </div>
                             </div>
                         </div>
@@ -184,7 +207,7 @@
 
                         <div class="checkout-actions">
                             <a href="{{ url_for('cart') }}" class="btn-secondary">Back to Cart</a>
-                            <button type="submit" class="btn-primary">Place Order</button>
+                            <button type="submit" class="btn-primary">Place Delivery Order</button>
                         </div>
                     </form>
                 </div>

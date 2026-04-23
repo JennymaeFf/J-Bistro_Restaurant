@@ -1043,6 +1043,9 @@ def normalize_order_record(order: dict[str, Any]) -> dict[str, Any]:
 
     order["order_number"] = order_number
     order["order_number_label"] = format_order_number(order_number)
+    order["order_type"] = "Delivery"
+    order.setdefault("delivery_address", "")
+    order.setdefault("delivery_notes", "")
     order.setdefault("payment_bank", "")
     order.setdefault("payment_reference", "")
     return order
@@ -1055,7 +1058,8 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
 
     supabase_url, _ = current_supabase_config()
     select_variants = [
-        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_bank,payment_reference,status,created_at",
+        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_bank,payment_reference,delivery_address,delivery_notes,status,created_at",
+        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_reference,delivery_address,delivery_notes,status,created_at",
         "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_reference,status,created_at",
         "id,customer_name,order_type,table_number,items,total_amount,payment_method,status,created_at",
     ]
@@ -1085,7 +1089,17 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
             break
 
         last_error = parse_response_error(response)
-        if not any(column in last_error.lower() for column in ("order_number", "payment_bank", "payment_reference")):
+        if not any(
+            column in last_error.lower()
+            for column in (
+                "order_number",
+                "payment_bank",
+                "payment_reference",
+                "delivery_address",
+                "delivery_notes",
+                "order_type",
+            )
+        ):
             return None, last_error
     else:
         return None, last_error or "Unable to load the latest order right now."
@@ -1458,18 +1472,21 @@ def create_order(
     customer_name: str,
     cart: list[dict[str, Any]],
     total_amount: float,
+    delivery_address: str,
+    delivery_notes: str,
     payment_method: str,
-    order_type: str,
     payment_bank: str = "",
     payment_reference: str = "",
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
-    if order_type not in {"Dine-in", "Take-out"}:
-        return False, "Please choose dine-in or take-out."
+    if not delivery_address.strip():
+        return False, "Please enter a delivery address."
     if payment_method not in {"Cash", "GCash", "Card"}:
         return False, "Please choose a valid payment method."
+    delivery_address = delivery_address.strip()
+    delivery_notes = delivery_notes.strip()
     payment_bank = payment_bank.strip()
     payment_reference = payment_reference.strip()
     if payment_method == "GCash" and not payment_reference:
@@ -1499,7 +1516,9 @@ def create_order(
         "payment_method": payment_method,
         "payment_bank": payment_bank or None,
         "payment_reference": payment_reference or None,
-        "order_type": order_type,
+        "order_type": "Delivery",
+        "delivery_address": delivery_address,
+        "delivery_notes": delivery_notes or None,
         "status": "Pending",
     }
     try:
@@ -1533,10 +1552,15 @@ def create_order(
                 return False, parse_response_error(fallback_response)
 
             return True, f"Order submitted successfully. Your order number is {order_number_label}."
-        if any(column in error_message.lower() for column in ("payment_bank", "payment_reference")):
+        if any(
+            column in error_message.lower()
+            for column in ("payment_bank", "payment_reference", "delivery_address", "delivery_notes")
+        ):
             fallback_payload = dict(payload)
             fallback_payload.pop("payment_bank", None)
             fallback_payload.pop("payment_reference", None)
+            fallback_payload.pop("delivery_address", None)
+            fallback_payload.pop("delivery_notes", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",
@@ -1552,7 +1576,7 @@ def create_order(
 
             return True, (
                 f"Order submitted successfully. Your order number is {order_number_label}. "
-                "Payment reference could not be saved until the database schema is refreshed."
+                "Some payment or delivery fields could not be saved until the database schema is refreshed."
             )
         if is_schema_cache_column_error(error_message, "payment_method"):
             return False, schema_cache_fix_message("orders.payment_method")
@@ -1561,6 +1585,8 @@ def create_order(
             fallback_payload.pop("order_type", None)
             fallback_payload.pop("payment_bank", None)
             fallback_payload.pop("payment_reference", None)
+            fallback_payload.pop("delivery_address", None)
+            fallback_payload.pop("delivery_notes", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",

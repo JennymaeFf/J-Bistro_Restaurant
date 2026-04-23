@@ -25,9 +25,21 @@
                 <span>{{ receipt["customer_name"] or "Customer" }}</span>
             </div>
             <div class="cash-info">
-                <span>Order Type</span>
-                <span>{{ receipt["order_type"] or "Dine-in" }}</span>
+                <span>Fulfillment</span>
+                <span>Delivery</span>
             </div>
+            {% if receipt["delivery_address"] %}
+                <div class="cash-info">
+                    <span>Delivery Address</span>
+                    <span>{{ receipt["delivery_address"] }}</span>
+                </div>
+            {% endif %}
+            {% if receipt["delivery_notes"] %}
+                <div class="cash-info">
+                    <span>Delivery Notes</span>
+                    <span>{{ receipt["delivery_notes"] }}</span>
+                </div>
+            {% endif %}
             <div class="cash-info">
                 <span>Payment</span>
                 <span>
@@ -75,13 +87,7 @@
         </div>
 
         <div class="footer">
-            <p class="thank-you">
-                {% if receipt["order_type"] == "Take-out" %}
-                    Thank you for ordering from us!
-                {% else %}
-                    Thank you for dining with us!
-                {% endif %}
-            </p>
+            <p class="thank-you">Thank you for ordering from us.</p>
             <a class="receipt-menu-link" href="{{ url_for('menu') }}">Go to Menu</a>
         </div>
     </div>

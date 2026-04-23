@@ -15,7 +15,8 @@
                 <tr>
                     <th>Order No.</th>
                     <th>User</th>
-                    <th>Type</th>
+                    <th>Fulfillment</th>
+                    <th>Address</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Payment</th>
@@ -28,7 +29,13 @@
                     <tr>
                         <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
                         <td>{{ order["customer_name"] }}</td>
-                        <td>{{ order["order_type"] or "Dine-in" }}</td>
+                        <td>Delivery</td>
+                        <td>
+                            {{ order["delivery_address"] or "Address unavailable" }}
+                            {% if order["delivery_notes"] %}
+                                <div><small>Notes: {{ order["delivery_notes"] }}</small></div>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if order["items"] %}
                                 {% for item in order["items"] %}
@@ -62,7 +69,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="8">No orders found.</td>
+                        <td colspan="9">No orders found.</td>
                     </tr>
                 {% endfor %}
             </tbody>

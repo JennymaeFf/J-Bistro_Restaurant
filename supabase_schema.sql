@@ -34,7 +34,9 @@ create table if not exists public.orders (
     payment_method text not null,
     payment_bank text,
     payment_reference text,
-    order_type text not null default 'Dine-in',
+    order_type text not null default 'Delivery',
+    delivery_address text,
+    delivery_notes text,
     status text not null default 'Pending',
     created_at timestamptz not null default now()
 );
@@ -42,8 +44,10 @@ create table if not exists public.orders (
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists payment_bank text;
 alter table public.orders add column if not exists payment_reference text;
-alter table public.orders add column if not exists order_type text not null default 'Dine-in';
+alter table public.orders add column if not exists order_type text not null default 'Delivery';
 alter table public.orders add column if not exists order_number integer;
+alter table public.orders add column if not exists delivery_address text;
+alter table public.orders add column if not exists delivery_notes text;
 alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists phone_number text;
@@ -56,10 +60,7 @@ set payment_method = 'Cash'
 where payment_method is null;
 
 update public.orders
-set order_type = case
-    when table_number = 'Take-out' then 'Take-out'
-    else 'Dine-in'
-end
+set order_type = 'Delivery'
 where order_type is null or btrim(order_type) = '';
 
 update public.orders
@@ -171,7 +172,7 @@ select table_name, column_name, data_type
 from information_schema.columns
 where table_schema = 'public'
   and (
-      (table_name = 'orders' and column_name in ('payment_method', 'payment_bank', 'payment_reference', 'order_type', 'order_number'))
+      (table_name = 'orders' and column_name in ('payment_method', 'payment_bank', 'payment_reference', 'order_type', 'order_number', 'delivery_address', 'delivery_notes'))
       or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number', 'profile_image'))
       or (table_name = 'menu_items' and column_name in ('is_available'))
   )
@@ -181,3 +182,6 @@ order by table_name, column_name;
 -- "Could not find column in the schema cache" errors.
 notify pgrst, 'reload schema';
 select pg_notification_queue_usage();
+update public.orders
+set order_type = 'Delivery'
+where order_type <> 'Delivery';
