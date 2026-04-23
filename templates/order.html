@@ -118,6 +118,70 @@
                             </div>
                         </div>
 
+                        <div class="payment-detail-panel" id="gcashPaymentPanel" hidden>
+                            <div class="payment-detail-heading">
+                                <span class="payment-detail-icon" aria-hidden="true">G</span>
+                                <div>
+                                    <h3>GCash Payment</h3>
+                                    <p>Send your payment to this J'Bistro GCash number.</p>
+                                </div>
+                            </div>
+                            <div class="payment-account-box">
+                                <span>GCash Number</span>
+                                <strong>{{ gcash_payment_number }}</strong>
+                            </div>
+                            <label for="gcashReference">GCash Reference Number</label>
+                            <input
+                                type="text"
+                                id="gcashReference"
+                                class="payment-reference-input"
+                                data-reference-input="GCash"
+                                inputmode="numeric"
+                                autocomplete="off"
+                                placeholder="Enter transaction reference number"
+                            >
+                        </div>
+
+                        <div class="payment-detail-panel" id="bankPaymentPanel" hidden>
+                            <div class="payment-detail-heading">
+                                <span class="payment-detail-icon" aria-hidden="true">B</span>
+                                <div>
+                                    <h3>Bank Payment</h3>
+                                    <p>Choose a bank, send payment, then enter your reference number.</p>
+                                </div>
+                            </div>
+                            <div class="bank-options" data-bank-options>
+                                {% for bank_name, account in bank_payment_accounts.items() %}
+                                    <label class="bank-option">
+                                        <input
+                                            type="radio"
+                                            name="payment_bank"
+                                            value="{{ bank_name }}"
+                                            data-account-name="{{ account.account_name }}"
+                                            data-account-number="{{ account.account_number }}"
+                                        >
+                                        <span>{{ bank_name }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                            <div class="payment-account-box bank-account-preview" id="bankAccountPreview" hidden>
+                                <span>Account Details</span>
+                                <strong id="bankAccountName">J'Bistro Restaurant</strong>
+                                <small id="bankAccountNumber"></small>
+                            </div>
+                            <label for="bankReference">Bank Reference Number</label>
+                            <input
+                                type="text"
+                                id="bankReference"
+                                class="payment-reference-input"
+                                data-reference-input="Card"
+                                autocomplete="off"
+                                placeholder="Enter bank transaction reference number"
+                            >
+                        </div>
+
+                        <input type="hidden" name="payment_reference" id="paymentReferenceValue">
+
                         <div class="checkout-actions">
                             <a href="{{ url_for('cart') }}" class="btn-secondary">Back to Cart</a>
                             <button type="submit" class="btn-primary">Place Order</button>

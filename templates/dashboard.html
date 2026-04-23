@@ -30,10 +30,11 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>Order No.</th>
                             <th>Customer</th>
                             <th>Type</th>
-                            <th>Table</th>
                             <th>Items</th>
+                            <th>Payment</th>
                             <th>Total</th>
                             <th>Status</th>
                         </tr>
@@ -41,21 +42,13 @@
                     <tbody>
                         {% for order in orders %}
                             <tr>
+                                <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
                                 <td>{{ order["customer_name"] }}</td>
                                 <td>
                                     {% if order["order_type"] %}
                                         {{ order["order_type"] }}
-                                    {% elif order["table_number"] == "Take-out" %}
-                                        Take-out
                                     {% else %}
                                         Dine-in
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if order["table_number"] == "Take-out" %}
-                                        Pickup
-                                    {% else %}
-                                        {{ order["table_number"] or "N/A" }}
                                     {% endif %}
                                 </td>
                                 <td>
@@ -67,6 +60,15 @@
                                         </ul>
                                     {% else %}
                                         No items
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ order["payment_method"] or "Cash" }}
+                                    {% if order["payment_bank"] %}
+                                        <br><small>{{ order["payment_bank"] }}</small>
+                                    {% endif %}
+                                    {% if order["payment_reference"] %}
+                                        <br><small>Ref: {{ order["payment_reference"] }}</small>
                                     {% endif %}
                                 </td>
                                 <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>

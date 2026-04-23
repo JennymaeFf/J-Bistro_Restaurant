@@ -62,6 +62,21 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secr
 UPLOAD_DIR = CURRENT_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
+GCASH_PAYMENT_NUMBER = "0917 123 4567"
+BANK_PAYMENT_ACCOUNTS = {
+    "Landbank": {
+        "account_name": "J'Bistro Restaurant",
+        "account_number": "1234-5678-9012",
+    },
+    "BDO": {
+        "account_name": "J'Bistro Restaurant",
+        "account_number": "0088-1234-5678",
+    },
+    "BPI": {
+        "account_name": "J'Bistro Restaurant",
+        "account_number": "0921-4567-8901",
+    },
+}
 
 # SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
@@ -173,16 +188,42 @@ def normalize_receipt_items(raw_items: Any) -> list[dict[str, Any]]:
     return normalized_items
 
 
+def format_receipt_order_number(value: Any) -> str:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        match = re.search(r"\d+", str(value or ""))
+        if not match:
+            return "Order #---"
+        number = int(match.group(0))
+    if number <= 0:
+        return "Order #---"
+    return f"Order #{number:03d}"
+
+
+def receipt_order_number_label(data: dict[str, Any]) -> str:
+    if data.get("order_number_label"):
+        return str(data["order_number_label"])
+    if data.get("order_number"):
+        return format_receipt_order_number(data.get("order_number"))
+    table_label = str(data.get("table_number") or "")
+    if table_label.lower().startswith("order"):
+        return table_label
+    if data.get("id"):
+        return format_receipt_order_number(data.get("id"))
+    return "Order #---"
+
+
 def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer") -> dict[str, Any]:
     data = source if isinstance(source, dict) else {}
     customer_name = (data.get("customer_name") or fallback_customer_name or "Customer").strip()
     order_type = (data.get("order_type") or "Dine-in").strip()
     if order_type not in {"Dine-in", "Take-out"}:
         order_type = "Dine-in"
-    table_number = data.get("table_number")
-    if not table_number:
-        table_number = "Take-out" if order_type == "Take-out" else "N/A"
+    order_number_label = receipt_order_number_label(data)
     payment_method = (data.get("payment_method") or "Cash").strip() or "Cash"
+    payment_bank = (data.get("payment_bank") or "").strip()
+    payment_reference = (data.get("payment_reference") or "").strip()
     items = normalize_receipt_items(data.get("items"))
 
     total_amount = coerce_float(data.get("total_amount"), 0.0)
@@ -192,9 +233,12 @@ def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer")
     return {
         "id": data.get("id"),
         "customer_name": customer_name,
+        "order_number": data.get("order_number"),
+        "order_number_label": order_number_label,
         "order_type": order_type,
-        "table_number": table_number,
         "payment_method": payment_method,
+        "payment_bank": payment_bank,
+        "payment_reference": payment_reference,
         "items": items,
         "total_amount": max(0.0, total_amount),
         "status": data.get("status") or "Pending",
@@ -468,6 +512,8 @@ def order():
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
         order_type = request.form.get("order_type", "").strip()
         payment_method = request.form.get("payment_method", "").strip()
+        payment_bank = request.form.get("payment_bank", "").strip()
+        payment_reference = request.form.get("payment_reference", "").strip()
 
         app.logger.info(
             "Submitting order: order_type=%s payment_method=%s cart_items=%s",
@@ -482,6 +528,16 @@ def order():
         if payment_method not in {"Cash", "GCash", "Card"}:
             flash("Please choose a valid payment method.", "error")
             return redirect(url_for("order"))
+        if payment_method == "GCash" and not payment_reference:
+            flash("Please enter your GCash transaction reference number.", "error")
+            return redirect(url_for("order"))
+        if payment_method == "Card":
+            if payment_bank not in BANK_PAYMENT_ACCOUNTS:
+                flash("Please choose a bank for card or bank payment.", "error")
+                return redirect(url_for("order"))
+            if not payment_reference:
+                flash("Please enter your bank transaction reference number.", "error")
+                return redirect(url_for("order"))
         if not customer_name:
             flash("Please complete your profile name before placing an order.", "error")
             return redirect(url_for("profile"))
@@ -490,7 +546,15 @@ def order():
             return redirect(url_for("menu"))
 
         try:
-            success, message = create_order(customer_name, cart, cart_total(cart), payment_method, order_type)
+            success, message = create_order(
+                customer_name,
+                cart,
+                cart_total(cart),
+                payment_method,
+                order_type,
+                payment_bank,
+                payment_reference,
+            )
         except Exception:
             app.logger.exception("Unexpected error while placing an order.")
             flash("Something went wrong while placing your order. Please try again.", "error")
@@ -505,20 +569,22 @@ def order():
             if latest_order:
                 receipt_payload = build_receipt_payload(latest_order, customer_name)
             else:
-                service_label = "Take-out" if order_type == "Take-out" else "N/A"
-                if "Your table number is" in message:
+                order_number_label = "Order #---"
+                if "Your order number is" in message:
                     try:
-                        service_label = message.split("Your table number is ")[1].split(".")[0]
+                        order_number_label = message.split("Your order number is ")[1].split(".")[0]
                     except IndexError:
-                        service_label = "N/A"
+                        order_number_label = "Order #---"
                 receipt_payload = build_receipt_payload(
                     {
                         "customer_name": customer_name,
                         "order_type": order_type,
-                        "table_number": service_label,
+                        "order_number_label": order_number_label,
                         "items": [dict(item) for item in cart],
                         "total_amount": cart_total(cart),
                         "payment_method": payment_method,
+                        "payment_bank": payment_bank,
+                        "payment_reference": payment_reference,
                     },
                     customer_name,
                 )
@@ -528,7 +594,14 @@ def order():
             session.modified = True
             return redirect(url_for("receipt"))
 
-    return render_template("order.html", cart=cart, total_amount=cart_total(cart), user=user)
+    return render_template(
+        "order.html",
+        cart=cart,
+        total_amount=cart_total(cart),
+        user=user,
+        gcash_payment_number=GCASH_PAYMENT_NUMBER,
+        bank_payment_accounts=BANK_PAYMENT_ACCOUNTS,
+    )
 
 
 @app.route("/receipt")

@@ -13,8 +13,9 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Order ID</th>
+                    <th>Order No.</th>
                     <th>User</th>
+                    <th>Type</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Payment</th>
@@ -25,8 +26,9 @@
             <tbody>
                 {% for order in orders %}
                     <tr>
-                        <td>#{{ order["id"] }}</td>
+                        <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
                         <td>{{ order["customer_name"] }}</td>
+                        <td>{{ order["order_type"] or "Dine-in" }}</td>
                         <td>
                             {% if order["items"] %}
                                 {% for item in order["items"] %}
@@ -37,7 +39,15 @@
                             {% endif %}
                         </td>
                         <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
-                        <td>{{ order["payment_method"] or "N/A" }}</td>
+                        <td>
+                            {{ order["payment_method"] or "N/A" }}
+                            {% if order["payment_bank"] %}
+                                <div><small>{{ order["payment_bank"] }}</small></div>
+                            {% endif %}
+                            {% if order["payment_reference"] %}
+                                <div><small>Ref: {{ order["payment_reference"] }}</small></div>
+                            {% endif %}
+                        </td>
                         <td>{{ order["status"] }}</td>
                         <td>
                             <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-inline-form">
@@ -52,7 +62,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="7">No orders found.</td>
+                        <td colspan="8">No orders found.</td>
                     </tr>
                 {% endfor %}
             </tbody>

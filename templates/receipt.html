@@ -17,6 +17,10 @@
 
         <div class="receipt-meta">
             <div class="cash-info">
+                <span>Order Number</span>
+                <span>{{ receipt["order_number_label"] or "Order #---" }}</span>
+            </div>
+            <div class="cash-info">
                 <span>Customer</span>
                 <span>{{ receipt["customer_name"] or "Customer" }}</span>
             </div>
@@ -25,13 +29,20 @@
                 <span>{{ receipt["order_type"] or "Dine-in" }}</span>
             </div>
             <div class="cash-info">
-                <span>{% if receipt["order_type"] == "Take-out" %}Pickup{% else %}Table{% endif %}</span>
-                <span>{{ receipt["table_number"] or "N/A" }}</span>
-            </div>
-            <div class="cash-info">
                 <span>Payment</span>
-                <span>{{ receipt["payment_method"] or "Cash" }}</span>
+                <span>
+                    {{ receipt["payment_method"] or "Cash" }}
+                    {% if receipt["payment_bank"] %}
+                        - {{ receipt["payment_bank"] }}
+                    {% endif %}
+                </span>
             </div>
+            {% if receipt["payment_reference"] %}
+                <div class="cash-info">
+                    <span>Reference No.</span>
+                    <span>{{ receipt["payment_reference"] }}</span>
+                </div>
+            {% endif %}
         </div>
 
         <div class="dashed"></div>

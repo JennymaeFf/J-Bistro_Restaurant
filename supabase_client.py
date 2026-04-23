@@ -995,12 +995,57 @@ def fetch_orders() -> tuple[list[dict[str, Any]], str | None]:
         return [], f"Unable to read orders from Supabase. Status code: {response.status_code}."
 
     for order in orders:
-        if isinstance(order.get("items"), str):
-            try:
-                order["items"] = json.loads(order["items"])
-            except json.JSONDecodeError:
-                order["items"] = []
+        normalize_order_record(order)
     return orders, None
+
+
+def format_order_number(order_number: Any) -> str:
+    try:
+        number = int(order_number)
+    except (TypeError, ValueError):
+        return "Order #---"
+    if number <= 0:
+        return "Order #---"
+    return f"Order #{number:03d}"
+
+
+def extract_order_number(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    match = re.search(r"\d+", str(value))
+    if not match:
+        return None
+    try:
+        number = int(match.group(0))
+    except ValueError:
+        return None
+    return number if number > 0 else None
+
+
+def normalize_order_record(order: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(order.get("items"), str):
+        try:
+            order["items"] = json.loads(order["items"])
+        except json.JSONDecodeError:
+            order["items"] = []
+    elif not isinstance(order.get("items"), list):
+        order["items"] = []
+
+    order_number = extract_order_number(order.get("order_number"))
+    if order_number is None:
+        table_label = str(order.get("table_number") or "")
+        if table_label.lower().startswith("order"):
+            order_number = extract_order_number(table_label)
+    if order_number is None:
+        order_number = extract_order_number(order.get("id"))
+
+    order["order_number"] = order_number
+    order["order_number_label"] = format_order_number(order_number)
+    order.setdefault("payment_bank", "")
+    order.setdefault("payment_reference", "")
+    return order
 
 
 def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
@@ -1009,26 +1054,41 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
         return None, config_error
 
     supabase_url, _ = current_supabase_config()
-    params = {
-        "select": "id,customer_name,order_type,table_number,items,total_amount,payment_method,status,created_at",
-        "order": "created_at.desc,id.desc",
-        "limit": "1",
-    }
-    if customer_name:
-        params["customer_name"] = f"eq.{customer_name}"
+    select_variants = [
+        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_bank,payment_reference,status,created_at",
+        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_reference,status,created_at",
+        "id,customer_name,order_type,table_number,items,total_amount,payment_method,status,created_at",
+    ]
+    last_error = None
+    response = None
 
-    try:
-        response = requests.get(
-            f"{supabase_url}/rest/v1/orders",
-            headers=supabase_headers(),
-            params=params,
-            timeout=REQUEST_TIMEOUT,
-        )
-    except requests.RequestException:
-        return None, "Unable to load the latest order right now."
+    for select_clause in select_variants:
+        params = {
+            "select": select_clause,
+            "order": "created_at.desc,id.desc",
+            "limit": "1",
+        }
+        if customer_name:
+            params["customer_name"] = f"eq.{customer_name}"
 
-    if response.status_code >= 400:
-        return None, parse_response_error(response)
+        try:
+            response = requests.get(
+                f"{supabase_url}/rest/v1/orders",
+                headers=supabase_headers(),
+                params=params,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return None, "Unable to load the latest order right now."
+
+        if response.status_code < 400:
+            break
+
+        last_error = parse_response_error(response)
+        if not any(column in last_error.lower() for column in ("order_number", "payment_bank", "payment_reference")):
+            return None, last_error
+    else:
+        return None, last_error or "Unable to load the latest order right now."
 
     try:
         rows = response.json()
@@ -1038,12 +1098,7 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
     if not rows:
         return None, None
 
-    latest_order = rows[0]
-    if isinstance(latest_order.get("items"), str):
-        try:
-            latest_order["items"] = json.loads(latest_order["items"])
-        except json.JSONDecodeError:
-            latest_order["items"] = []
+    latest_order = normalize_order_record(rows[0])
     return latest_order, None
 
 
@@ -1383,24 +1438,20 @@ def admin_update_order_status(order_id: int, status: str) -> tuple[bool, str]:
     return update_order_status(order_id, status)
 
 
-def get_next_table_number() -> tuple[int, str | None]:
-    """Get the next table number based on existing orders."""
+def get_next_order_number() -> tuple[int, str | None]:
+    """Get the next visible order number based on existing orders."""
     orders, error = fetch_orders()
     if error:
-        return 1, None  # Default to 1 if we can't fetch orders
-    
-    # Find the highest table number
-    max_table = 0
+        return 0, error
+
+    max_order_number = 0
     for order in orders:
-        table_str = order.get("table_number", "")
-        if table_str and table_str.startswith("Table "):
-            try:
-                table_num = int(table_str.replace("Table ", ""))
-                max_table = max(max_table, table_num)
-            except ValueError:
-                continue
-    
-    return max_table + 1, None
+        for value in (order.get("order_number"), order.get("table_number"), order.get("id")):
+            number = extract_order_number(value)
+            if number is not None:
+                max_order_number = max(max_order_number, number)
+
+    return max_order_number + 1, None
 
 
 def create_order(
@@ -1409,6 +1460,8 @@ def create_order(
     total_amount: float,
     payment_method: str,
     order_type: str,
+    payment_bank: str = "",
+    payment_reference: str = "",
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
@@ -1417,24 +1470,35 @@ def create_order(
         return False, "Please choose dine-in or take-out."
     if payment_method not in {"Cash", "GCash", "Card"}:
         return False, "Please choose a valid payment method."
+    payment_bank = payment_bank.strip()
+    payment_reference = payment_reference.strip()
+    if payment_method == "GCash" and not payment_reference:
+        return False, "Please enter your GCash transaction reference number."
+    if payment_method == "Card":
+        if payment_bank not in {"Landbank", "BDO", "BPI"}:
+            return False, "Please choose a bank for card or bank payment."
+        if not payment_reference:
+            return False, "Please enter your bank transaction reference number."
     if not cart:
         return False, "Add menu items before placing an order."
 
-    if order_type == "Dine-in":
-        table_number, table_error = get_next_table_number()
-        if table_error:
-            return False, f"Unable to generate table number: {table_error}"
-        service_label = f"Table {table_number}"
-    else:
-        service_label = "Take-out"
+    order_number, order_number_error = get_next_order_number()
+    if order_number_error:
+        return False, f"Unable to generate order number: {order_number_error}"
+    order_number_label = format_order_number(order_number)
 
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
-        "table_number": service_label,
+        "order_number": order_number,
+        # Keep table_number as a legacy display field until all old deployments
+        # and database rows have moved fully to order_number.
+        "table_number": order_number_label,
         "items": cart,
         "total_amount": total_amount,
         "payment_method": payment_method,
+        "payment_bank": payment_bank or None,
+        "payment_reference": payment_reference or None,
         "order_type": order_type,
         "status": "Pending",
     }
@@ -1450,11 +1514,11 @@ def create_order(
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if is_schema_cache_column_error(error_message, "payment_method"):
-            return False, schema_cache_fix_message("orders.payment_method")
-        if is_schema_cache_column_error(error_message, "order_type"):
+        if is_schema_cache_column_error(error_message, "order_number") or "order_number" in error_message.lower():
             fallback_payload = dict(payload)
-            fallback_payload.pop("order_type", None)
+            fallback_payload.pop("order_number", None)
+            fallback_payload.pop("payment_bank", None)
+            fallback_payload.pop("payment_reference", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",
@@ -1468,14 +1532,52 @@ def create_order(
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
 
-            if order_type == "Dine-in":
-                return True, f"Order submitted successfully. Your table number is {service_label}."
-            return True, "Take-out order submitted successfully. Please wait while your food is being prepared."
+            return True, f"Order submitted successfully. Your order number is {order_number_label}."
+        if any(column in error_message.lower() for column in ("payment_bank", "payment_reference")):
+            fallback_payload = dict(payload)
+            fallback_payload.pop("payment_bank", None)
+            fallback_payload.pop("payment_reference", None)
+            try:
+                fallback_response = requests.post(
+                    f"{supabase_url}/rest/v1/orders",
+                    headers=supabase_headers("return=minimal"),
+                    json=fallback_payload,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to save the order right now."
+
+            if fallback_response.status_code >= 400:
+                return False, parse_response_error(fallback_response)
+
+            return True, (
+                f"Order submitted successfully. Your order number is {order_number_label}. "
+                "Payment reference could not be saved until the database schema is refreshed."
+            )
+        if is_schema_cache_column_error(error_message, "payment_method"):
+            return False, schema_cache_fix_message("orders.payment_method")
+        if is_schema_cache_column_error(error_message, "order_type"):
+            fallback_payload = dict(payload)
+            fallback_payload.pop("order_type", None)
+            fallback_payload.pop("payment_bank", None)
+            fallback_payload.pop("payment_reference", None)
+            try:
+                fallback_response = requests.post(
+                    f"{supabase_url}/rest/v1/orders",
+                    headers=supabase_headers("return=minimal"),
+                    json=fallback_payload,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to save the order right now."
+
+            if fallback_response.status_code >= 400:
+                return False, parse_response_error(fallback_response)
+
+            return True, f"Order submitted successfully. Your order number is {order_number_label}."
         return False, error_message
 
-    if order_type == "Dine-in":
-        return True, f"Order submitted successfully. Your table number is {service_label}."
-    return True, "Take-out order submitted successfully. Please wait while your food is being prepared."
+    return True, f"Order submitted successfully. Your order number is {order_number_label}."
 
 
 def update_order_status(order_id: int, status: str) -> tuple[bool, str]:

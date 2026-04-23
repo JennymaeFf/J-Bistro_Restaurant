@@ -42,6 +42,82 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 3000);
     }
 
+    const checkoutForm = document.querySelector(".checkout-form");
+    const paymentMethodInputs = document.querySelectorAll('input[name="payment_method"]');
+    const gcashPanel = document.getElementById("gcashPaymentPanel");
+    const bankPanel = document.getElementById("bankPaymentPanel");
+    const gcashReference = document.getElementById("gcashReference");
+    const bankReference = document.getElementById("bankReference");
+    const paymentReferenceValue = document.getElementById("paymentReferenceValue");
+    const bankRadios = document.querySelectorAll('input[name="payment_bank"]');
+    const bankAccountPreview = document.getElementById("bankAccountPreview");
+    const bankAccountName = document.getElementById("bankAccountName");
+    const bankAccountNumber = document.getElementById("bankAccountNumber");
+
+    function selectedPaymentMethod() {
+        const selected = document.querySelector('input[name="payment_method"]:checked');
+        return selected ? selected.value : "";
+    }
+
+    function updatePaymentDetails() {
+        const method = selectedPaymentMethod();
+        const isGcash = method === "GCash";
+        const isBank = method === "Card";
+
+        if (gcashPanel) gcashPanel.hidden = !isGcash;
+        if (bankPanel) bankPanel.hidden = !isBank;
+
+        if (gcashReference) {
+            gcashReference.required = isGcash;
+            if (!isGcash) gcashReference.value = "";
+        }
+        if (bankReference) {
+            bankReference.required = isBank;
+            if (!isBank) bankReference.value = "";
+        }
+
+        bankRadios.forEach(function (radio) {
+            radio.required = isBank;
+            radio.disabled = !isBank;
+            if (!isBank) radio.checked = false;
+        });
+
+        if (!isBank && bankAccountPreview) {
+            bankAccountPreview.hidden = true;
+        }
+
+        if (paymentReferenceValue) {
+            paymentReferenceValue.value = isGcash && gcashReference
+                ? gcashReference.value.trim()
+                : isBank && bankReference
+                    ? bankReference.value.trim()
+                    : "";
+        }
+    }
+
+    paymentMethodInputs.forEach(function (input) {
+        input.addEventListener("change", updatePaymentDetails);
+    });
+
+    [gcashReference, bankReference].forEach(function (input) {
+        if (!input) return;
+        input.addEventListener("input", updatePaymentDetails);
+    });
+
+    bankRadios.forEach(function (radio) {
+        radio.addEventListener("change", function () {
+            if (!bankAccountPreview || !bankAccountName || !bankAccountNumber) return;
+            bankAccountName.textContent = radio.dataset.accountName || "J'Bistro Restaurant";
+            bankAccountNumber.textContent = radio.dataset.accountNumber || "";
+            bankAccountPreview.hidden = false;
+        });
+    });
+
+    if (checkoutForm) {
+        checkoutForm.addEventListener("submit", updatePaymentDetails);
+        updatePaymentDetails();
+    }
+
     const passwordToggleButtons = document.querySelectorAll(".password-toggle");
 
     passwordToggleButtons.forEach(function (button) {
