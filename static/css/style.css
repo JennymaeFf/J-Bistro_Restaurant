@@ -3093,8 +3093,10 @@ td {
 
 .admin-layout {
     min-height: 100vh;
+    height: 100vh;
     display: grid;
     grid-template-columns: 270px minmax(0, 1fr);
+    overflow: hidden;
 }
 
 .admin-sidebar {
@@ -3107,8 +3109,13 @@ td {
     display: flex;
     flex-direction: column;
     gap: 22px;
-    position: relative;
-    overflow: hidden;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 270px;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
 }
 
 .admin-sidebar::before {
@@ -3226,9 +3233,13 @@ td {
 }
 
 .admin-main {
+    grid-column: 2;
     width: min(1180px, calc(100% - 40px));
     margin: 0 auto;
     padding: 32px 0;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
 }
 
 .admin-page-header {
@@ -4069,11 +4080,17 @@ td {
 @media (max-width: 1024px) {
     .admin-layout {
         grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
     }
 
     .admin-sidebar {
         position: sticky;
         top: 0;
+        inset: auto;
+        width: auto;
+        height: auto;
+        overflow: visible;
         z-index: 10;
         flex-direction: row;
         align-items: center;
@@ -4107,6 +4124,13 @@ td {
 
     .admin-settings-layout {
         grid-template-columns: 1fr;
+    }
+
+    .admin-main {
+        grid-column: 1;
+        min-height: auto;
+        max-height: none;
+        overflow: visible;
     }
 }
 
