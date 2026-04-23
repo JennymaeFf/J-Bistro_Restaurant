@@ -559,7 +559,21 @@ def receipt():
 def dashboard():
     if current_session_role() == "admin":
         return redirect(url_for("admin_dashboard"))
-    return redirect(url_for("home"))
+    try:
+        orders, message = fetch_orders()
+    except Exception:
+        app.logger.exception("Failed to load user dashboard orders.")
+        orders = []
+        message = "Unable to load your orders right now."
+
+    user_profile = current_user_profile()
+    customer_name = user_profile.get("full_name") or fallback_full_name(user_profile.get("email", ""))
+    user_orders = []
+    for order in orders:
+        if str(order.get("customer_name") or "").strip().lower() == customer_name.strip().lower():
+            user_orders.append(order)
+
+    return render_template("dashboard.html", orders=user_orders, info_message=message)
 
 
 @app.route("/dashboard/update/<int:order_id>", methods=["POST"])
