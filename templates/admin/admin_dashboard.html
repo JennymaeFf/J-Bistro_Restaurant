@@ -8,7 +8,7 @@
         <span class="admin-page-icon">D</span>
         <div>
             <h1>Dashboard</h1>
-            <p>Overview of orders, sales, users, inventory, and employees.</p>
+            <p>Overview of orders, sales, users, menu items, and employees.</p>
         </div>
         <img src="{{ current_user_image_url }}" alt="Admin profile picture" class="admin-dashboard-profile-image">
     </div>
@@ -46,14 +46,6 @@
         </div>
         <strong>{{ stats.total_menu_items }}</strong>
         <span class="admin-stat-note">Available dishes</span>
-    </article>
-    <article class="admin-stat-card users-card">
-        <div class="admin-stat-topline">
-            <span class="admin-stat-icon">I</span>
-            <p>Low Stock Items</p>
-        </div>
-        <strong>{{ stats.low_stock_items or 0 }}</strong>
-        <span class="admin-stat-note">Needs restock</span>
     </article>
     <article class="admin-stat-card orders-card">
         <div class="admin-stat-topline">

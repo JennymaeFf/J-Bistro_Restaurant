@@ -37,14 +37,6 @@
             <input type="number" step="0.01" min="0" name="price" placeholder="99.00" required>
         </label>
         <label>
-            Stock Quantity
-            <input type="number" min="0" name="stock_quantity" placeholder="25" required>
-        </label>
-        <label>
-            Low Stock Threshold
-            <input type="number" min="1" name="low_stock_threshold" value="5" required>
-        </label>
-        <label>
             Image filename
             <input type="text" name="image" placeholder="cheeseburger.png">
         </label>
@@ -90,13 +82,8 @@
                 <div class="admin-menu-meta">
                     <span>Category: {{ item.category }}</span>
                     <span>Image: {{ item.image or "plogo.png" }}</span>
-                    <span>Stock: {{ item.stock_quantity }}</span>
-                    <span>Low threshold: {{ item.low_stock_threshold }}</span>
                     <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
                         {% if item_available %}Available{% else %}Out of Stock{% endif %}
-                    </span>
-                    <span class="availability-pill {% if item.inventory_status == 'In Stock' %}available{% else %}unavailable{% endif %}">
-                        {{ item.inventory_status }}
                     </span>
                 </div>
 
@@ -114,14 +101,6 @@
                     <label>
                         Price
                         <input type="number" step="0.01" min="0" name="price" value="{{ item.price }}" required>
-                    </label>
-                    <label>
-                        Stock Quantity
-                        <input type="number" min="0" name="stock_quantity" value="{{ item.stock_quantity }}" required>
-                    </label>
-                    <label>
-                        Low Stock Threshold
-                        <input type="number" min="1" name="low_stock_threshold" value="{{ item.low_stock_threshold }}" required>
                     </label>
                     <label>
                         Image

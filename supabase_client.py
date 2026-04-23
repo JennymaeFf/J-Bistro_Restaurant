@@ -1021,7 +1021,7 @@ def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
         if stock_quantity <= low_stock_threshold
         else "In Stock"
     )
-    normalized["is_available"] = item.get("is_available") is not False and stock_quantity > 0
+    normalized["is_available"] = item.get("is_available") is not False
     normalized["image"] = item.get("image") or "plogo.png"
     return normalized
 
@@ -1262,18 +1262,6 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
             params={"select": "id"},
             timeout=REQUEST_TIMEOUT,
         )
-        menu_response = requests.get(
-            f"{supabase_url}/rest/v1/menu_items",
-            headers=supabase_headers(),
-            params={"select": "id,stock_quantity,low_stock_threshold"},
-            timeout=REQUEST_TIMEOUT,
-        )
-        employees_response = requests.get(
-            f"{supabase_url}/rest/v1/employees",
-            headers=supabase_headers(),
-            params={"select": "id"},
-            timeout=REQUEST_TIMEOUT,
-        )
     except requests.RequestException:
         return partial_stats, "Unable to load some dashboard data from Supabase right now."
 
@@ -1287,13 +1275,32 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
 
     partial_stats["total_users"] = len(users) if isinstance(users, list) else 0
 
-    if menu_response.status_code >= 400:
-        return partial_stats, parse_response_error(menu_response)
+    # Menu stats fallback across older schema states.
+    menu_items: list[dict[str, Any]] = []
+    menu_last_error = None
+    for select_clause in ("id,stock_quantity,low_stock_threshold", "id"):
+        try:
+            menu_response = requests.get(
+                f"{supabase_url}/rest/v1/menu_items",
+                headers=supabase_headers(),
+                params={"select": select_clause},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return partial_stats, "Unable to load some dashboard data from Supabase right now."
 
-    try:
-        menu_items = menu_response.json()
-    except ValueError:
-        return partial_stats, "Unable to read admin menu data from Supabase."
+        if menu_response.status_code < 400:
+            try:
+                parsed = menu_response.json()
+            except ValueError:
+                return partial_stats, "Unable to read admin menu data from Supabase."
+            menu_items = parsed if isinstance(parsed, list) else []
+            break
+
+        menu_last_error = parse_response_error(menu_response)
+        lowered = menu_last_error.lower()
+        if not any(column in lowered for column in ("stock_quantity", "low_stock_threshold")):
+            return partial_stats, menu_last_error
 
     partial_stats["total_menu_items"] = len(menu_items) if isinstance(menu_items, list) else 0
     if isinstance(menu_items, list):
@@ -1311,12 +1318,34 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
                 low_stock += 1
         partial_stats["low_stock_items"] = low_stock
 
+    # Employees may not exist yet on older deployments; keep dashboard working.
+    try:
+        employees_response = requests.get(
+            f"{supabase_url}/rest/v1/employees",
+            headers=supabase_headers(),
+            params={"select": "id"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return partial_stats, "Unable to load some dashboard data from Supabase right now."
+
     if employees_response.status_code < 400:
         try:
             employees = employees_response.json()
             partial_stats["total_employees"] = len(employees) if isinstance(employees, list) else 0
         except ValueError:
-            pass
+            partial_stats["total_employees"] = 0
+    else:
+        employees_error = parse_response_error(employees_response).lower()
+        if "employees" in employees_error and (
+            "does not exist" in employees_error
+            or "relation" in employees_error
+            or "could not find the table" in employees_error
+            or "schema cache" in employees_error
+        ):
+            partial_stats["total_employees"] = 0
+        else:
+            return partial_stats, parse_response_error(employees_response)
 
     return partial_stats, None
 
@@ -1388,8 +1417,6 @@ def create_admin_menu_item(
     category: str,
     price: float,
     image: str,
-    stock_quantity: int = 0,
-    low_stock_threshold: int = 5,
     is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
@@ -1397,17 +1424,13 @@ def create_admin_menu_item(
         return False, config_error
 
     supabase_url, _ = current_supabase_config()
-    safe_stock_quantity = max(0, int(stock_quantity))
-    safe_low_stock_threshold = max(1, int(low_stock_threshold))
     payload = {
         "name": name.strip(),
         "description": description.strip(),
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
-        "stock_quantity": safe_stock_quantity,
-        "low_stock_threshold": safe_low_stock_threshold,
-        "is_available": is_available and safe_stock_quantity > 0,
+        "is_available": is_available,
     }
     try:
         response = requests.post(
@@ -1431,8 +1454,6 @@ def update_admin_menu_item(
     category: str,
     price: float,
     image: str,
-    stock_quantity: int = 0,
-    low_stock_threshold: int = 5,
     is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
@@ -1440,17 +1461,13 @@ def update_admin_menu_item(
         return False, config_error
 
     supabase_url, _ = current_supabase_config()
-    safe_stock_quantity = max(0, int(stock_quantity))
-    safe_low_stock_threshold = max(1, int(low_stock_threshold))
     payload = {
         "name": name.strip(),
         "description": description.strip(),
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
-        "stock_quantity": safe_stock_quantity,
-        "low_stock_threshold": safe_low_stock_threshold,
-        "is_available": is_available and safe_stock_quantity > 0,
+        "is_available": is_available,
     }
     try:
         response = requests.patch(
@@ -1844,7 +1861,13 @@ def fetch_employees() -> tuple[list[dict[str, Any]], str | None]:
             break
 
         last_error = parse_response_error(response)
-        if "employees" in last_error.lower() and ("does not exist" in last_error.lower() or "relation" in last_error.lower()):
+        lowered = last_error.lower()
+        if "employees" in lowered and (
+            "does not exist" in lowered
+            or "relation" in lowered
+            or "could not find the table" in lowered
+            or "schema cache" in lowered
+        ):
             return [], (
                 "Employees table is missing. Run the latest supabase_schema.sql in Supabase SQL Editor, "
                 "then run NOTIFY pgrst, 'reload schema'."
@@ -2010,54 +2033,8 @@ def delete_employee(employee_id: str) -> tuple[bool, str]:
 
 
 def reduce_menu_stock_after_order(cart: list[dict[str, Any]]) -> None:
-    config_error = supabase_config_error()
-    if config_error:
-        return
-
-    supabase_url, _ = current_supabase_config()
-    for item in cart:
-        item_id = item.get("id")
-        try:
-            item_id_int = int(item_id)
-            quantity = max(1, int(item.get("quantity", 1)))
-        except (TypeError, ValueError):
-            continue
-        try:
-            fetch_response = requests.get(
-                f"{supabase_url}/rest/v1/menu_items",
-                headers=supabase_headers(),
-                params={"id": f"eq.{item_id_int}", "select": "stock_quantity", "limit": "1"},
-                timeout=REQUEST_TIMEOUT,
-            )
-        except requests.RequestException:
-            continue
-        if fetch_response.status_code >= 400:
-            continue
-        try:
-            rows = fetch_response.json()
-        except ValueError:
-            continue
-        if not rows:
-            continue
-        try:
-            current_stock = int(rows[0].get("stock_quantity") or 0)
-        except (TypeError, ValueError):
-            continue
-        new_stock = max(0, current_stock - quantity)
-        patch_payload = {
-            "stock_quantity": new_stock,
-            "is_available": new_stock > 0,
-        }
-        try:
-            requests.patch(
-                f"{supabase_url}/rest/v1/menu_items",
-                headers=supabase_headers("return=minimal"),
-                params={"id": f"eq.{item_id_int}"},
-                json=patch_payload,
-                timeout=REQUEST_TIMEOUT,
-            )
-        except requests.RequestException:
-            continue
+    # Inventory monitoring removed from active flow.
+    return
 
 
 def get_next_order_number() -> tuple[int, str | None]:
