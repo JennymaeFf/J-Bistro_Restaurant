@@ -9,106 +9,118 @@
 </section>
 
 <section class="admin-card">
-    <div class="admin-table-wrap">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Order No.</th>
-                    <th>User</th>
-                    <th>Booking</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Payment</th>
-                    <th>Rider</th>
-                    <th>Delivery</th>
-                    <th>Progress</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                    <tr>
-                        <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
-                        <td>{{ order["customer_name"] }}</td>
-                        <td>
-                            <strong>{{ order["delivery_option"] or "Delivery" }}</strong>
-                            {% if order["delivery_option"] == "Delivery" %}
-                                <div>{{ order["delivery_address"] or "Address unavailable" }}</div>
-                            {% endif %}
-                            {% if order["preferred_time"] %}
-                                <div><small>Preferred: {{ order["preferred_time"] }}</small></div>
-                            {% endif %}
-                            {% if order["delivery_notes"] %}
-                                <div><small>Notes: {{ order["delivery_notes"] }}</small></div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if order["items"] %}
+    <div class="admin-orders-grid">
+        {% for order in orders %}
+            <article class="admin-order-card">
+                <header class="admin-order-card-header">
+                    <div>
+                        <p class="admin-order-card-number">{{ order["order_number_label"] or "Order #" ~ order["id"] }}</p>
+                        <h3>{{ order["customer_name"] }}</h3>
+                    </div>
+                    <div class="admin-order-card-badges">
+                        <span class="status-badge">{{ order["status"] }}</span>
+                        <span class="status-badge status-payment">{{ order["payment_status"] or "Pending" }}</span>
+                        <span class="status-badge status-delivery">{{ order["delivery_status"] or "Waiting" }}</span>
+                    </div>
+                </header>
+
+                <div class="admin-order-card-body">
+                    <section class="admin-order-card-block">
+                        <h4>Booking</h4>
+                        <p><strong>{{ order["delivery_option"] or "Delivery" }}</strong></p>
+                        {% if order["delivery_option"] == "Delivery" %}
+                            <p>{{ order["delivery_address"] or "Address unavailable" }}</p>
+                        {% endif %}
+                        {% if order["preferred_time"] %}
+                            <p><small>Preferred: {{ order["preferred_time"] }}</small></p>
+                        {% endif %}
+                        {% if order["delivery_notes"] %}
+                            <p><small>Notes: {{ order["delivery_notes"] }}</small></p>
+                        {% endif %}
+                    </section>
+
+                    <section class="admin-order-card-block">
+                        <h4>Items</h4>
+                        {% if order["items"] %}
+                            <ul class="items-list">
                                 {% for item in order["items"] %}
-                                    <div>{{ item.get("display_name") or item.get("name") }} x{{ item.get("quantity", 1) }}</div>
+                                    <li>{{ item.get("display_name") or item.get("name") }} x{{ item.get("quantity", 1) }}</li>
                                 {% endfor %}
-                            {% else %}
-                                <div>No items</div>
-                            {% endif %}
-                        </td>
-                        <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
-                        <td>
-                            {{ order["payment_method"] or "N/A" }}
-                            <div><small>Status: {{ order["payment_status"] or "Pending" }}</small></div>
-                            {% if order["payment_bank"] %}
-                                <div><small>{{ order["payment_bank"] }}</small></div>
-                            {% endif %}
-                            {% if order["payment_reference"] %}
-                                <div><small>Ref: {{ order["payment_reference"] }}</small></div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div>{{ order["rider_name"] or "Not assigned" }}</div>
-                            {% if order["rider_phone"] %}
-                                <div><small>{{ order["rider_phone"] }}</small></div>
-                            {% endif %}
-                            {% if order["rider_status"] %}
-                                <div><small>Status: {{ order["rider_status"] }}</small></div>
-                            {% endif %}
-                        </td>
-                        <td>{{ order["delivery_status"] or "Waiting" }}</td>
-                        <td>{{ order["status"] }}</td>
-                        <td>
-                            <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-inline-form">
-                                <select name="status" required>
-                                    {% for value in order_status_options %}
-                                        <option value="{{ value }}" {% if order["status"] == value %}selected{% endif %}>{{ value }}</option>
-                                    {% endfor %}
-                                </select>
-                                <select name="payment_status" required>
-                                    {% for value in payment_status_options %}
-                                        <option value="{{ value }}" {% if (order["payment_status"] or "Pending") == value %}selected{% endif %}>Pay: {{ value }}</option>
-                                    {% endfor %}
-                                </select>
-                                <select name="delivery_status" required>
-                                    {% for value in delivery_status_options %}
-                                        <option value="{{ value }}" {% if (order["delivery_status"] or "Waiting") == value %}selected{% endif %}>Delivery: {{ value }}</option>
-                                    {% endfor %}
-                                </select>
-                                <select name="rider_id">
-                                    <option value="">No Rider</option>
-                                    {% for rider in riders %}
-                                        <option value="{{ rider['id'] }}" {% if (order["rider_id"] or "") == rider["id"] %}selected{% endif %}>
-                                            {{ rider["name"] }} ({{ rider["status"] }})
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <button type="submit" class="admin-btn">Save</button>
-                            </form>
-                        </td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="10">No orders found.</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            </ul>
+                        {% else %}
+                            <p>No items</p>
+                        {% endif %}
+                    </section>
+
+                    <section class="admin-order-card-block">
+                        <h4>Payment</h4>
+                        <p>{{ order["payment_method"] or "N/A" }}</p>
+                        {% if order["payment_bank"] %}
+                            <p><small>{{ order["payment_bank"] }}</small></p>
+                        {% endif %}
+                        {% if order["payment_reference"] %}
+                            <p><small>Ref: {{ order["payment_reference"] }}</small></p>
+                        {% endif %}
+                        <p class="admin-order-total">PHP {{ "%.2f"|format(order["total_amount"]|float) }}</p>
+                    </section>
+
+                    <section class="admin-order-card-block">
+                        <h4>Rider</h4>
+                        <p>{{ order["rider_name"] or "Not assigned" }}</p>
+                        {% if order["rider_phone"] %}
+                            <p><small>{{ order["rider_phone"] }}</small></p>
+                        {% endif %}
+                        {% if order["rider_status"] %}
+                            <p><small>Status: {{ order["rider_status"] }}</small></p>
+                        {% endif %}
+                    </section>
+                </div>
+
+                <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-order-actions-form">
+                    <label>
+                        Progress
+                        <select name="status" required>
+                            {% for value in order_status_options %}
+                                <option value="{{ value }}" {% if order["status"] == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        Payment Status
+                        <select name="payment_status" required>
+                            {% for value in payment_status_options %}
+                                <option value="{{ value }}" {% if (order["payment_status"] or "Pending") == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        Delivery Status
+                        <select name="delivery_status" required>
+                            {% for value in delivery_status_options %}
+                                <option value="{{ value }}" {% if (order["delivery_status"] or "Waiting") == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        Assign Rider
+                        <select name="rider_id">
+                            <option value="">No Rider</option>
+                            {% for rider in riders %}
+                                <option value="{{ rider['id'] }}" {% if (order["rider_id"] or "") == rider["id"] %}selected{% endif %}>
+                                    {{ rider["name"] }} ({{ rider["status"] }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button type="submit" class="admin-btn">Save</button>
+                </form>
+            </article>
+        {% else %}
+            <div class="admin-empty-card">
+                <h2>No orders found</h2>
+                <p>New orders will appear here once customers place them.</p>
+            </div>
+        {% endfor %}
     </div>
 </section>
 {% endblock %}

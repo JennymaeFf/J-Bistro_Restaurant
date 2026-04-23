@@ -4255,6 +4255,143 @@ td {
     flex-wrap: wrap;
 }
 
+.admin-orders-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.admin-order-card {
+    background: #fffdf9;
+    border: 1px solid rgba(229, 207, 183, 0.92);
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(58, 38, 25, 0.07);
+    padding: 16px;
+}
+
+.admin-order-card-header {
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding-bottom: 12px;
+}
+
+.admin-order-card-number {
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-order-card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.admin-order-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.admin-order-card-body {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 14px;
+}
+
+.admin-order-card-block {
+    background: rgba(255, 250, 244, 0.9);
+    border: 1px solid rgba(229, 207, 183, 0.9);
+    border-radius: 12px;
+    padding: 11px;
+}
+
+.admin-order-card-block h4 {
+    color: var(--primary-dark);
+    font-size: 0.84rem;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-order-card-block p {
+    margin: 0 0 6px;
+}
+
+.admin-order-card-block p:last-child {
+    margin-bottom: 0;
+}
+
+.admin-order-total {
+    color: var(--primary-dark);
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-top: 8px;
+}
+
+.admin-order-actions-form {
+    align-items: end;
+    border-top: 1px solid var(--border);
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-top: 14px;
+    padding-top: 12px;
+}
+
+.admin-order-actions-form label {
+    color: var(--muted);
+    display: grid;
+    font-size: 0.82rem;
+    font-weight: 700;
+    gap: 6px;
+}
+
+.admin-order-actions-form select {
+    width: 100%;
+}
+
+.admin-order-actions-form .admin-btn {
+    width: 100%;
+    min-height: 40px;
+}
+
+@media (max-width: 1280px) {
+    .admin-order-card-body {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-order-actions-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-order-card {
+        padding: 13px;
+    }
+
+    .admin-order-card-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-order-card-badges {
+        justify-content: flex-start;
+    }
+
+    .admin-order-card-body,
+    .admin-order-actions-form {
+        grid-template-columns: 1fr;
+    }
+}
+
 .admin-settings-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
