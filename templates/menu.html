@@ -35,7 +35,19 @@
                 <section class="menu-grid menu-grid-custom">
                     {% for item in menu_items %}
                         {% set item_available = item.get('is_available', true) %}
-                        <article class="menu-item-card {% if not item_available %}is-unavailable{% endif %}" onclick="openItemModal({{ item.id|tojson }}, {{ item.name|tojson }}, {{ item.description|tojson }}, {{ (item.price|float)|tojson }}, {{ item.category|tojson }}, {{ item.sizes|tojson if item.sizes else 'null' }}, {{ (item.image or 'plogo.png')|tojson }}, {{ item_available|tojson }})">
+                        <article
+                            class="menu-item-card {% if not item_available %}is-unavailable{% endif %}"
+                            role="button"
+                            tabindex="0"
+                            data-id="{{ item.id }}"
+                            data-name="{{ item.name }}"
+                            data-description="{{ item.description }}"
+                            data-price="{{ item.price|float }}"
+                            data-category="{{ item.category }}"
+                            data-sizes='{{ item.sizes|tojson|forceescape if item.sizes else "null" }}'
+                            data-image="{{ item.image or 'plogo.png' }}"
+                            data-available="{{ 'true' if item_available else 'false' }}"
+                        >
                             <div class="menu-image-wrap">
                                 <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
                                 <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
@@ -44,9 +56,9 @@
                             </div>
                             <div class="menu-item-content">
                                 <span class="category-label">
-                                    {% if item.category == 'main-course' %}Main Course
-                                    {% elif item.category == 'appetizers' %}Appetizers
-                                    {% elif item.category == 'beverages' %}Beverages
+                                    {% if item.category|lower in ['main-course', 'main course'] %}Main Course
+                                    {% elif item.category|lower in ['appetizers', 'appetizer'] %}Appetizers
+                                    {% elif item.category|lower in ['beverages', 'beverage'] %}Beverages
                                     {% else %}{{ item.category }}{% endif %}
                                 </span>
                                 <h2>{{ item.name }}</h2>
@@ -59,6 +71,10 @@
                                 </div>
                             </div>
                         </article>
+                    {% else %}
+                        <section class="notice-card">
+                            No menu items found in this category.
+                        </section>
                     {% endfor %}
                 </section>
             </main>

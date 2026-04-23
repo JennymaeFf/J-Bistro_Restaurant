@@ -1,6 +1,7 @@
 import os
 import sys
 import hmac
+import re
 from uuid import uuid4
 from functools import wraps
 from pathlib import Path
@@ -141,6 +142,16 @@ def coerce_bool(value: Any, default: bool = True) -> bool:
     if value is None:
         return default
     return str(value).strip().lower() in {"1", "true", "yes", "on", "available"}
+
+
+def normalize_category_slug(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", normalized)
+    return normalized.strip("-")
+
+
+def category_matches(item_category: Any, selected_category: str) -> bool:
+    return normalize_category_slug(item_category) == normalize_category_slug(selected_category)
 
 
 def normalize_receipt_items(raw_items: Any) -> list[dict[str, Any]]:
@@ -381,11 +392,11 @@ def best_sellers():
 
 @app.route("/menu")
 def menu():
-    category = request.args.get('category')
+    category = normalize_category_slug(request.args.get("category", ""))
     menu_items, message = fetch_menu_items()
     if category:
         # Filter items by category
-        menu_items = [item for item in menu_items if item.get('category', '').lower() == category.lower()]
+        menu_items = [item for item in menu_items if category_matches(item.get("category", ""), category)]
     return render_template("menu.html", menu_items=menu_items, info_message=message, selected_category=category)
 
 

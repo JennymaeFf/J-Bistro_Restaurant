@@ -56,6 +56,38 @@ document.addEventListener("DOMContentLoaded", function () {
             button.classList.toggle("is-visible", showPassword);
         });
     });
+
+    const menuCards = document.querySelectorAll(".menu-item-card[data-id]");
+
+    menuCards.forEach(function (card) {
+        function openCardItem() {
+            let sizes = null;
+            try {
+                sizes = card.dataset.sizes && card.dataset.sizes !== "null" ? JSON.parse(card.dataset.sizes) : null;
+            } catch (error) {
+                sizes = null;
+            }
+
+            openItemModal(
+                card.dataset.id,
+                card.dataset.name || "Menu Item",
+                card.dataset.description || "",
+                Number(card.dataset.price) || 0,
+                card.dataset.category || "",
+                sizes,
+                card.dataset.image || "plogo.png",
+                card.dataset.available !== "false"
+            );
+        }
+
+        card.addEventListener("click", openCardItem);
+        card.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openCardItem();
+            }
+        });
+    });
 });
 
 // Modal functionality for menu items
