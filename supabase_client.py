@@ -663,6 +663,36 @@ def update_user_profile(
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
+        lowered_error = error_message.lower()
+        # Graceful fallback for older schemas: still allow name updates even if
+        # delivery_address is missing from the current PostgREST schema cache.
+        if is_schema_cache_column_error(error_message, "delivery_address") or "delivery_address" in lowered_error:
+            try:
+                fallback_response = requests.patch(
+                    f"{supabase_url}/rest/v1/app_users",
+                    headers=supabase_headers("return=representation"),
+                    params={"id": f"eq.{user_id}"},
+                    json={"full_name": full_name},
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to update your profile right now.", None
+
+            if fallback_response.status_code >= 400:
+                fallback_error = parse_response_error(fallback_response)
+                if is_schema_cache_column_error(fallback_error, "full_name") or "full_name" in fallback_error.lower():
+                    return False, schema_cache_fix_message("app_users.full_name"), None
+                return False, fallback_error, None
+
+            fallback_rows = fallback_response.json()
+            profile = fallback_rows[0] if fallback_rows else {"id": user_id, "full_name": full_name}
+            profile.setdefault("delivery_address", "")
+            return True, (
+                "Profile name updated. Delivery address could not be saved yet because "
+                "the database schema has not refreshed."
+            ), profile
+        if is_schema_cache_column_error(error_message, "full_name") or "full_name" in lowered_error:
+            return False, schema_cache_fix_message("app_users.full_name"), None
         if is_schema_cache_column_error(error_message, "full_name", "delivery_address"):
             return False, schema_cache_fix_message("app_users.full_name", "app_users.delivery_address"), None
         return False, error_message, None
@@ -1082,10 +1112,10 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
 
     supabase_url, _ = current_supabase_config()
     select_variants = [
-        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_bank,payment_reference,delivery_address,delivery_notes,status,created_at",
-        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_reference,delivery_address,delivery_notes,status,created_at",
-        "id,customer_name,order_number,order_type,table_number,items,total_amount,payment_method,payment_reference,status,created_at",
-        "id,customer_name,order_type,table_number,items,total_amount,payment_method,status,created_at",
+        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_bank,payment_reference,delivery_address,delivery_notes,status,created_at",
+        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_reference,delivery_address,delivery_notes,status,created_at",
+        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_reference,status,created_at",
+        "id,customer_name,table_number,items,total_amount,payment_method,status,created_at",
     ]
     last_error = None
     response = None
@@ -1121,7 +1151,6 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
                 "payment_reference",
                 "delivery_address",
                 "delivery_notes",
-                "order_type",
             )
         ):
             return None, last_error
@@ -1540,7 +1569,6 @@ def create_order(
         "payment_method": payment_method,
         "payment_bank": payment_bank or None,
         "payment_reference": payment_reference or None,
-        "order_type": "Delivery",
         "delivery_address": delivery_address,
         "delivery_notes": delivery_notes or None,
         "status": "Pending",
@@ -1604,27 +1632,6 @@ def create_order(
             )
         if is_schema_cache_column_error(error_message, "payment_method"):
             return False, schema_cache_fix_message("orders.payment_method")
-        if is_schema_cache_column_error(error_message, "order_type"):
-            fallback_payload = dict(payload)
-            fallback_payload.pop("order_type", None)
-            fallback_payload.pop("payment_bank", None)
-            fallback_payload.pop("payment_reference", None)
-            fallback_payload.pop("delivery_address", None)
-            fallback_payload.pop("delivery_notes", None)
-            try:
-                fallback_response = requests.post(
-                    f"{supabase_url}/rest/v1/orders",
-                    headers=supabase_headers("return=minimal"),
-                    json=fallback_payload,
-                    timeout=REQUEST_TIMEOUT,
-                )
-            except requests.RequestException:
-                return False, "Unable to save the order right now."
-
-            if fallback_response.status_code >= 400:
-                return False, parse_response_error(fallback_response)
-
-            return True, f"Order submitted successfully. Your order number is {order_number_label}."
         return False, error_message
 
     return True, f"Order submitted successfully. Your order number is {order_number_label}."
