@@ -5,10 +5,10 @@
 {% block admin_content %}
 <section class="admin-page-header">
     <div class="admin-page-title">
-        <span class="admin-page-icon">▦</span>
+        <span class="admin-page-icon">D</span>
         <div>
             <h1>Dashboard</h1>
-            <p>Overview of orders, sales, users, and menu items.</p>
+            <p>Overview of orders, sales, users, inventory, and employees.</p>
         </div>
         <img src="{{ current_user_image_url }}" alt="Admin profile picture" class="admin-dashboard-profile-image">
     </div>
@@ -17,7 +17,7 @@
 <section class="admin-stats-grid">
     <article class="admin-stat-card orders-card">
         <div class="admin-stat-topline">
-            <span class="admin-stat-icon">▤</span>
+            <span class="admin-stat-icon">O</span>
             <p>Total Orders</p>
         </div>
         <strong>{{ stats.total_orders }}</strong>
@@ -25,7 +25,7 @@
     </article>
     <article class="admin-stat-card sales-card">
         <div class="admin-stat-topline">
-            <span class="admin-stat-icon">₱</span>
+            <span class="admin-stat-icon">P</span>
             <p>Total Sales</p>
         </div>
         <strong>PHP {{ "%.2f"|format(stats.total_sales|float) }}</strong>
@@ -33,7 +33,7 @@
     </article>
     <article class="admin-stat-card users-card">
         <div class="admin-stat-topline">
-            <span class="admin-stat-icon">◉</span>
+            <span class="admin-stat-icon">U</span>
             <p>Total Users</p>
         </div>
         <strong>{{ stats.total_users }}</strong>
@@ -41,11 +41,27 @@
     </article>
     <article class="admin-stat-card menu-card-admin">
         <div class="admin-stat-topline">
-            <span class="admin-stat-icon">☰</span>
+            <span class="admin-stat-icon">M</span>
             <p>Total Menu Items</p>
         </div>
         <strong>{{ stats.total_menu_items }}</strong>
         <span class="admin-stat-note">Available dishes</span>
+    </article>
+    <article class="admin-stat-card users-card">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">I</span>
+            <p>Low Stock Items</p>
+        </div>
+        <strong>{{ stats.low_stock_items or 0 }}</strong>
+        <span class="admin-stat-note">Needs restock</span>
+    </article>
+    <article class="admin-stat-card orders-card">
+        <div class="admin-stat-topline">
+            <span class="admin-stat-icon">E</span>
+            <p>Total Employees</p>
+        </div>
+        <strong>{{ stats.total_employees or 0 }}</strong>
+        <span class="admin-stat-note">Team records</span>
     </article>
 </section>
 {% endblock %}

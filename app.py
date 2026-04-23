@@ -23,17 +23,21 @@ load_env_file()
 
 from supabase_client import (
     authenticate_user,
+    create_employee,
     create_admin_menu_item,
     create_rider,
     current_supabase_config,
     current_supabase_service_config,
     create_order,
+    delete_employee,
     delete_admin_menu_item,
     delete_admin_user,
     delete_rider,
     detect_key_type,
     delete_order,
     fetch_admin_dashboard_stats,
+    fetch_employees,
+    fetch_inventory_items,
     fetch_admin_menu_items,
     fetch_admin_users,
     fetch_menu_items,
@@ -43,7 +47,9 @@ from supabase_client import (
     fetch_user_profile,
     register_user,
     send_password_reset,
+    update_inventory_item,
     update_order_tracking,
+    update_employee,
     update_rider,
     update_admin_account_profile,
     update_admin_password,
@@ -85,6 +91,8 @@ ORDER_STATUS_OPTIONS = ("Pending", "Preparing", "Completed")
 PAYMENT_STATUS_OPTIONS = ("Pending", "Paid", "COD")
 DELIVERY_STATUS_OPTIONS = ("Waiting", "Assigned", "On the way", "Delivered")
 DELIVERY_OPTION_VALUES = ("Pickup", "Delivery")
+EMPLOYEE_ATTENDANCE_OPTIONS = ("On Duty", "Off Duty", "Absent")
+EMPLOYEE_STATUS_OPTIONS = ("Active", "Inactive")
 
 # SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
@@ -510,6 +518,14 @@ def add_to_cart(item_id: int):
     item_key = f"{item_id}_{size}" if size else str(item_id)
     
     existing = next((item for item in cart if item.get("item_key") == item_key), None)
+    available_stock = coerce_int(selected_item.get("stock_quantity"), 0)
+    current_quantity_in_cart = coerce_int(existing.get("quantity"), 0) if existing else 0
+    if available_stock > 0 and current_quantity_in_cart + quantity > available_stock:
+        flash(
+            f"Only {available_stock} stock available for {selected_item.get('name', 'this item')}.",
+            "warning",
+        )
+        return redirect(url_for("menu"))
     if existing:
         existing["quantity"] += quantity
         item_name = existing.get("display_name", selected_item["name"])
@@ -851,6 +867,95 @@ def admin_riders():
     )
 
 
+@app.route("/admin/inventory", methods=["GET", "POST"])
+@admin_required
+def admin_inventory():
+    if request.method == "POST":
+        item_id = coerce_int(request.form.get("item_id"), 0)
+        stock_quantity = coerce_int(request.form.get("stock_quantity"), 0)
+        low_stock_threshold = coerce_int(request.form.get("low_stock_threshold"), 5)
+        success, message = update_inventory_item(item_id, stock_quantity, low_stock_threshold)
+        flash(message, "success" if success else "error")
+        return redirect(url_for("admin_inventory"))
+
+    inventory_items, info_message = fetch_inventory_items()
+    return render_template(
+        "admin/inventory.html",
+        inventory_items=inventory_items,
+        info_message=info_message,
+        admin_section="inventory",
+    )
+
+
+@app.route("/admin/employees", methods=["GET", "POST"])
+@admin_required
+def admin_employees():
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        employee_id = request.form.get("employee_id", "").strip()
+        name = request.form.get("name", "").strip()
+        position = request.form.get("position", "").strip()
+        contact_number = request.form.get("contact_number", "").strip()
+        shift_schedule = request.form.get("shift_schedule", "").strip()
+        attendance_status = request.form.get("attendance_status", "Off Duty").strip()
+        employment_status = request.form.get("employment_status", "Active").strip()
+        notes = request.form.get("notes", "").strip()
+        task_assignment = request.form.get("task_assignment", "").strip()
+        time_in = request.form.get("time_in", "").strip()
+        time_out = request.form.get("time_out", "").strip()
+
+        if action == "create":
+            success, message = create_employee(
+                name,
+                position,
+                contact_number,
+                shift_schedule,
+                attendance_status,
+                employment_status,
+                notes,
+                task_assignment,
+                time_in,
+                time_out,
+            )
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_employees"))
+
+        if action == "update":
+            success, message = update_employee(
+                employee_id,
+                name,
+                position,
+                contact_number,
+                shift_schedule,
+                attendance_status,
+                employment_status,
+                notes,
+                task_assignment,
+                time_in,
+                time_out,
+            )
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_employees"))
+
+        if action == "delete":
+            success, message = delete_employee(employee_id)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_employees"))
+
+        flash("Unknown employee action.", "error")
+        return redirect(url_for("admin_employees"))
+
+    employees, info_message = fetch_employees()
+    return render_template(
+        "admin/employees.html",
+        employees=employees,
+        attendance_status_options=EMPLOYEE_ATTENDANCE_OPTIONS,
+        employee_status_options=EMPLOYEE_STATUS_OPTIONS,
+        info_message=info_message,
+        admin_section="employees",
+    )
+
+
 @app.route("/admin/menu", methods=["GET", "POST"])
 @admin_required
 def admin_menu():
@@ -862,11 +967,22 @@ def admin_menu():
             category = request.form.get("category", "")
             image = request.form.get("image", "")
             price = coerce_float(request.form.get("price"), 0.0)
+            stock_quantity = coerce_int(request.form.get("stock_quantity"), 0)
+            low_stock_threshold = coerce_int(request.form.get("low_stock_threshold"), 5)
             is_available = coerce_bool(request.form.get("is_available"), True)
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
-            success, message = create_admin_menu_item(name, description, category, price, image, is_available)
+            success, message = create_admin_menu_item(
+                name,
+                description,
+                category,
+                price,
+                image,
+                stock_quantity,
+                low_stock_threshold,
+                is_available,
+            )
             flash(message, "success" if success else "error")
             return redirect(url_for("admin_menu"))
 
@@ -877,6 +993,8 @@ def admin_menu():
             category = request.form.get("category", "")
             image = request.form.get("image", "")
             price = coerce_float(request.form.get("price"), 0.0)
+            stock_quantity = coerce_int(request.form.get("stock_quantity"), 0)
+            low_stock_threshold = coerce_int(request.form.get("low_stock_threshold"), 5)
             is_available = coerce_bool(request.form.get("is_available"), True)
             if item_id <= 0:
                 flash("Invalid menu item id.", "error")
@@ -884,7 +1002,17 @@ def admin_menu():
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
-            success, message = update_admin_menu_item(item_id, name, description, category, price, image, is_available)
+            success, message = update_admin_menu_item(
+                item_id,
+                name,
+                description,
+                category,
+                price,
+                image,
+                stock_quantity,
+                low_stock_threshold,
+                is_available,
+            )
             flash(message, "success" if success else "error")
             return redirect(url_for("admin_menu"))
 

@@ -24,6 +24,32 @@
     </div>
 </section>
 
+<section class="home-carousel-section">
+    <div class="container">
+        <div class="section-header">
+            <p class="eyebrow">Spotlight</p>
+            <h2>Fresh Picks Today</h2>
+            <p>See what is trending from our kitchen in one quick preview.</p>
+        </div>
+        <div class="home-carousel" aria-label="J'Bistro featured meals">
+            <div class="home-carousel-track">
+                <img class="home-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
+                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
+                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/calamares.png') }}" alt="Calamares">
+                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/french_fries.png') }}" alt="French fries">
+            </div>
+            <div class="home-carousel-dots" aria-hidden="true">
+                <span class="active"></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section id="best-sellers" class="best-sellers-section">
     <div class="container">
         <div class="section-header">

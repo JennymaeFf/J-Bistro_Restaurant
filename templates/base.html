@@ -81,13 +81,17 @@
                 </div>
 
                 <div class="footer-section">
-                    <h4>Explore</h4>
-                    <nav class="footer-nav">
-                        <a href="{{ url_for('home') }}">Home</a>
-                        <a href="{{ url_for('menu') }}">Our Menu</a>
-                        <a href="{{ url_for('about') }}">About</a>
-                        <a href="{{ url_for('dashboard') }}">My Orders</a>
-                    </nav>
+                    <h4>Location</h4>
+                    <div class="footer-map-wrap">
+                        <iframe
+                            class="footer-map"
+                            title="J'Bistro Cebu City Location"
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                            src="https://maps.google.com/maps?q=Cebu%20City&t=&z=13&ie=UTF8&iwloc=&output=embed">
+                        </iframe>
+                    </div>
+                    <p class="footer-note">Serving customers around Cebu City.</p>
                 </div>
 
                 <div class="footer-section">

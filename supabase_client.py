@@ -150,6 +150,8 @@ VALID_PAYMENT_STATUSES = {"Pending", "Paid", "COD"}
 VALID_DELIVERY_STATUSES = {"Waiting", "Assigned", "On the way", "Delivered"}
 VALID_DELIVERY_OPTIONS = {"Pickup", "Delivery"}
 VALID_RIDER_STATUSES = {"Available", "Busy"}
+VALID_EMPLOYEE_ATTENDANCE = {"On Duty", "Off Duty", "Absent"}
+VALID_EMPLOYEE_STATUS = {"Active", "Inactive"}
 
 
 def valid_email_message(email: str) -> str | None:
@@ -996,7 +998,30 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
 
 def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(item)
-    normalized["is_available"] = item.get("is_available") is not False
+    raw_stock = item.get("stock_quantity")
+    try:
+        if raw_stock is None:
+            stock_quantity = 50 if item.get("is_available") is not False else 0
+        else:
+            stock_quantity = int(raw_stock)
+    except (TypeError, ValueError):
+        stock_quantity = 0
+    try:
+        low_stock_threshold = int(item.get("low_stock_threshold") or 5)
+    except (TypeError, ValueError):
+        low_stock_threshold = 5
+    stock_quantity = max(0, stock_quantity)
+    low_stock_threshold = max(1, low_stock_threshold)
+    normalized["stock_quantity"] = stock_quantity
+    normalized["low_stock_threshold"] = low_stock_threshold
+    normalized["inventory_status"] = (
+        "Out of Stock"
+        if stock_quantity <= 0
+        else "Low Stock"
+        if stock_quantity <= low_stock_threshold
+        else "In Stock"
+    )
+    normalized["is_available"] = item.get("is_available") is not False and stock_quantity > 0
     normalized["image"] = item.get("image") or "plogo.png"
     return normalized
 
@@ -1202,6 +1227,8 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
         "total_sales": 0.0,
         "total_users": 0,
         "total_menu_items": 0,
+        "low_stock_items": 0,
+        "total_employees": 0,
     }
     config_error = supabase_config_error()
     if config_error:
@@ -1223,6 +1250,8 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
         "total_sales": total_sales,
         "total_users": 0,
         "total_menu_items": 0,
+        "low_stock_items": 0,
+        "total_employees": 0,
     }
 
     supabase_url, _ = current_supabase_config()
@@ -1235,6 +1264,12 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
         )
         menu_response = requests.get(
             f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers(),
+            params={"select": "id,stock_quantity,low_stock_threshold"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        employees_response = requests.get(
+            f"{supabase_url}/rest/v1/employees",
             headers=supabase_headers(),
             params={"select": "id"},
             timeout=REQUEST_TIMEOUT,
@@ -1261,6 +1296,28 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
         return partial_stats, "Unable to read admin menu data from Supabase."
 
     partial_stats["total_menu_items"] = len(menu_items) if isinstance(menu_items, list) else 0
+    if isinstance(menu_items, list):
+        low_stock = 0
+        for item in menu_items:
+            try:
+                stock_quantity = int(item.get("stock_quantity") or 0)
+            except (TypeError, ValueError):
+                stock_quantity = 0
+            try:
+                threshold = int(item.get("low_stock_threshold") or 5)
+            except (TypeError, ValueError):
+                threshold = 5
+            if stock_quantity <= max(1, threshold):
+                low_stock += 1
+        partial_stats["low_stock_items"] = low_stock
+
+    if employees_response.status_code < 400:
+        try:
+            employees = employees_response.json()
+            partial_stats["total_employees"] = len(employees) if isinstance(employees, list) else 0
+        except ValueError:
+            pass
+
     return partial_stats, None
 
 
@@ -1290,12 +1347,49 @@ def fetch_admin_menu_items() -> tuple[list[dict[str, Any]], str | None]:
     return [normalize_menu_item(item) for item in rows] if isinstance(rows, list) else [], None
 
 
+def fetch_inventory_items() -> tuple[list[dict[str, Any]], str | None]:
+    return fetch_admin_menu_items()
+
+
+def update_inventory_item(item_id: int, stock_quantity: int, low_stock_threshold: int) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    if item_id <= 0:
+        return False, "Invalid menu item id."
+    stock_quantity = max(0, int(stock_quantity))
+    low_stock_threshold = max(1, int(low_stock_threshold))
+
+    supabase_url, _ = current_supabase_config()
+    payload = {
+        "stock_quantity": stock_quantity,
+        "low_stock_threshold": low_stock_threshold,
+        "is_available": stock_quantity > 0,
+    }
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{item_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update inventory right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Inventory updated successfully."
+
+
 def create_admin_menu_item(
     name: str,
     description: str,
     category: str,
     price: float,
     image: str,
+    stock_quantity: int = 0,
+    low_stock_threshold: int = 5,
     is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
@@ -1303,13 +1397,17 @@ def create_admin_menu_item(
         return False, config_error
 
     supabase_url, _ = current_supabase_config()
+    safe_stock_quantity = max(0, int(stock_quantity))
+    safe_low_stock_threshold = max(1, int(low_stock_threshold))
     payload = {
         "name": name.strip(),
         "description": description.strip(),
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
-        "is_available": is_available,
+        "stock_quantity": safe_stock_quantity,
+        "low_stock_threshold": safe_low_stock_threshold,
+        "is_available": is_available and safe_stock_quantity > 0,
     }
     try:
         response = requests.post(
@@ -1333,6 +1431,8 @@ def update_admin_menu_item(
     category: str,
     price: float,
     image: str,
+    stock_quantity: int = 0,
+    low_stock_threshold: int = 5,
     is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
@@ -1340,13 +1440,17 @@ def update_admin_menu_item(
         return False, config_error
 
     supabase_url, _ = current_supabase_config()
+    safe_stock_quantity = max(0, int(stock_quantity))
+    safe_low_stock_threshold = max(1, int(low_stock_threshold))
     payload = {
         "name": name.strip(),
         "description": description.strip(),
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
-        "is_available": is_available,
+        "stock_quantity": safe_stock_quantity,
+        "low_stock_threshold": safe_low_stock_threshold,
+        "is_available": is_available and safe_stock_quantity > 0,
     }
     try:
         response = requests.patch(
@@ -1681,6 +1785,281 @@ def delete_rider(rider_id: str) -> tuple[bool, str]:
     return True, "Rider deleted successfully."
 
 
+def normalize_employee_record(employee: dict[str, Any]) -> dict[str, Any]:
+    record = dict(employee)
+    record["id"] = str(record.get("id") or "").strip()
+    record["name"] = str(record.get("name") or "Employee").strip() or "Employee"
+    record["position"] = str(record.get("position") or "Staff").strip() or "Staff"
+    record["contact_number"] = str(record.get("contact_number") or "").strip()
+    record["shift_schedule"] = str(record.get("shift_schedule") or "").strip()
+    attendance_status = str(record.get("attendance_status") or "Off Duty").strip().title()
+    record["attendance_status"] = attendance_status if attendance_status in VALID_EMPLOYEE_ATTENDANCE else "Off Duty"
+    employment_status = str(record.get("employment_status") or "Active").strip().title()
+    record["employment_status"] = employment_status if employment_status in VALID_EMPLOYEE_STATUS else "Active"
+    record["notes"] = str(record.get("notes") or "").strip()
+    record["task_assignment"] = str(record.get("task_assignment") or "").strip()
+    record["time_in"] = str(record.get("time_in") or "").strip()
+    record["time_out"] = str(record.get("time_out") or "").strip()
+    return record
+
+
+def fetch_employees() -> tuple[list[dict[str, Any]], str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return [], config_error
+
+    supabase_url, _ = current_supabase_config()
+    select_variants = [
+        (
+            "id,name,position,contact_number,shift_schedule,attendance_status,employment_status,notes,task_assignment,time_in,time_out,created_at",
+            None,
+        ),
+        ("id,name,position,contact_number,shift_schedule,attendance_status,employment_status,notes,task_assignment,time_in,time_out", "created_at"),
+        ("id,name,position,contact_number,shift_schedule,attendance_status,employment_status,notes,task_assignment", "time_in,time_out,created_at"),
+        ("id,name,position,contact_number,shift_schedule,attendance_status,employment_status,notes", "task_assignment,time_in,time_out,created_at"),
+        ("id,name,position,contact_number,shift_schedule,attendance_status,employment_status", "notes,task_assignment,time_in,time_out,created_at"),
+        ("id,name,position,contact_number,shift_schedule,attendance_status", "employment_status,notes,task_assignment,time_in,time_out,created_at"),
+        ("id,name,position", "contact_number,shift_schedule,attendance_status,employment_status,notes,task_assignment,time_in,time_out,created_at"),
+    ]
+    last_error = None
+    missing_note = None
+
+    for select_clause, missing in select_variants:
+        try:
+            response = requests.get(
+                f"{supabase_url}/rest/v1/employees",
+                headers=supabase_headers(),
+                params={"select": select_clause, "order": "name.asc"},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return [], "Unable to load employees right now."
+
+        if response.status_code < 400:
+            try:
+                rows = response.json()
+            except ValueError:
+                return [], "Unable to read employees right now."
+            missing_note = missing
+            break
+
+        last_error = parse_response_error(response)
+        if "employees" in last_error.lower() and ("does not exist" in last_error.lower() or "relation" in last_error.lower()):
+            return [], (
+                "Employees table is missing. Run the latest supabase_schema.sql in Supabase SQL Editor, "
+                "then run NOTIFY pgrst, 'reload schema'."
+            )
+        if not any(column in last_error.lower() for column in ("name", "position", "attendance_status", "employment_status")):
+            return [], last_error
+    else:
+        return [], last_error or "Unable to load employees right now."
+
+    if not isinstance(rows, list):
+        return [], "Unable to read employees right now."
+
+    normalized_rows = [normalize_employee_record(row) for row in rows]
+    if missing_note:
+        return normalized_rows, (
+            f"Loaded employees, but employees is missing or has not refreshed: {missing_note}. "
+            "Run the latest supabase_schema.sql in Supabase SQL Editor, then run NOTIFY pgrst, 'reload schema'."
+        )
+    return normalized_rows, None
+
+
+def create_employee(
+    name: str,
+    position: str,
+    contact_number: str = "",
+    shift_schedule: str = "",
+    attendance_status: str = "Off Duty",
+    employment_status: str = "Active",
+    notes: str = "",
+    task_assignment: str = "",
+    time_in: str = "",
+    time_out: str = "",
+) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    name = name.strip()
+    position = position.strip()
+    attendance_status = attendance_status.strip().title()
+    employment_status = employment_status.strip().title()
+    if not name:
+        return False, "Employee name is required."
+    if not position:
+        return False, "Position is required."
+    if attendance_status not in VALID_EMPLOYEE_ATTENDANCE:
+        attendance_status = "Off Duty"
+    if employment_status not in VALID_EMPLOYEE_STATUS:
+        employment_status = "Active"
+
+    payload = {
+        "name": name,
+        "position": position,
+        "contact_number": contact_number.strip() or None,
+        "shift_schedule": shift_schedule.strip() or None,
+        "attendance_status": attendance_status,
+        "employment_status": employment_status,
+        "notes": notes.strip() or None,
+        "task_assignment": task_assignment.strip() or None,
+        "time_in": time_in.strip() or None,
+        "time_out": time_out.strip() or None,
+    }
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/rest/v1/employees",
+            headers=supabase_headers("return=minimal"),
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to create employee right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Employee added successfully."
+
+
+def update_employee(
+    employee_id: str,
+    name: str,
+    position: str,
+    contact_number: str = "",
+    shift_schedule: str = "",
+    attendance_status: str = "Off Duty",
+    employment_status: str = "Active",
+    notes: str = "",
+    task_assignment: str = "",
+    time_in: str = "",
+    time_out: str = "",
+) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    employee_id = employee_id.strip()
+    name = name.strip()
+    position = position.strip()
+    attendance_status = attendance_status.strip().title()
+    employment_status = employment_status.strip().title()
+    if not employee_id:
+        return False, "Employee id is required."
+    if not name:
+        return False, "Employee name is required."
+    if not position:
+        return False, "Position is required."
+    if attendance_status not in VALID_EMPLOYEE_ATTENDANCE:
+        return False, "Please choose a valid attendance status."
+    if employment_status not in VALID_EMPLOYEE_STATUS:
+        return False, "Please choose a valid employee status."
+
+    payload = {
+        "name": name,
+        "position": position,
+        "contact_number": contact_number.strip() or None,
+        "shift_schedule": shift_schedule.strip() or None,
+        "attendance_status": attendance_status,
+        "employment_status": employment_status,
+        "notes": notes.strip() or None,
+        "task_assignment": task_assignment.strip() or None,
+        "time_in": time_in.strip() or None,
+        "time_out": time_out.strip() or None,
+    }
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/employees",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{employee_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update employee right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Employee updated successfully."
+
+
+def delete_employee(employee_id: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    employee_id = employee_id.strip()
+    if not employee_id:
+        return False, "Employee id is required."
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.delete(
+            f"{supabase_url}/rest/v1/employees",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{employee_id}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to delete employee right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Employee deleted successfully."
+
+
+def reduce_menu_stock_after_order(cart: list[dict[str, Any]]) -> None:
+    config_error = supabase_config_error()
+    if config_error:
+        return
+
+    supabase_url, _ = current_supabase_config()
+    for item in cart:
+        item_id = item.get("id")
+        try:
+            item_id_int = int(item_id)
+            quantity = max(1, int(item.get("quantity", 1)))
+        except (TypeError, ValueError):
+            continue
+        try:
+            fetch_response = requests.get(
+                f"{supabase_url}/rest/v1/menu_items",
+                headers=supabase_headers(),
+                params={"id": f"eq.{item_id_int}", "select": "stock_quantity", "limit": "1"},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            continue
+        if fetch_response.status_code >= 400:
+            continue
+        try:
+            rows = fetch_response.json()
+        except ValueError:
+            continue
+        if not rows:
+            continue
+        try:
+            current_stock = int(rows[0].get("stock_quantity") or 0)
+        except (TypeError, ValueError):
+            continue
+        new_stock = max(0, current_stock - quantity)
+        patch_payload = {
+            "stock_quantity": new_stock,
+            "is_available": new_stock > 0,
+        }
+        try:
+            requests.patch(
+                f"{supabase_url}/rest/v1/menu_items",
+                headers=supabase_headers("return=minimal"),
+                params={"id": f"eq.{item_id_int}"},
+                json=patch_payload,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            continue
+
+
 def get_next_order_number() -> tuple[int, str | None]:
     """Get the next visible order number based on existing orders."""
     orders, error = fetch_orders()
@@ -1789,7 +2168,7 @@ def create_order(
 
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
-
+            reduce_menu_stock_after_order(cart)
             return True, f"Order submitted successfully. Your order number is {order_number_label}."
         if any(
             column in error_message.lower()
@@ -1827,7 +2206,7 @@ def create_order(
 
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
-
+            reduce_menu_stock_after_order(cart)
             return True, (
                 f"Order submitted successfully. Your order number is {order_number_label}. "
                 "Some tracking fields could not be saved until the database schema is refreshed."
@@ -1836,6 +2215,7 @@ def create_order(
             return False, schema_cache_fix_message("orders.payment_method")
         return False, error_message
 
+    reduce_menu_stock_after_order(cart)
     return True, f"Order submitted successfully. Your order number is {order_number_label}."
 
 

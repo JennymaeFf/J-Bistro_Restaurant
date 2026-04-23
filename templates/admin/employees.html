@@ -1,0 +1,143 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Employee Monitoring | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <div class="admin-page-title">
+        <span class="admin-page-icon">E</span>
+        <div>
+            <h1>Employee Monitoring</h1>
+            <p>Manage staff records, shifts, attendance, and simple performance notes.</p>
+        </div>
+    </div>
+</section>
+
+<section class="admin-card admin-form-card" style="margin-bottom: 16px;">
+    <div class="admin-section-title">
+        <span class="admin-section-icon">+</span>
+        <div>
+            <h2>Add Employee</h2>
+            <p>Create a practical staff record for capstone monitoring.</p>
+        </div>
+    </div>
+
+    <form action="{{ url_for('admin_employees') }}" method="post" class="admin-form-grid">
+        <input type="hidden" name="action" value="create">
+        <input type="text" name="name" placeholder="Full name" required>
+        <input type="text" name="position" placeholder="Chef / Waiter / Counter Staff" required>
+        <input type="text" name="contact_number" placeholder="Contact number">
+        <input type="text" name="shift_schedule" placeholder="Shift schedule (e.g. 9AM-5PM)">
+        <select name="attendance_status" required>
+            {% for value in attendance_status_options %}
+                <option value="{{ value }}">{{ value }}</option>
+            {% endfor %}
+        </select>
+        <select name="employment_status" required>
+            {% for value in employee_status_options %}
+                <option value="{{ value }}">{{ value }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="time_in" placeholder="Time in (e.g. 09:00 AM)">
+        <input type="text" name="time_out" placeholder="Time out (e.g. 05:00 PM)">
+        <input type="text" name="task_assignment" placeholder="Current task assignment">
+        <textarea name="notes" rows="3" placeholder="Simple performance remarks"></textarea>
+        <button type="submit" class="admin-btn admin-btn-create">Add Employee</button>
+    </form>
+</section>
+
+<section class="admin-users-grid">
+    {% for employee in employees %}
+        <article class="admin-user-card">
+            <header class="admin-user-header">
+                <div class="admin-user-profile">
+                    <div>
+                        <h2>{{ employee.name }}</h2>
+                        <p>{{ employee.position }}</p>
+                    </div>
+                </div>
+                <div class="admin-user-badges">
+                    <span class="status-badge {% if employee.employment_status == 'Active' %}success{% endif %}">{{ employee.employment_status }}</span>
+                    <span class="status-badge">{{ employee.attendance_status }}</span>
+                </div>
+            </header>
+
+            <div class="admin-user-details">
+                <span>Contact: {{ employee.contact_number or 'N/A' }}</span>
+                <span>Shift: {{ employee.shift_schedule or 'N/A' }}</span>
+                <span>Time In: {{ employee.time_in or 'N/A' }}</span>
+                <span>Time Out: {{ employee.time_out or 'N/A' }}</span>
+                <span>Task: {{ employee.task_assignment or 'No task assigned' }}</span>
+                <span>Notes: {{ employee.notes or 'No notes yet' }}</span>
+            </div>
+
+            <form action="{{ url_for('admin_employees') }}" method="post" class="admin-user-edit-form">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <label>
+                    Name
+                    <input type="text" name="name" value="{{ employee.name }}" required>
+                </label>
+                <label>
+                    Position
+                    <input type="text" name="position" value="{{ employee.position }}" required>
+                </label>
+                <label>
+                    Contact
+                    <input type="text" name="contact_number" value="{{ employee.contact_number }}">
+                </label>
+                <label>
+                    Shift
+                    <input type="text" name="shift_schedule" value="{{ employee.shift_schedule }}">
+                </label>
+                <label>
+                    Attendance
+                    <select name="attendance_status" required>
+                        {% for value in attendance_status_options %}
+                            <option value="{{ value }}" {% if employee.attendance_status == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Employee Status
+                    <select name="employment_status" required>
+                        {% for value in employee_status_options %}
+                            <option value="{{ value }}" {% if employee.employment_status == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Time In
+                    <input type="text" name="time_in" value="{{ employee.time_in }}">
+                </label>
+                <label>
+                    Time Out
+                    <input type="text" name="time_out" value="{{ employee.time_out }}">
+                </label>
+                <label style="grid-column: 1 / -1;">
+                    Task Assignment
+                    <input type="text" name="task_assignment" value="{{ employee.task_assignment }}">
+                </label>
+                <label style="grid-column: 1 / -1;">
+                    Notes
+                    <textarea name="notes" rows="2">{{ employee.notes }}</textarea>
+                </label>
+                <div class="admin-user-actions">
+                    <button type="submit" class="admin-btn">Save Employee</button>
+                </div>
+            </form>
+
+            <form action="{{ url_for('admin_employees') }}" method="post" class="admin-user-delete-form" onsubmit="return confirm('Delete this employee record?');">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <button type="submit" class="admin-btn danger">Delete</button>
+            </form>
+        </article>
+    {% else %}
+        <section class="admin-card admin-empty-card">
+            <h2>No employees found.</h2>
+            <p>Add your team members to start employee monitoring.</p>
+        </section>
+    {% endfor %}
+</section>
+{% endblock %}

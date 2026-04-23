@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Inventory Monitoring | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <div class="admin-page-title">
+        <span class="admin-page-icon">I</span>
+        <div>
+            <h1>Inventory Monitoring</h1>
+            <p>Track product stock levels and keep menu availability updated.</p>
+        </div>
+    </div>
+</section>
+
+<section class="admin-menu-grid">
+    {% for item in inventory_items %}
+        <article class="admin-menu-card">
+            <div class="admin-menu-image-wrap">
+                <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }} image" class="admin-menu-image">
+                <span class="admin-menu-id">#{{ item.id }}</span>
+                <span class="availability-badge {% if item.inventory_status == 'In Stock' %}available{% else %}unavailable{% endif %}">
+                    {{ item.inventory_status }}
+                </span>
+            </div>
+            <div class="admin-menu-content">
+                <div class="admin-menu-summary">
+                    <div>
+                        <h2>{{ item.name }}</h2>
+                        <p>{{ item.category }}</p>
+                    </div>
+                    <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                </div>
+
+                <div class="admin-inventory-metrics">
+                    <span><strong>Stock:</strong> {{ item.stock_quantity }}</span>
+                    <span><strong>Low Stock Threshold:</strong> {{ item.low_stock_threshold }}</span>
+                    <span><strong>Menu Availability:</strong> {% if item.is_available %}Available{% else %}Not Available{% endif %}</span>
+                </div>
+
+                <form action="{{ url_for('admin_inventory') }}" method="post" class="admin-menu-edit-form">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <label>
+                        Stock Quantity
+                        <input type="number" min="0" name="stock_quantity" value="{{ item.stock_quantity }}" required>
+                    </label>
+                    <label>
+                        Low Stock Threshold
+                        <input type="number" min="1" name="low_stock_threshold" value="{{ item.low_stock_threshold }}" required>
+                    </label>
+                    <div class="admin-menu-actions">
+                        <button type="submit" class="admin-btn admin-btn-update">Update Inventory</button>
+                    </div>
+                </form>
+            </div>
+        </article>
+    {% else %}
+        <section class="admin-card admin-empty-card">
+            <h2>No inventory items found.</h2>
+            <p>Menu items will appear here for stock monitoring.</p>
+        </section>
+    {% endfor %}
+</section>
+{% endblock %}

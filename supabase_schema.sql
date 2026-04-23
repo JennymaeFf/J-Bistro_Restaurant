@@ -22,6 +22,8 @@ create table if not exists public.menu_items (
     price numeric(10,2) not null,
     image text not null,
     is_available boolean not null default true,
+    stock_quantity integer not null default 0,
+    low_stock_threshold integer not null default 5,
     sizes jsonb -- For beverages: {"small": 20.0, "medium": 25.0, "large": 30.0}
 );
 
@@ -54,6 +56,21 @@ create table if not exists public.riders (
     status text not null default 'Available'
 );
 
+create table if not exists public.employees (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    position text not null,
+    contact_number text,
+    shift_schedule text,
+    attendance_status text not null default 'Off Duty',
+    employment_status text not null default 'Active',
+    notes text,
+    task_assignment text,
+    time_in text,
+    time_out text,
+    created_at timestamptz not null default now()
+);
+
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists payment_status text not null default 'Pending';
 alter table public.orders add column if not exists payment_bank text;
@@ -72,8 +89,21 @@ alter table public.app_users add column if not exists phone_number text;
 alter table public.app_users add column if not exists delivery_address text;
 alter table public.app_users add column if not exists profile_image text;
 alter table public.menu_items add column if not exists is_available boolean not null default true;
+alter table public.menu_items add column if not exists stock_quantity integer not null default 0;
+alter table public.menu_items add column if not exists low_stock_threshold integer not null default 5;
 alter table public.riders add column if not exists phone text;
 alter table public.riders add column if not exists status text not null default 'Available';
+alter table public.employees add column if not exists name text;
+alter table public.employees add column if not exists position text;
+alter table public.employees add column if not exists contact_number text;
+alter table public.employees add column if not exists shift_schedule text;
+alter table public.employees add column if not exists attendance_status text not null default 'Off Duty';
+alter table public.employees add column if not exists employment_status text not null default 'Active';
+alter table public.employees add column if not exists notes text;
+alter table public.employees add column if not exists task_assignment text;
+alter table public.employees add column if not exists time_in text;
+alter table public.employees add column if not exists time_out text;
+alter table public.employees add column if not exists created_at timestamptz not null default now();
 
 do $$
 begin
@@ -146,14 +176,35 @@ update public.menu_items
 set is_available = true
 where is_available is null;
 
+update public.menu_items
+set stock_quantity = 0
+where stock_quantity is null or stock_quantity < 0;
+
+update public.menu_items
+set low_stock_threshold = 5
+where low_stock_threshold is null or low_stock_threshold <= 0;
+
+update public.menu_items
+set is_available = false
+where stock_quantity <= 0;
+
 update public.riders
 set status = 'Available'
 where status is null or btrim(status) = '';
+
+update public.employees
+set attendance_status = 'Off Duty'
+where attendance_status is null or btrim(attendance_status) = '';
+
+update public.employees
+set employment_status = 'Active'
+where employment_status is null or btrim(employment_status) = '';
 
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
 alter table public.orders enable row level security;
 alter table public.riders enable row level security;
+alter table public.employees enable row level security;
 
 drop policy if exists "Allow app_users select" on public.app_users;
 create policy "Allow app_users select"
@@ -230,6 +281,31 @@ on public.riders for delete
 to anon
 using (true);
 
+drop policy if exists "Allow employees read" on public.employees;
+create policy "Allow employees read"
+on public.employees for select
+to anon
+using (true);
+
+drop policy if exists "Allow employees insert" on public.employees;
+create policy "Allow employees insert"
+on public.employees for insert
+to anon
+with check (true);
+
+drop policy if exists "Allow employees update" on public.employees;
+create policy "Allow employees update"
+on public.employees for update
+to anon
+using (true)
+with check (true);
+
+drop policy if exists "Allow employees delete" on public.employees;
+create policy "Allow employees delete"
+on public.employees for delete
+to anon
+using (true);
+
 insert into public.menu_items (name, description, category, price, image, is_available)
 values
     ('Cheeseburger', 'Juicy beef burger with melted cheese and fresh vegetables.', 'Main Course', 60.00, 'cheeseburger.png', true),
@@ -257,7 +333,8 @@ where table_schema = 'public'
       (table_name = 'orders' and column_name in ('payment_method', 'payment_status', 'payment_bank', 'payment_reference', 'order_type', 'delivery_option', 'order_number', 'delivery_address', 'preferred_time', 'delivery_notes', 'rider_id', 'delivery_status'))
       or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number', 'delivery_address', 'profile_image'))
       or (table_name = 'riders' and column_name in ('name', 'phone', 'status'))
-      or (table_name = 'menu_items' and column_name in ('is_available'))
+      or (table_name = 'menu_items' and column_name in ('is_available', 'stock_quantity', 'low_stock_threshold'))
+      or (table_name = 'employees' and column_name in ('name', 'position', 'contact_number', 'shift_schedule', 'attendance_status', 'employment_status', 'notes', 'task_assignment', 'time_in', 'time_out'))
   )
 order by table_name, column_name;
 

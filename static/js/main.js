@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const checkoutSlides = document.querySelectorAll(".checkout-carousel-slide");
     const checkoutDots = document.querySelectorAll(".checkout-carousel-dots span");
+    const homeSlides = document.querySelectorAll(".home-carousel-slide");
+    const homeDots = document.querySelectorAll(".home-carousel-dots span");
 
     if (checkoutSlides.length > 1) {
         let activeSlide = 0;
@@ -40,6 +42,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 checkoutDots[activeSlide].classList.add("active");
             }
         }, 3000);
+    }
+
+    if (homeSlides.length > 1) {
+        let activeHomeSlide = 0;
+        window.setInterval(function () {
+            homeSlides[activeHomeSlide].classList.remove("active");
+            if (homeDots[activeHomeSlide]) {
+                homeDots[activeHomeSlide].classList.remove("active");
+            }
+
+            activeHomeSlide = (activeHomeSlide + 1) % homeSlides.length;
+            homeSlides[activeHomeSlide].classList.add("active");
+            if (homeDots[activeHomeSlide]) {
+                homeDots[activeHomeSlide].classList.add("active");
+            }
+        }, 2000);
     }
 
     const checkoutForm = document.querySelector(".checkout-form");
