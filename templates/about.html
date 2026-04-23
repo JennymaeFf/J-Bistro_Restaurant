@@ -3,35 +3,80 @@
 {% block title %}About | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
-<section class="page-banner">
-    <div class="container">
-        <h1>About J'Bistro</h1>
-        <p>Welcome to J'Bistro, your premier destination for delicious cuisine and exceptional dining experiences.</p>
+<section class="about-hero">
+    <div class="about-hero-overlay"></div>
+    <div class="container about-hero-content">
+        <div class="about-hero-copy">
+            <p class="eyebrow">About J'Bistro</p>
+            <h1>Where Comfort Food Meets Beautiful Service</h1>
+            <p>
+                J'Bistro is built around one idea: every meal should feel special. We combine quality ingredients,
+                thoughtful preparation, and warm hospitality to create memorable dining moments.
+            </p>
+            <div class="about-hero-actions">
+                <a class="button primary" href="{{ url_for('menu') }}">View Our Menu</a>
+                <a class="button secondary" href="#about-team">Meet The Team</a>
+            </div>
+        </div>
+        <div class="about-hero-card">
+            <h3>J'Bistro Highlights</h3>
+            <div class="about-highlight-grid">
+                <div>
+                    <strong>Fresh Daily</strong>
+                    <span>Ingredients prepared with care.</span>
+                </div>
+                <div>
+                    <strong>Fast Service</strong>
+                    <span>Reliable kitchen and delivery flow.</span>
+                </div>
+                <div>
+                    <strong>Skilled Team</strong>
+                    <span>Passionate chefs and staff.</span>
+                </div>
+                <div>
+                    <strong>Guest Focused</strong>
+                    <span>Friendly service every time.</span>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="section-grid">
+<section class="about-story-shell">
     <div class="container">
-        <div class="info-card">
-            <h2>Our Story</h2>
-            <p>J'Bistro was founded with a passion for bringing people together through great food. We believe that every meal should be an experience worth remembering.</p>
-        </div>
-        <div class="info-card">
-            <h2>Our Mission</h2>
-            <p>To provide high-quality, delicious food in a welcoming atmosphere, ensuring every customer leaves satisfied and eager to return.</p>
-        </div>
-        <div class="info-card">
-            <h2>Quality Ingredients</h2>
-            <p>We source the freshest ingredients and prepare each dish with care, maintaining the highest standards of food safety and taste.</p>
+        <div class="about-story-grid">
+            <article class="about-story-card">
+                <h2>Our Story</h2>
+                <p>
+                    J'Bistro started with a simple vision: bring people together through comforting dishes and a welcoming
+                    dining atmosphere. Over time, we evolved into a modern restaurant system without losing the heart of
+                    traditional hospitality.
+                </p>
+            </article>
+            <article class="about-story-card">
+                <h2>Our Mission</h2>
+                <p>
+                    We aim to serve flavorful, high-quality meals while making ordering smooth and reliable for every guest.
+                    Whether dine-in moments or online orders, we want each experience to feel personal and satisfying.
+                </p>
+            </article>
+            <article class="about-story-card">
+                <h2>Quality Promise</h2>
+                <p>
+                    We carefully source ingredients, enforce kitchen standards, and continuously improve service operations.
+                    This commitment helps us deliver food that is fresh, safe, and consistently delicious.
+                </p>
+            </article>
         </div>
     </div>
 </section>
 
-<section class="team-section">
+<section id="about-team" class="team-section about-team-section">
     <div class="container">
         <div class="section-header">
-            <h2>Our Culinary & Management Team</h2>
-            <p>Meet the talented individuals who make J'Bistro special</p>
+            <p class="eyebrow">People Behind J'Bistro</p>
+            <h2>Our Culinary And Management Team</h2>
+            <p>Meet the talented people who make every service smooth, warm, and memorable.</p>
         </div>
 
         <div class="team-grid">
@@ -122,22 +167,22 @@
     </div>
 </section>
 
-<section class="team-values">
+<section class="team-values about-values-section">
     <div class="container">
         <h2>Our Core Values</h2>
         <div class="values-grid">
             <div class="value-card">
-                <div class="value-icon">🎯</div>
+                <div class="value-icon">E</div>
                 <h4>Excellence</h4>
                 <p>Committed to delivering the highest quality in every dish</p>
             </div>
             <div class="value-card">
-                <div class="value-icon">❤️</div>
+                <div class="value-icon">P</div>
                 <h4>Passion</h4>
                 <p>Love for food and hospitality is in everything we do</p>
             </div>
             <div class="value-card">
-                <div class="value-icon">🤝</div>
+                <div class="value-icon">T</div>
                 <h4>Teamwork</h4>
                 <p>Working together to create memorable experiences</p>
             </div>
