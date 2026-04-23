@@ -41,36 +41,36 @@
                     <tbody>
                         {% for order in orders %}
                             <tr>
-                                <td>{{ order.customer_name }}</td>
+                                <td>{{ order["customer_name"] }}</td>
                                 <td>
-                                    {% if order.order_type %}
-                                        {{ order.order_type }}
-                                    {% elif order.table_number == "Take-out" %}
+                                    {% if order["order_type"] %}
+                                        {{ order["order_type"] }}
+                                    {% elif order["table_number"] == "Take-out" %}
                                         Take-out
                                     {% else %}
                                         Dine-in
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if order.table_number == "Take-out" %}
+                                    {% if order["table_number"] == "Take-out" %}
                                         Pickup
                                     {% else %}
-                                        {{ order.table_number or "N/A" }}
+                                        {{ order["table_number"] or "N/A" }}
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if order.items %}
+                                    {% if order["items"] %}
                                         <ul class="items-list">
-                                            {% for item in order.items %}
-                                                <li>{{ item.quantity }}x {{ item.name }}</li>
+                                            {% for item in order["items"] %}
+                                                <li>{{ item["quantity"] }}x {{ item["name"] }}</li>
                                             {% endfor %}
                                         </ul>
                                     {% else %}
                                         No items
                                     {% endif %}
                                 </td>
-                                <td>PHP {{ "%.2f"|format(order.total_amount|float) }}</td>
-                                <td><span class="status-badge">{{ order.status }}</span></td>
+                                <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
+                                <td><span class="status-badge">{{ order["status"] }}</span></td>
                             </tr>
                         {% endfor %}
                     </tbody>
