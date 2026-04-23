@@ -1109,10 +1109,14 @@ select {
 
 /* Footer */
 .site-footer {
-    background: var(--text);
-    color: white;
-    padding: 60px 0 20px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(197, 138, 87, 0.22), transparent 34%),
+        linear-gradient(135deg, #35251d 0%, #241913 58%, #17100d 100%);
+    border-top: 1px solid rgba(229, 207, 183, 0.24);
+    box-shadow: 0 -20px 60px rgba(60, 37, 22, 0.16);
+    color: #fffaf4;
     margin-top: 80px;
+    padding: 56px 0 22px;
 }
 
 .footer-content {
@@ -1120,39 +1124,58 @@ select {
 }
 
 .footer-main {
+    align-items: start;
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 40px;
-    margin-bottom: 40px;
+    gap: 30px;
+    grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(150px, 1fr));
+    margin-bottom: 34px;
 }
 
 .footer-brand {
     display: flex;
     align-items: center;
     gap: 16px;
+    text-decoration: none;
 }
 
 .footer-brand img {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
+    background: rgba(255, 250, 244, 0.92);
+    border-radius: 16px;
+    box-shadow: 0 14px 32px rgba(11, 6, 4, 0.22);
+    height: 70px;
+    object-fit: contain;
+    padding: 6px;
+    width: 70px;
 }
 
 .footer-brand h3 {
     font-size: 1.5rem;
-    margin-bottom: 8px;
-    color: white;
+    margin: 0 0 5px;
+    color: #fffaf4;
 }
 
 .footer-brand p {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 250, 244, 0.74);
     font-size: 0.9rem;
+    margin: 0;
+}
+
+.footer-description,
+.footer-note {
+    color: rgba(255, 250, 244, 0.72);
+    line-height: 1.6;
+    margin: 16px 0 0;
+}
+
+.footer-note {
+    font-size: 0.9rem;
+    max-width: 210px;
 }
 
 .footer-section h4 {
     font-size: 1.1rem;
-    margin-bottom: 16px;
-    color: white;
+    margin: 0 0 16px;
+    color: #f4c783;
 }
 
 .contact-info p,
@@ -1160,50 +1183,70 @@ select {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 8px;
-    color: rgba(255, 255, 255, 0.8);
-    transition: color 0.3s ease;
+    margin: 0 0 10px;
+    color: rgba(255, 250, 244, 0.78);
+    transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .contact-info p:hover,
 .footer-nav a:hover {
-    color: var(--primary);
+    color: #f4c783;
+    transform: translateX(3px);
 }
 
-.icon {
-    font-size: 1.1rem;
+.footer-icon {
+    background: rgba(244, 199, 131, 0.13);
+    border: 1px solid rgba(244, 199, 131, 0.22);
+    border-radius: 999px;
+    color: #f4c783;
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-weight: 800;
+    min-width: 36px;
+    padding: 5px 7px;
+    text-align: center;
 }
 
 .social-links {
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .social-link {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.1);
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 250, 244, 0.1);
+    border: 1px solid rgba(255, 250, 244, 0.16);
     border-radius: 50%;
+    color: #fffaf4;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
     transition: background 0.3s ease, transform 0.3s ease;
 }
 
 .social-link:hover {
-    background: var(--primary);
-    transform: scale(1.1);
+    background: #f4c783;
+    color: #35251d;
+    transform: translateY(-3px);
 }
 
 .footer-bottom {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 20px;
-    text-align: center;
+    align-items: center;
+    border-top: 1px solid rgba(255, 250, 244, 0.13);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding-top: 18px;
 }
 
 .footer-bottom p {
     margin: 4px 0;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 250, 244, 0.62);
     font-size: 0.9rem;
 }
 
@@ -2440,17 +2483,25 @@ select {
     }
 
     .footer-main {
-        grid-template-columns: 1fr;
-        gap: 32px;
-        text-align: center;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px;
     }
 
     .footer-brand {
-        justify-content: center;
+        justify-content: flex-start;
     }
 
     .social-links {
-        justify-content: center;
+        justify-content: flex-start;
+    }
+
+    .footer-about {
+        grid-column: 1 / -1;
+    }
+
+    .footer-bottom {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 
@@ -2504,6 +2555,20 @@ select {
 
     .best-sellers-grid {
         grid-template-columns: 1fr;
+    }
+
+    .footer-main {
+        grid-template-columns: 1fr;
+        text-align: left;
+    }
+
+    .site-footer {
+        padding-top: 42px;
+    }
+
+    .footer-brand img {
+        height: 58px;
+        width: 58px;
     }
 }
 
