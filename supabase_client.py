@@ -348,13 +348,23 @@ def schema_cache_fix_message(*columns: str) -> str:
     )
 
 
-def register_user(email: str, password: str, role: str = "user") -> tuple[bool, str]:
+def register_user(
+    email: str,
+    password: str,
+    role: str = "user",
+    full_name: str = "",
+    phone_number: str = "",
+    delivery_address: str = "",
+) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
     requested_role = normalize_role(role)
     if requested_role not in {"user", "admin"}:
         requested_role = "user"
+    full_name = full_name.strip() or default_full_name(email)
+    phone_number = phone_number.strip()
+    delivery_address = delivery_address.strip()
 
     supabase_url, _ = current_supabase_config()
     try:
@@ -438,7 +448,9 @@ def register_user(email: str, password: str, role: str = "user") -> tuple[bool, 
             json={
                 "id": user_id,
                 "email": email,
-                "full_name": default_full_name(email),
+                "full_name": full_name,
+                "phone_number": phone_number or None,
+                "delivery_address": delivery_address or None,
             },
             timeout=REQUEST_TIMEOUT,
         )
@@ -464,7 +476,7 @@ def register_user(email: str, password: str, role: str = "user") -> tuple[bool, 
                 if promote_profile_response.status_code < 400:
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
-        if "full_name" not in lowered_error:
+        if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
             return False, error_message
 
         fallback_payload = {"id": user_id, "email": email}
@@ -534,6 +546,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     if rows:
         profile = rows[0]
         profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+        profile.setdefault("delivery_address", "")
         if "role" not in profile:
             return None, profile_role_error()
         profile["role"] = normalize_role(profile.get("role"))
@@ -559,6 +572,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         if email_rows:
             profile = email_rows[0]
             profile.setdefault("full_name", default_full_name(profile.get("email", email)))
+            profile.setdefault("delivery_address", "")
             if "role" not in profile:
                 return None, profile_role_error()
             profile["role"] = normalize_role(profile.get("role"))
@@ -568,6 +582,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         "id": user_id,
         "email": email,
         "full_name": default_full_name(email),
+        "delivery_address": "",
         "role": "user",
     }
     try:
@@ -617,12 +632,17 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     return final_profile, None
 
 
-def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[str, Any] | None]:
+def update_user_profile(
+    user_id: str,
+    full_name: str,
+    delivery_address: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error, None
 
     full_name = full_name.strip()
+    delivery_address = delivery_address.strip()
     if not full_name:
         return False, "Name is required.", None
 
@@ -632,7 +652,10 @@ def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[s
             f"{supabase_url}/rest/v1/app_users",
             headers=supabase_headers("return=representation"),
             params={"id": f"eq.{user_id}"},
-            json={"full_name": full_name},
+            json={
+                "full_name": full_name,
+                "delivery_address": delivery_address or None,
+            },
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
@@ -640,8 +663,8 @@ def update_user_profile(user_id: str, full_name: str) -> tuple[bool, str, dict[s
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if is_schema_cache_column_error(error_message, "full_name"):
-            return False, schema_cache_fix_message("app_users.full_name"), None
+        if is_schema_cache_column_error(error_message, "full_name", "delivery_address"):
+            return False, schema_cache_fix_message("app_users.full_name", "app_users.delivery_address"), None
         return False, error_message, None
 
     rows = response.json()
@@ -929,6 +952,7 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         "full_name": profile.get("full_name") or default_full_name(user_data.get("email", email)),
         "role": user_role,
         "phone_number": profile.get("phone_number") or "",
+        "delivery_address": profile.get("delivery_address") or "",
         "profile_image": profile.get("profile_image") or "",
     }
     return True, "Login successful.", user_session

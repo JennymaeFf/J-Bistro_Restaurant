@@ -291,6 +291,7 @@ def current_user_profile() -> dict[str, Any]:
         "email": email,
         "full_name": user.get("full_name") or fallback_full_name(email),
         "phone_number": user.get("phone_number") or "",
+        "delivery_address": user.get("delivery_address") or "",
         "role": user.get("role") or current_session_role(),
         "profile_image": user.get("profile_image") or "",
     }
@@ -310,6 +311,7 @@ def refresh_session_profile() -> tuple[dict[str, Any], str | None]:
                 "email": profile.get("email") or user.get("email"),
                 "full_name": profile.get("full_name") or fallback_profile["full_name"],
                 "phone_number": profile.get("phone_number") or fallback_profile.get("phone_number", ""),
+                "delivery_address": profile.get("delivery_address") or fallback_profile.get("delivery_address", ""),
                 "role": profile.get("role") or user.get("role") or current_session_role(),
                 "profile_image": profile.get("profile_image") or fallback_profile.get("profile_image", ""),
             }
@@ -1060,12 +1062,15 @@ def register():
         return redirect(url_for("home"))
 
     if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
         email = request.form.get("email", "").strip().lower()
+        phone_number = request.form.get("phone_number", "").strip()
+        delivery_address = request.form.get("address", "").strip()
         password = request.form.get("password", "").strip()
         admin_code = request.form.get("admin_code", "").strip()
         configured_admin_code = os.environ.get("ADMIN_REGISTRATION_CODE", "").strip()
 
-        if not email or not password:
+        if not full_name or not email or not phone_number or not delivery_address or not password:
             flash("Please fill in all registration fields.", "error")
             return redirect(url_for("register"))
 
@@ -1085,7 +1090,14 @@ def register():
             else:
                 flash("Admin code not recognized. Account will be created as a user.", "error")
 
-        success, message = register_user(email, password, role=target_role)
+        success, message = register_user(
+            email,
+            password,
+            role=target_role,
+            full_name=full_name,
+            phone_number=phone_number,
+            delivery_address=delivery_address,
+        )
         flash(message, "success" if success else "error")
         if success:
             if target_role == "admin":
@@ -1132,12 +1144,14 @@ def profile():
     user = session.get("user") or {}
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
-        success, message, profile_data = update_user_profile(user.get("id"), full_name)
+        delivery_address = request.form.get("delivery_address", "").strip()
+        success, message, profile_data = update_user_profile(user.get("id"), full_name, delivery_address)
         flash(message, "success" if success else "error")
         if success and profile_data:
             user.update(
                 {
                     "full_name": profile_data.get("full_name", full_name),
+                    "delivery_address": profile_data.get("delivery_address", delivery_address),
                 }
             )
             session["user"] = user
