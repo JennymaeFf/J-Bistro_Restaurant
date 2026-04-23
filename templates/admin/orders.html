@@ -106,9 +106,11 @@
                         <select name="rider_id">
                             <option value="">No Rider</option>
                             {% for rider in riders %}
-                                <option value="{{ rider['id'] }}" {% if (order["rider_id"] or "") == rider["id"] %}selected{% endif %}>
-                                    {{ rider["name"] }} ({{ rider["status"] }})
-                                </option>
+                                {% if rider["status"] == "Available" or (order["rider_id"] or "") == rider["id"] %}
+                                    <option value="{{ rider['id'] }}" {% if (order["rider_id"] or "") == rider["id"] %}selected{% endif %}>
+                                        {{ rider["name"] }} ({{ rider["status"] }})
+                                    </option>
+                                {% endif %}
                             {% endfor %}
                         </select>
                     </label>
