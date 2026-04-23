@@ -2646,6 +2646,31 @@ td {
     padding: 14px 16px;
 }
 
+.auth-helper-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -4px;
+}
+
+.auth-helper-row a {
+    color: #8a4c1f;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.auth-helper-row a:hover {
+    color: #5b3926;
+    text-decoration: underline;
+}
+
+.auth-support-text {
+    color: #704631;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin: -10px 0 20px;
+    text-align: center;
+}
+
 .auth-button {
     margin-top: 8px;
     border: none;
@@ -2754,6 +2779,11 @@ td {
 
 .password-toggle:hover {
     background: #f5e9dd;
+}
+
+.password-toggle.is-visible {
+    background: #f5e9dd;
+    color: #5b3926;
 }
 
 .register-form .auth-button {

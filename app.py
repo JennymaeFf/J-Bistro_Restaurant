@@ -39,6 +39,7 @@ from supabase_client import (
     fetch_orders,
     fetch_user_profile,
     register_user,
+    send_password_reset,
     update_admin_account_profile,
     update_admin_password,
     update_admin_menu_item,
@@ -928,6 +929,26 @@ def login():
             return redirect(destination)
 
     return render_template("login.html", auth_page=True)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET" and is_logged_in():
+        return redirect_for_role(current_session_role())
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not email:
+            flash("Please enter your email address.", "error")
+            return redirect(url_for("forgot_password"))
+
+        success, message = send_password_reset(email)
+        flash(message, "success" if success else "error")
+        if success:
+            return redirect(url_for("login"))
+        return redirect(url_for("forgot_password"))
+
+    return render_template("forgot_password.html", auth_page=True)
 
 
 @app.route("/register", methods=["GET", "POST"])

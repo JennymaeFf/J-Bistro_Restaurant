@@ -41,19 +41,45 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }, 3000);
     }
+
+    const passwordToggleButtons = document.querySelectorAll(".password-toggle");
+
+    passwordToggleButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+            const targetId = button.getAttribute("data-target");
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            const showPassword = target.type === "password";
+            target.type = showPassword ? "text" : "password";
+            button.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+            button.classList.toggle("is-visible", showPassword);
+        });
+    });
 });
 
 // Modal functionality for menu items
 let currentItem = null;
 
 function openItemModal(id, name, description, price, category, sizes, image, isAvailable = true) {
-    currentItem = { id, name, description, price, category, sizes, image, isAvailable };
+    const numericPrice = Number(price) || 0;
+    const safeImage = image || 'plogo.png';
+    currentItem = { id, name, description, price: numericPrice, category, sizes, image: safeImage, isAvailable };
     
-    document.getElementById('modalImage').src = `/static/images/${image}`;
-    document.getElementById('modalName').textContent = name;
-    document.getElementById('modalDescription').textContent = description;
-    document.getElementById('modalPrice').textContent = price.toFixed(2);
-    document.getElementById('quantity').textContent = '1';
+    const modal = document.getElementById('itemModal');
+    const modalImage = document.getElementById('modalImage');
+    const modalName = document.getElementById('modalName');
+    const modalDescription = document.getElementById('modalDescription');
+    const modalPrice = document.getElementById('modalPrice');
+    const quantityDisplay = document.getElementById('quantity');
+
+    if (!modal || !modalImage || !modalName || !modalDescription || !modalPrice || !quantityDisplay) return;
+
+    modalImage.src = `/static/images/${safeImage}`;
+    modalName.textContent = name;
+    modalDescription.textContent = description;
+    modalPrice.textContent = numericPrice.toFixed(2);
+    quantityDisplay.textContent = '1';
 
     const availability = document.getElementById('modalAvailability');
     const addButton = document.getElementById('modalAddButton');
@@ -75,7 +101,7 @@ function openItemModal(id, name, description, price, category, sizes, image, isA
         sizeSelector.style.display = 'none';
     }
     
-    document.getElementById('itemModal').style.display = 'block';
+    modal.style.display = 'block';
 }
 
 function closeItemModal() {

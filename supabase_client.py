@@ -857,6 +857,32 @@ def refresh_auth_session(refresh_token: str) -> tuple[bool, str, dict[str, Any] 
     }
 
 
+def send_password_reset(email: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    email = email.strip().lower()
+    email_error = valid_email_message(email)
+    if email_error:
+        return False, email_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/auth/v1/recover",
+            headers=auth_headers(),
+            json={"email": email},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to send the password reset email right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "If this email is registered, Supabase will send a password reset link."
+
+
 def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:
     config_error = supabase_config_error()
     if config_error:

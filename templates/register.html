@@ -60,19 +60,6 @@
         var form = document.getElementById("registerForm");
         var passwordInput = document.getElementById("password");
         var confirmPasswordInput = document.getElementById("confirm_password");
-        var toggleButtons = document.querySelectorAll(".password-toggle");
-
-        toggleButtons.forEach(function (button) {
-            button.addEventListener("click", function () {
-                var targetId = button.getAttribute("data-target");
-                var target = document.getElementById(targetId);
-                if (!target) return;
-                var show = target.type === "password";
-                target.type = show ? "text" : "password";
-                button.setAttribute("aria-label", show ? "Hide password" : "Show password");
-            });
-        });
-
         form.addEventListener("submit", function (event) {
             if (passwordInput.value !== confirmPasswordInput.value) {
                 event.preventDefault();
