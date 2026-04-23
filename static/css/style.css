@@ -55,7 +55,7 @@ img {
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 14px 0;
+    padding: 12px 0;
     flex-wrap: wrap;
 }
 
@@ -66,8 +66,8 @@ img {
 }
 
 .brand img {
-    width: 56px;
-    height: 56px;
+    width: 78px;
+    height: 78px;
     object-fit: contain;
 }
 
@@ -2362,6 +2362,11 @@ select {
     .nav-wrapper {
         flex-direction: column;
         gap: 16px;
+    }
+
+    .brand img {
+        width: 68px;
+        height: 68px;
     }
 
     .header-right {
