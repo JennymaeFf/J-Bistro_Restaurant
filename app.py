@@ -100,7 +100,12 @@ def redirect_for_role(role: str):
     normalized_role = role.strip().lower() if isinstance(role, str) else "user"
     if normalized_role == "admin":
         return redirect(url_for("admin_dashboard"))
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("home"))
+
+
+def destination_for_role(role: str) -> str:
+    normalized_role = role.strip().lower() if isinstance(role, str) else "user"
+    return url_for("admin_dashboard") if normalized_role == "admin" else url_for("home")
 
 
 def get_cart() -> list[dict[str, Any]]:
@@ -127,6 +132,14 @@ def coerce_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def coerce_bool(value: Any, default: bool = True) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "available"}
 
 
 def normalize_receipt_items(raw_items: Any) -> list[dict[str, Any]]:
@@ -349,10 +362,15 @@ def index():
 def home():
     if current_session_role() == "admin":
         return redirect(url_for("admin_dashboard"))
-    menu_items, _ = fetch_menu_items()
+    try:
+        menu_items, menu_message = fetch_menu_items()
+    except Exception:
+        app.logger.exception("Failed to load menu items for home page.")
+        menu_items = []
+        menu_message = "Unable to load featured menu items right now."
     # Select some popular items as best sellers
     best_sellers = menu_items[:6]  # First 6 items as best sellers
-    return render_template("home.html", best_sellers=best_sellers)
+    return render_template("home.html", best_sellers=best_sellers, info_message=menu_message)
 
 
 @app.route("/best-sellers")
@@ -377,6 +395,9 @@ def add_to_cart(item_id: int):
     selected_item = next((item for item in menu_items if int(item["id"]) == item_id), None)
     if not selected_item:
         flash("Menu item not found.", "error")
+        return redirect(url_for("menu"))
+    if selected_item.get("is_available") is False:
+        flash(f"{selected_item.get('name', 'This item')} is currently out of stock.", "warning")
         return redirect(url_for("menu"))
 
     quantity = int(request.form.get("quantity", 1))
@@ -522,11 +543,11 @@ def receipt():
 
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
     if current_session_role() == "admin":
         return redirect(url_for("admin_dashboard"))
-    orders, message = fetch_orders()
-    return render_template("dashboard.html", orders=orders, info_message=message)
+    return redirect(url_for("home"))
 
 
 @app.route("/dashboard/update/<int:order_id>", methods=["POST"])
@@ -618,10 +639,11 @@ def admin_menu():
             category = request.form.get("category", "")
             image = request.form.get("image", "")
             price = coerce_float(request.form.get("price"), 0.0)
+            is_available = coerce_bool(request.form.get("is_available"), True)
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
-            success, message = create_admin_menu_item(name, description, category, price, image)
+            success, message = create_admin_menu_item(name, description, category, price, image, is_available)
             flash(message, "success" if success else "error")
             return redirect(url_for("admin_menu"))
 
@@ -632,13 +654,14 @@ def admin_menu():
             category = request.form.get("category", "")
             image = request.form.get("image", "")
             price = coerce_float(request.form.get("price"), 0.0)
+            is_available = coerce_bool(request.form.get("is_available"), True)
             if item_id <= 0:
                 flash("Invalid menu item id.", "error")
                 return redirect(url_for("admin_menu"))
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
-            success, message = update_admin_menu_item(item_id, name, description, category, price, image)
+            success, message = update_admin_menu_item(item_id, name, description, category, price, image, is_available)
             flash(message, "success" if success else "error")
             return redirect(url_for("admin_menu"))
 
@@ -868,7 +891,7 @@ def login():
         return redirect_for_role(current_session_role())
 
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         email_message = valid_email_message(email) if email else "Please enter both email and password."
 
@@ -897,7 +920,12 @@ def login():
             session["role"] = user_role
             session["user_email"] = (user_session.get("email") or email).strip().lower()
             session.modified = True
-            return redirect_for_role(user_role)
+            try:
+                destination = destination_for_role(user_role)
+            except Exception:
+                app.logger.exception("Failed to build post-login destination for role %s.", user_role)
+                destination = url_for("home")
+            return redirect(destination)
 
     return render_template("login.html", auth_page=True)
 
@@ -908,7 +936,7 @@ def register():
         return redirect(url_for("home"))
 
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         admin_code = request.form.get("admin_code", "").strip()
         configured_admin_code = os.environ.get("ADMIN_REGISTRATION_CODE", "").strip()
@@ -999,4 +1027,4 @@ def profile():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.pyc
+.pycache_check/
 .pytest_cache/
 .venv/
 venv/
@@ -8,6 +9,8 @@ venv/
 # Flask
 instance/
 .env
+flask_stdout.log
+flask_stderr.log
 
 # Local build folders
 .next/

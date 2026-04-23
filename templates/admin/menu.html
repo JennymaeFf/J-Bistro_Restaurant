@@ -5,20 +5,20 @@
 {% block admin_content %}
 <section class="admin-page-header">
     <div class="admin-page-title">
-        <span class="admin-page-icon">☰</span>
+        <span class="admin-page-icon">M</span>
         <div>
             <h1>Manage Menu</h1>
-            <p>Add, edit, and remove menu items from the restaurant catalog.</p>
+            <p>Add, edit, remove, and control menu availability from the restaurant catalog.</p>
         </div>
     </div>
 </section>
 
 <section class="admin-card admin-form-card admin-menu-create-card">
     <div class="admin-section-title">
-        <span class="admin-section-icon">＋</span>
+        <span class="admin-section-icon">+</span>
         <div>
             <h2>Add New Item</h2>
-            <p>Create a new dish with image, category, price, and description.</p>
+            <p>Create a new dish with image, category, price, availability, and description.</p>
         </div>
     </div>
 
@@ -40,12 +40,19 @@
             Image filename
             <input type="text" name="image" placeholder="cheeseburger.png">
         </label>
+        <label>
+            Availability
+            <select name="is_available">
+                <option value="true" selected>Available</option>
+                <option value="false">Not Available</option>
+            </select>
+        </label>
         <label class="admin-menu-full-field">
             Description
             <textarea name="description" placeholder="Short menu description" rows="3" required></textarea>
         </label>
         <button type="submit" class="admin-btn admin-btn-create">
-            <span>＋</span>
+            <span>+</span>
             Add Item
         </button>
     </form>
@@ -53,10 +60,14 @@
 
 <section class="admin-menu-grid">
     {% for item in menu_items %}
-        <article class="admin-menu-card">
+        {% set item_available = item.get('is_available', true) %}
+        <article class="admin-menu-card {% if not item_available %}is-unavailable{% endif %}">
             <div class="admin-menu-image-wrap">
                 <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }} image" class="admin-menu-image">
                 <span class="admin-menu-id">#{{ item.id }}</span>
+                <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
+                    {% if item_available %}Available{% else %}Not Available{% endif %}
+                </span>
             </div>
 
             <div class="admin-menu-content">
@@ -69,8 +80,11 @@
                 </div>
 
                 <div class="admin-menu-meta">
-                    <span>☰ {{ item.category }}</span>
-                    <span>▣ {{ item.image or "plogo.png" }}</span>
+                    <span>Category: {{ item.category }}</span>
+                    <span>Image: {{ item.image or "plogo.png" }}</span>
+                    <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
+                        {% if item_available %}Available{% else %}Out of Stock{% endif %}
+                    </span>
                 </div>
 
                 <form method="post" class="admin-menu-edit-form">
@@ -92,6 +106,13 @@
                         Image
                         <input type="text" name="image" value="{{ item.image }}">
                     </label>
+                    <label>
+                        Availability
+                        <select name="is_available">
+                            <option value="true" {% if item_available %}selected{% endif %}>Available</option>
+                            <option value="false" {% if not item_available %}selected{% endif %}>Not Available</option>
+                        </select>
+                    </label>
                     <label class="admin-menu-full-field">
                         Description
                         <textarea name="description" rows="2" required>{{ item.description }}</textarea>
@@ -99,7 +120,7 @@
 
                     <div class="admin-menu-actions">
                         <button type="submit" class="admin-btn admin-btn-update">
-                            <span>✓</span>
+                            <span>Save</span>
                             Update
                         </button>
                     </div>
@@ -109,8 +130,7 @@
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="item_id" value="{{ item.id }}">
                     <button type="submit" class="admin-btn danger admin-btn-delete">
-                        <span>✕</span>
-                        Delete
+                        <span>Delete</span>
                     </button>
                 </form>
             </div>

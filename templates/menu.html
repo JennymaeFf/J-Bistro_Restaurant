@@ -34,8 +34,14 @@
             <main class="menu-content">
                 <section class="menu-grid menu-grid-custom">
                     {% for item in menu_items %}
-                        <article class="menu-item-card" onclick="openItemModal({{ item.id }}, '{{ item.name }}', '{{ item.description }}', {{ item.price|tojson }}, '{{ item.category }}', {{ item.sizes|tojson if item.sizes else 'null' }}, '{{ item.image }}')">
-                            <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
+                        {% set item_available = item.get('is_available', true) %}
+                        <article class="menu-item-card {% if not item_available %}is-unavailable{% endif %}" onclick="openItemModal({{ item.id|tojson }}, {{ item.name|tojson }}, {{ item.description|tojson }}, {{ item.price|tojson }}, {{ item.category|tojson }}, {{ item.sizes|tojson if item.sizes else 'null' }}, {{ item.image|tojson }}, {{ item_available|tojson }})">
+                            <div class="menu-image-wrap">
+                                <img src="{{ url_for('static', filename='images/' ~ item.image) }}" alt="{{ item.name }}">
+                                <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
+                                    {% if item_available %}Available{% else %}Out of Stock{% endif %}
+                                </span>
+                            </div>
                             <div class="menu-item-content">
                                 <span class="category-label">
                                     {% if item.category == 'main-course' %}Main Course
@@ -47,6 +53,9 @@
                                 <p>{{ item.description }}</p>
                                 <div class="menu-item-footer">
                                     <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                                    <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
+                                        {% if item_available %}Available{% else %}Not Available{% endif %}
+                                    </span>
                                 </div>
                             </div>
                         </article>
@@ -69,6 +78,7 @@
                 <div class="modal-price">
                     <strong>PHP <span id="modalPrice"></span></strong>
                 </div>
+                <span id="modalAvailability" class="availability-pill available">Available</span>
                 
                 <div class="quantity-selector">
                     <label>Quantity:</label>
@@ -88,7 +98,7 @@
                     </div>
                 </div>
                 
-                <button onclick="addToCart()" class="button primary">Add to Cart</button>
+                <button id="modalAddButton" onclick="addToCart()" class="button primary">Add to Cart</button>
             </div>
         </div>
     </div>

@@ -20,6 +20,7 @@ create table if not exists public.menu_items (
     category text not null,
     price numeric(10,2) not null,
     image text not null,
+    is_available boolean not null default true,
     sizes jsonb -- For beverages: {"small": 20.0, "medium": 25.0, "large": 30.0}
 );
 
@@ -41,6 +42,7 @@ alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists phone_number text;
 alter table public.app_users add column if not exists profile_image text;
+alter table public.menu_items add column if not exists is_available boolean not null default true;
 
 -- Keep existing rows valid after adding these columns to an older database.
 update public.orders
@@ -61,6 +63,10 @@ where full_name is null or btrim(full_name) = '';
 update public.app_users
 set role = 'user'
 where role is null or btrim(role) = '';
+
+update public.menu_items
+set is_available = true
+where is_available is null;
 
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
@@ -133,6 +139,7 @@ where table_schema = 'public'
   and (
       (table_name = 'orders' and column_name in ('payment_method', 'order_type'))
       or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number', 'profile_image'))
+      or (table_name = 'menu_items' and column_name in ('is_available'))
   )
 order by table_name, column_name;
 

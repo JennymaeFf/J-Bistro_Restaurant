@@ -46,14 +46,26 @@ document.addEventListener("DOMContentLoaded", function () {
 // Modal functionality for menu items
 let currentItem = null;
 
-function openItemModal(id, name, description, price, category, sizes, image) {
-    currentItem = { id, name, description, price, category, sizes, image };
+function openItemModal(id, name, description, price, category, sizes, image, isAvailable = true) {
+    currentItem = { id, name, description, price, category, sizes, image, isAvailable };
     
     document.getElementById('modalImage').src = `/static/images/${image}`;
     document.getElementById('modalName').textContent = name;
     document.getElementById('modalDescription').textContent = description;
     document.getElementById('modalPrice').textContent = price.toFixed(2);
     document.getElementById('quantity').textContent = '1';
+
+    const availability = document.getElementById('modalAvailability');
+    const addButton = document.getElementById('modalAddButton');
+    if (availability) {
+        availability.textContent = isAvailable ? 'Available' : 'Out of Stock';
+        availability.classList.toggle('available', isAvailable);
+        availability.classList.toggle('unavailable', !isAvailable);
+    }
+    if (addButton) {
+        addButton.disabled = !isAvailable;
+        addButton.textContent = isAvailable ? 'Add to Cart' : 'Out of Stock';
+    }
     
     const sizeSelector = document.getElementById('sizeSelector');
     if (category === 'beverages' && sizes) {
@@ -99,6 +111,7 @@ document.addEventListener('change', function(e) {
 
 function addToCart() {
     if (!currentItem) return;
+    if (currentItem.isAvailable === false) return;
     
     const quantity = parseInt(document.getElementById('quantity').textContent);
     let size = null;

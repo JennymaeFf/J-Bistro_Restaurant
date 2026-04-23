@@ -874,7 +874,14 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
         return False, "Unable to contact Supabase right now.", None
 
     if response.status_code >= 400:
-        return False, parse_response_error(response), None
+        error_message = parse_response_error(response)
+        if "invalid login credentials" in error_message.lower():
+            return (
+                False,
+                "Invalid email or password. Make sure this account exists in Supabase Authentication and the password is correct.",
+                None,
+            )
+        return False, error_message, None
 
     payload = response.json()
     user_data = payload.get("user") or {}
@@ -901,9 +908,40 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
     return True, "Login successful.", user_session
 
 
+def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(item)
+    normalized["is_available"] = item.get("is_available") is not False
+    normalized["image"] = item.get("image") or "plogo.png"
+    return normalized
+
+
 def fetch_menu_items() -> tuple[list[dict[str, Any]], str | None]:
-    # For development, always return sample items
-    return SAMPLE_MENU_ITEMS, None
+    config_error = supabase_config_error()
+    if config_error:
+        return [normalize_menu_item(item) for item in SAMPLE_MENU_ITEMS], config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/menu_items",
+            headers=supabase_headers(),
+            params={"select": "*", "order": "id.asc"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return [normalize_menu_item(item) for item in SAMPLE_MENU_ITEMS], "Unable to load menu items from Supabase right now."
+
+    if response.status_code >= 400:
+        return [normalize_menu_item(item) for item in SAMPLE_MENU_ITEMS], parse_response_error(response)
+
+    try:
+        rows = response.json()
+    except ValueError:
+        return [normalize_menu_item(item) for item in SAMPLE_MENU_ITEMS], "Unable to read menu items from Supabase."
+
+    if not isinstance(rows, list):
+        return [], None
+    return [normalize_menu_item(item) for item in rows], None
 
 
 def fetch_orders() -> tuple[list[dict[str, Any]], str | None]:
@@ -1074,7 +1112,7 @@ def fetch_admin_menu_items() -> tuple[list[dict[str, Any]], str | None]:
         rows = response.json()
     except ValueError:
         return [], "Unable to read menu items right now."
-    return rows if isinstance(rows, list) else [], None
+    return [normalize_menu_item(item) for item in rows] if isinstance(rows, list) else [], None
 
 
 def create_admin_menu_item(
@@ -1083,6 +1121,7 @@ def create_admin_menu_item(
     category: str,
     price: float,
     image: str,
+    is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
@@ -1095,6 +1134,7 @@ def create_admin_menu_item(
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
+        "is_available": is_available,
     }
     try:
         response = requests.post(
@@ -1118,6 +1158,7 @@ def update_admin_menu_item(
     category: str,
     price: float,
     image: str,
+    is_available: bool = True,
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
@@ -1130,6 +1171,7 @@ def update_admin_menu_item(
         "category": category.strip(),
         "price": price,
         "image": image.strip() or "plogo.png",
+        "is_available": is_available,
     }
     try:
         response = requests.patch(
