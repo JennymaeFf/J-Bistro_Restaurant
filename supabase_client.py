@@ -145,6 +145,12 @@ SAMPLE_MENU_ITEMS = [
     },
 ]
 
+VALID_ORDER_STATUSES = {"Pending", "Preparing", "Completed"}
+VALID_PAYMENT_STATUSES = {"Pending", "Paid", "COD"}
+VALID_DELIVERY_STATUSES = {"Waiting", "Assigned", "On the way", "Delivered"}
+VALID_DELIVERY_OPTIONS = {"Pickup", "Delivery"}
+VALID_RIDER_STATUSES = {"Available", "Busy"}
+
 
 def valid_email_message(email: str) -> str | None:
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
@@ -1097,7 +1103,23 @@ def normalize_order_record(order: dict[str, Any]) -> dict[str, Any]:
 
     order["order_number"] = order_number
     order["order_number_label"] = format_order_number(order_number)
-    order["order_type"] = "Delivery"
+    delivery_option = str(order.get("delivery_option") or order.get("order_type") or "Delivery").strip().title()
+    if delivery_option not in VALID_DELIVERY_OPTIONS:
+        delivery_option = "Delivery"
+    order["delivery_option"] = delivery_option
+    order["order_type"] = delivery_option
+    order.setdefault("preferred_time", "")
+    payment_status = str(order.get("payment_status") or "Pending").strip()
+    if payment_status not in VALID_PAYMENT_STATUSES:
+        payment_status = "Pending"
+    order["payment_status"] = payment_status
+    delivery_status = str(order.get("delivery_status") or "Waiting").strip()
+    if delivery_status not in VALID_DELIVERY_STATUSES:
+        delivery_status = "Waiting"
+    order["delivery_status"] = delivery_status
+    order.setdefault("rider_id", "")
+    if not isinstance(order.get("rider"), dict):
+        order["rider"] = {}
     order.setdefault("delivery_address", "")
     order.setdefault("delivery_notes", "")
     order.setdefault("payment_bank", "")
@@ -1112,9 +1134,9 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
 
     supabase_url, _ = current_supabase_config()
     select_variants = [
-        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_bank,payment_reference,delivery_address,delivery_notes,status,created_at",
+        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_status,payment_bank,payment_reference,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,created_at",
+        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_status,payment_reference,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,created_at",
         "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_reference,delivery_address,delivery_notes,status,created_at",
-        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_reference,status,created_at",
         "id,customer_name,table_number,items,total_amount,payment_method,status,created_at",
     ]
     last_error = None
@@ -1149,8 +1171,13 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
                 "order_number",
                 "payment_bank",
                 "payment_reference",
+                "payment_status",
+                "delivery_option",
                 "delivery_address",
+                "preferred_time",
                 "delivery_notes",
+                "rider_id",
+                "delivery_status",
             )
         ):
             return None, last_error
@@ -1500,9 +1527,158 @@ def delete_admin_user(user_id: str) -> tuple[bool, str]:
 
 
 def admin_update_order_status(order_id: int, status: str) -> tuple[bool, str]:
-    if status not in {"Pending", "Preparing", "Completed"}:
+    if status not in VALID_ORDER_STATUSES:
         return False, "Please choose a valid status."
     return update_order_status(order_id, status)
+
+
+def fetch_riders() -> tuple[list[dict[str, Any]], str | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return [], config_error
+
+    supabase_url, _ = current_supabase_config()
+    select_variants = [
+        ("id,name,phone,status", None),
+        ("id,name,phone", "status"),
+        ("id,name,status", "phone"),
+        ("id,name", "phone and status"),
+    ]
+    last_error = None
+    missing_note = None
+
+    for select_clause, missing in select_variants:
+        try:
+            response = requests.get(
+                f"{supabase_url}/rest/v1/riders",
+                headers=supabase_headers(),
+                params={"select": select_clause, "order": "name.asc"},
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            return [], "Unable to load riders right now."
+
+        if response.status_code < 400:
+            try:
+                rows = response.json()
+            except ValueError:
+                return [], "Unable to read riders right now."
+            missing_note = missing
+            break
+
+        last_error = parse_response_error(response)
+        if "riders" in last_error.lower() and ("does not exist" in last_error.lower() or "relation" in last_error.lower()):
+            return [], (
+                "Riders table is missing. Run the latest supabase_schema.sql in Supabase SQL Editor, "
+                "then run NOTIFY pgrst, 'reload schema'."
+            )
+        if not any(column in last_error.lower() for column in ("name", "phone", "status")):
+            return [], last_error
+    else:
+        return [], last_error or "Unable to load riders right now."
+
+    if not isinstance(rows, list):
+        return [], "Unable to read riders right now."
+
+    for rider in rows:
+        rider["id"] = str(rider.get("id") or "")
+        rider["name"] = str(rider.get("name") or "Rider").strip() or "Rider"
+        rider["phone"] = str(rider.get("phone") or "").strip()
+        rider_status = str(rider.get("status") or "Available").strip().title()
+        rider["status"] = rider_status if rider_status in VALID_RIDER_STATUSES else "Available"
+
+    if missing_note:
+        return rows, (
+            f"Loaded riders, but riders is missing or has not refreshed: {missing_note}. "
+            "Run the latest supabase_schema.sql in Supabase SQL Editor, then run NOTIFY pgrst, 'reload schema'."
+        )
+    return rows, None
+
+
+def create_rider(name: str, phone: str, status: str = "Available") -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    name = name.strip()
+    phone = phone.strip()
+    status = status.strip().title()
+    if not name:
+        return False, "Rider name is required."
+    if status not in VALID_RIDER_STATUSES:
+        status = "Available"
+
+    supabase_url, _ = current_supabase_config()
+    payload = {"name": name, "phone": phone or None, "status": status}
+    try:
+        response = requests.post(
+            f"{supabase_url}/rest/v1/riders",
+            headers=supabase_headers("return=minimal"),
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to create rider right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Rider added successfully."
+
+
+def update_rider(rider_id: str, name: str, phone: str, status: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    rider_id = rider_id.strip()
+    name = name.strip()
+    phone = phone.strip()
+    status = status.strip().title()
+    if not rider_id:
+        return False, "Rider id is required."
+    if not name:
+        return False, "Rider name is required."
+    if status not in VALID_RIDER_STATUSES:
+        return False, "Please choose a valid rider status."
+
+    supabase_url, _ = current_supabase_config()
+    payload = {"name": name, "phone": phone or None, "status": status}
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/riders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{rider_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update rider right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Rider updated successfully."
+
+
+def delete_rider(rider_id: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+    rider_id = rider_id.strip()
+    if not rider_id:
+        return False, "Rider id is required."
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.delete(
+            f"{supabase_url}/rest/v1/riders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{rider_id}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to delete rider right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Rider deleted successfully."
 
 
 def get_next_order_number() -> tuple[int, str | None]:
@@ -1525,7 +1701,9 @@ def create_order(
     customer_name: str,
     cart: list[dict[str, Any]],
     total_amount: float,
+    delivery_option: str,
     delivery_address: str,
+    preferred_time: str,
     delivery_notes: str,
     payment_method: str,
     payment_bank: str = "",
@@ -1534,11 +1712,15 @@ def create_order(
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
-    if not delivery_address.strip():
+    delivery_option = delivery_option.strip().title()
+    if delivery_option not in VALID_DELIVERY_OPTIONS:
+        return False, "Please choose Pickup or Delivery."
+    if delivery_option == "Delivery" and not delivery_address.strip():
         return False, "Please enter a delivery address."
     if payment_method not in {"Cash", "GCash", "Card"}:
         return False, "Please choose a valid payment method."
     delivery_address = delivery_address.strip()
+    preferred_time = preferred_time.strip()
     delivery_notes = delivery_notes.strip()
     payment_bank = payment_bank.strip()
     payment_reference = payment_reference.strip()
@@ -1567,10 +1749,15 @@ def create_order(
         "items": cart,
         "total_amount": total_amount,
         "payment_method": payment_method,
+        "payment_status": "Pending",
         "payment_bank": payment_bank or None,
         "payment_reference": payment_reference or None,
+        "delivery_option": delivery_option,
         "delivery_address": delivery_address,
+        "preferred_time": preferred_time or None,
         "delivery_notes": delivery_notes or None,
+        "rider_id": None,
+        "delivery_status": "Waiting",
         "status": "Pending",
     }
     try:
@@ -1606,13 +1793,28 @@ def create_order(
             return True, f"Order submitted successfully. Your order number is {order_number_label}."
         if any(
             column in error_message.lower()
-            for column in ("payment_bank", "payment_reference", "delivery_address", "delivery_notes")
+            for column in (
+                "payment_bank",
+                "payment_reference",
+                "payment_status",
+                "delivery_option",
+                "delivery_address",
+                "preferred_time",
+                "delivery_notes",
+                "rider_id",
+                "delivery_status",
+            )
         ):
             fallback_payload = dict(payload)
             fallback_payload.pop("payment_bank", None)
             fallback_payload.pop("payment_reference", None)
+            fallback_payload.pop("payment_status", None)
+            fallback_payload.pop("delivery_option", None)
             fallback_payload.pop("delivery_address", None)
+            fallback_payload.pop("preferred_time", None)
             fallback_payload.pop("delivery_notes", None)
+            fallback_payload.pop("rider_id", None)
+            fallback_payload.pop("delivery_status", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",
@@ -1628,7 +1830,7 @@ def create_order(
 
             return True, (
                 f"Order submitted successfully. Your order number is {order_number_label}. "
-                "Some payment or delivery fields could not be saved until the database schema is refreshed."
+                "Some tracking fields could not be saved until the database schema is refreshed."
             )
         if is_schema_cache_column_error(error_message, "payment_method"):
             return False, schema_cache_fix_message("orders.payment_method")
@@ -1658,6 +1860,117 @@ def update_order_status(order_id: int, status: str) -> tuple[bool, str]:
         return False, parse_response_error(response)
 
     return True, "Order status updated."
+
+
+def set_rider_status(rider_id: str, rider_status: str) -> None:
+    config_error = supabase_config_error()
+    if config_error or not rider_id:
+        return
+    rider_status = rider_status.strip().title()
+    if rider_status not in VALID_RIDER_STATUSES:
+        return
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        requests.patch(
+            f"{supabase_url}/rest/v1/riders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{rider_id}"},
+            json={"status": rider_status},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return
+
+
+def update_order_tracking(
+    order_id: int,
+    status: str,
+    payment_status: str,
+    delivery_status: str,
+    rider_id: str = "",
+) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    status = status.strip()
+    payment_status = payment_status.strip()
+    delivery_status = delivery_status.strip()
+    rider_id = rider_id.strip()
+    if status not in VALID_ORDER_STATUSES:
+        return False, "Please choose a valid order status."
+    if payment_status not in VALID_PAYMENT_STATUSES:
+        return False, "Please choose a valid payment status."
+    if delivery_status not in VALID_DELIVERY_STATUSES:
+        return False, "Please choose a valid delivery status."
+
+    supabase_url, _ = current_supabase_config()
+    previous_rider_id = ""
+    try:
+        previous_response = requests.get(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers(),
+            params={"id": f"eq.{order_id}", "select": "rider_id", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if previous_response.status_code < 400:
+            rows = previous_response.json()
+            if rows:
+                previous_rider_id = str(rows[0].get("rider_id") or "").strip()
+    except requests.RequestException:
+        previous_rider_id = ""
+
+    payload = {
+        "status": status,
+        "payment_status": payment_status,
+        "delivery_status": delivery_status,
+        "rider_id": rider_id or None,
+    }
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{order_id}"},
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update tracking right now."
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        if any(column in error_message.lower() for column in ("payment_status", "delivery_status", "rider_id")):
+            fallback_payload = {"status": status}
+            try:
+                fallback_response = requests.patch(
+                    f"{supabase_url}/rest/v1/orders",
+                    headers=supabase_headers("return=minimal"),
+                    params={"id": f"eq.{order_id}"},
+                    json=fallback_payload,
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.RequestException:
+                return False, "Unable to update tracking right now."
+
+            if fallback_response.status_code >= 400:
+                return False, parse_response_error(fallback_response)
+            return True, (
+                "Order status updated. Some tracking columns are missing in schema cache; "
+                "run supabase_schema.sql and NOTIFY pgrst, 'reload schema'."
+            )
+        return False, error_message
+
+    if previous_rider_id and previous_rider_id != rider_id:
+        set_rider_status(previous_rider_id, "Available")
+
+    if rider_id:
+        if delivery_status == "Delivered":
+            set_rider_status(rider_id, "Available")
+        else:
+            set_rider_status(rider_id, "Busy")
+
+    return True, "Order tracking updated."
 
 
 def delete_order(order_id: int) -> tuple[bool, str]:

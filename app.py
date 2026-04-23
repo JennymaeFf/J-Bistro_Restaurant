@@ -22,14 +22,15 @@ from werkzeug.utils import secure_filename
 load_env_file()
 
 from supabase_client import (
-    admin_update_order_status,
     authenticate_user,
     create_admin_menu_item,
+    create_rider,
     current_supabase_config,
     current_supabase_service_config,
     create_order,
     delete_admin_menu_item,
     delete_admin_user,
+    delete_rider,
     detect_key_type,
     delete_order,
     fetch_admin_dashboard_stats,
@@ -38,9 +39,12 @@ from supabase_client import (
     fetch_menu_items,
     fetch_latest_order,
     fetch_orders,
+    fetch_riders,
     fetch_user_profile,
     register_user,
     send_password_reset,
+    update_order_tracking,
+    update_rider,
     update_admin_account_profile,
     update_admin_password,
     update_admin_menu_item,
@@ -77,6 +81,10 @@ BANK_PAYMENT_ACCOUNTS = {
         "account_number": "0921-4567-8901",
     },
 }
+ORDER_STATUS_OPTIONS = ("Pending", "Preparing", "Completed")
+PAYMENT_STATUS_OPTIONS = ("Pending", "Paid", "COD")
+DELIVERY_STATUS_OPTIONS = ("Waiting", "Assigned", "On the way", "Delivered")
+DELIVERY_OPTION_VALUES = ("Pickup", "Delivery")
 
 # SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
@@ -217,13 +225,22 @@ def receipt_order_number_label(data: dict[str, Any]) -> str:
 def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer") -> dict[str, Any]:
     data = source if isinstance(source, dict) else {}
     customer_name = (data.get("customer_name") or fallback_customer_name or "Customer").strip()
-    order_type = "Delivery"
+    delivery_option = (data.get("delivery_option") or data.get("order_type") or "Delivery").strip().title()
+    if delivery_option not in DELIVERY_OPTION_VALUES:
+        delivery_option = "Delivery"
+    order_type = delivery_option
     order_number_label = receipt_order_number_label(data)
     payment_method = (data.get("payment_method") or "Cash").strip() or "Cash"
+    payment_status = (data.get("payment_status") or "Pending").strip() or "Pending"
     payment_bank = (data.get("payment_bank") or "").strip()
     payment_reference = (data.get("payment_reference") or "").strip()
     delivery_address = (data.get("delivery_address") or "").strip()
+    preferred_time = (data.get("preferred_time") or "").strip()
     delivery_notes = (data.get("delivery_notes") or "").strip()
+    delivery_status = (data.get("delivery_status") or "Waiting").strip() or "Waiting"
+    rider_name = (data.get("rider_name") or "").strip()
+    rider_phone = (data.get("rider_phone") or "").strip()
+    rider_status = (data.get("rider_status") or "").strip()
     items = normalize_receipt_items(data.get("items"))
 
     total_amount = coerce_float(data.get("total_amount"), 0.0)
@@ -236,11 +253,18 @@ def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer")
         "order_number": data.get("order_number"),
         "order_number_label": order_number_label,
         "order_type": order_type,
+        "delivery_option": delivery_option,
+        "preferred_time": preferred_time,
         "payment_method": payment_method,
+        "payment_status": payment_status,
         "payment_bank": payment_bank,
         "payment_reference": payment_reference,
         "delivery_address": delivery_address,
         "delivery_notes": delivery_notes,
+        "delivery_status": delivery_status,
+        "rider_name": rider_name,
+        "rider_phone": rider_phone,
+        "rider_status": rider_status,
         "items": items,
         "total_amount": max(0.0, total_amount),
         "status": data.get("status") or "Pending",
@@ -344,6 +368,23 @@ def safe_upload_redirect(next_target: str = ""):
     if current_session_role() == "admin":
         return redirect(url_for("admin_settings"))
     return redirect(url_for("profile"))
+
+
+def attach_riders_to_orders(orders: list[dict[str, Any]], riders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rider_map: dict[str, dict[str, Any]] = {}
+    for rider in riders:
+        rider_id = str(rider.get("id") or "").strip()
+        if rider_id:
+            rider_map[rider_id] = rider
+
+    for order in orders:
+        rider_id = str(order.get("rider_id") or "").strip()
+        rider_data = rider_map.get(rider_id, {})
+        order["rider"] = rider_data
+        order["rider_name"] = rider_data.get("name") or "Not assigned"
+        order["rider_phone"] = rider_data.get("phone") or ""
+        order["rider_status"] = rider_data.get("status") or ""
+    return orders
 
 
 def redirect_to_register_for_order() -> Any:
@@ -514,7 +555,9 @@ def order():
         flash(profile_message, "error")
     if request.method == "POST":
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
+        delivery_option = request.form.get("delivery_option", "Delivery").strip().title()
         delivery_address = request.form.get("delivery_address", "").strip()
+        preferred_time = request.form.get("preferred_time", "").strip()
         delivery_notes = request.form.get("delivery_notes", "").strip()
         payment_method = request.form.get("payment_method", "").strip()
         payment_bank = request.form.get("payment_bank", "").strip()
@@ -526,7 +569,10 @@ def order():
             len(cart),
         )
 
-        if not delivery_address:
+        if delivery_option not in DELIVERY_OPTION_VALUES:
+            flash("Please choose Pickup or Delivery.", "error")
+            return redirect(url_for("order"))
+        if delivery_option == "Delivery" and not delivery_address:
             flash("Please enter a delivery address.", "error")
             return redirect(url_for("order"))
         if payment_method not in {"Cash", "GCash", "Card"}:
@@ -554,7 +600,9 @@ def order():
                 customer_name,
                 cart,
                 cart_total(cart),
+                delivery_option,
                 delivery_address,
+                preferred_time,
                 delivery_notes,
                 payment_method,
                 payment_bank,
@@ -583,15 +631,19 @@ def order():
                 receipt_payload = build_receipt_payload(
                     {
                         "customer_name": customer_name,
-                        "order_type": "Delivery",
+                        "order_type": delivery_option,
+                        "delivery_option": delivery_option,
                         "order_number_label": order_number_label,
                         "items": [dict(item) for item in cart],
                         "total_amount": cart_total(cart),
                         "delivery_address": delivery_address,
+                        "preferred_time": preferred_time,
                         "delivery_notes": delivery_notes,
                         "payment_method": payment_method,
+                        "payment_status": "Pending",
                         "payment_bank": payment_bank,
                         "payment_reference": payment_reference,
+                        "delivery_status": "Waiting",
                     },
                     customer_name,
                 )
@@ -646,12 +698,19 @@ def dashboard():
         orders = []
         message = "Unable to load your orders right now."
 
+    riders, riders_message = fetch_riders()
     user_profile = current_user_profile()
     customer_name = user_profile.get("full_name") or fallback_full_name(user_profile.get("email", ""))
     user_orders = []
     for order in orders:
         if str(order.get("customer_name") or "").strip().lower() == customer_name.strip().lower():
             user_orders.append(order)
+    user_orders = attach_riders_to_orders(user_orders, riders)
+    if riders_message:
+        if message:
+            message = f"{message} {riders_message}"
+        else:
+            message = riders_message
 
     return render_template("dashboard.html", orders=user_orders, info_message=message)
 
@@ -717,9 +776,20 @@ def admin_dashboard():
 @admin_required
 def admin_orders():
     orders, info_message = fetch_orders()
+    riders, riders_message = fetch_riders()
+    orders = attach_riders_to_orders(orders, riders)
+    if riders_message:
+        if info_message:
+            info_message = f"{info_message} {riders_message}"
+        else:
+            info_message = riders_message
     return render_template(
         "admin/orders.html",
         orders=orders,
+        riders=riders,
+        order_status_options=ORDER_STATUS_OPTIONS,
+        payment_status_options=PAYMENT_STATUS_OPTIONS,
+        delivery_status_options=DELIVERY_STATUS_OPTIONS,
         info_message=info_message,
         admin_section="orders",
     )
@@ -729,9 +799,56 @@ def admin_orders():
 @admin_required
 def admin_orders_update_status(order_id: int):
     status = request.form.get("status", "").strip()
-    success, message = admin_update_order_status(order_id, status)
+    payment_status = request.form.get("payment_status", "").strip()
+    delivery_status = request.form.get("delivery_status", "").strip()
+    rider_id = request.form.get("rider_id", "").strip()
+    success, message = update_order_tracking(
+        order_id,
+        status,
+        payment_status,
+        delivery_status,
+        rider_id,
+    )
     flash(message, "success" if success else "error")
     return redirect(url_for("admin_orders"))
+
+
+@app.route("/admin/riders", methods=["GET", "POST"])
+@admin_required
+def admin_riders():
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        rider_id = request.form.get("rider_id", "").strip()
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        status = request.form.get("status", "Available").strip()
+
+        if action == "create":
+            success, message = create_rider(name, phone, status)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_riders"))
+
+        if action == "update":
+            success, message = update_rider(rider_id, name, phone, status)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_riders"))
+
+        if action == "delete":
+            success, message = delete_rider(rider_id)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_riders"))
+
+        flash("Unknown rider action.", "error")
+        return redirect(url_for("admin_riders"))
+
+    riders, info_message = fetch_riders()
+    return render_template(
+        "admin/riders.html",
+        riders=riders,
+        rider_status_options=("Available", "Busy"),
+        info_message=info_message,
+        admin_section="riders",
+    )
 
 
 @app.route("/admin/menu", methods=["GET", "POST"])

@@ -1571,6 +1571,16 @@ select {
     font-weight: 700;
 }
 
+.status-payment {
+    background: #e9f3ff;
+    color: #1b4e8f;
+}
+
+.status-delivery {
+    background: #e9fff1;
+    color: #1d6f43;
+}
+
 .status-badge.success {
     background: #e1f3ea;
     color: var(--success);
@@ -3812,6 +3822,7 @@ td {
 
 .admin-form-grid input,
 .admin-form-grid textarea,
+.admin-inline-form input,
 .admin-inline-form select,
 .admin-edit-row input,
 .admin-menu-create-form input,
@@ -3831,6 +3842,7 @@ td {
 
 .admin-form-grid input:focus,
 .admin-form-grid textarea:focus,
+.admin-inline-form input:focus,
 .admin-inline-form select:focus,
 .admin-edit-row input:focus,
 .admin-menu-create-form input:focus,

@@ -26,8 +26,14 @@
             </div>
             <div class="cash-info">
                 <span>Fulfillment</span>
-                <span>Delivery</span>
+                <span>{{ receipt["delivery_option"] or "Delivery" }}</span>
             </div>
+            {% if receipt["preferred_time"] %}
+                <div class="cash-info">
+                    <span>Preferred Time</span>
+                    <span>{{ receipt["preferred_time"] }}</span>
+                </div>
+            {% endif %}
             {% if receipt["delivery_address"] %}
                 <div class="cash-info">
                     <span>Delivery Address</span>
@@ -44,10 +50,17 @@
                 <span>Payment</span>
                 <span>
                     {{ receipt["payment_method"] or "Cash" }}
+                    {% if receipt["payment_status"] %}
+                        ({{ receipt["payment_status"] }})
+                    {% endif %}
                     {% if receipt["payment_bank"] %}
                         - {{ receipt["payment_bank"] }}
                     {% endif %}
                 </span>
+            </div>
+            <div class="cash-info">
+                <span>Delivery Status</span>
+                <span>{{ receipt["delivery_status"] or "Waiting" }}</span>
             </div>
             {% if receipt["payment_reference"] %}
                 <div class="cash-info">

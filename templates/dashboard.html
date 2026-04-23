@@ -31,22 +31,34 @@
                     <thead>
                         <tr>
                             <th>Order No.</th>
-                            <th>Customer</th>
-                            <th>Fulfillment</th>
-                            <th>Address</th>
+                            <th>Order</th>
+                            <th>Delivery</th>
                             <th>Items</th>
                             <th>Payment</th>
+                            <th>Rider</th>
                             <th>Total</th>
-                            <th>Status</th>
+                            <th>Progress</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for order in orders %}
                             <tr>
                                 <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
-                                <td>{{ order["customer_name"] }}</td>
-                                <td>Delivery</td>
-                                <td>{{ order["delivery_address"] or "Address unavailable" }}</td>
+                                <td>
+                                    <div><strong>{{ order["delivery_option"] or "Delivery" }}</strong></div>
+                                    {% if order["preferred_time"] %}
+                                        <small>Preferred: {{ order["preferred_time"] }}</small>
+                                    {% endif %}
+                                    {% if order["delivery_option"] == "Delivery" %}
+                                        <div><small>{{ order["delivery_address"] or "Address unavailable" }}</small></div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-badge status-delivery">{{ order["delivery_status"] or "Waiting" }}</span>
+                                    {% if (order["delivery_status"] or "") == "On the way" %}
+                                        <div><small>Your order is on the way.</small></div>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if order["items"] %}
                                         <ul class="items-list">
@@ -60,11 +72,21 @@
                                 </td>
                                 <td>
                                     {{ order["payment_method"] or "Cash" }}
+                                    <br><span class="status-badge status-payment">{{ order["payment_status"] or "Pending" }}</span>
                                     {% if order["payment_bank"] %}
                                         <br><small>{{ order["payment_bank"] }}</small>
                                     {% endif %}
                                     {% if order["payment_reference"] %}
                                         <br><small>Ref: {{ order["payment_reference"] }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ order["rider_name"] or "Not assigned" }}</div>
+                                    {% if order["rider_phone"] %}
+                                        <small>{{ order["rider_phone"] }}</small><br>
+                                    {% endif %}
+                                    {% if order["rider_status"] %}
+                                        <small>Status: {{ order["rider_status"] }}</small>
                                     {% endif %}
                                 </td>
                                 <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>

@@ -15,12 +15,13 @@
                 <tr>
                     <th>Order No.</th>
                     <th>User</th>
-                    <th>Fulfillment</th>
-                    <th>Address</th>
+                    <th>Booking</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Payment</th>
-                    <th>Status</th>
+                    <th>Rider</th>
+                    <th>Delivery</th>
+                    <th>Progress</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -29,9 +30,14 @@
                     <tr>
                         <td>{{ order["order_number_label"] or "Order #" ~ order["id"] }}</td>
                         <td>{{ order["customer_name"] }}</td>
-                        <td>Delivery</td>
                         <td>
-                            {{ order["delivery_address"] or "Address unavailable" }}
+                            <strong>{{ order["delivery_option"] or "Delivery" }}</strong>
+                            {% if order["delivery_option"] == "Delivery" %}
+                                <div>{{ order["delivery_address"] or "Address unavailable" }}</div>
+                            {% endif %}
+                            {% if order["preferred_time"] %}
+                                <div><small>Preferred: {{ order["preferred_time"] }}</small></div>
+                            {% endif %}
                             {% if order["delivery_notes"] %}
                                 <div><small>Notes: {{ order["delivery_notes"] }}</small></div>
                             {% endif %}
@@ -48,6 +54,7 @@
                         <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
                         <td>
                             {{ order["payment_method"] or "N/A" }}
+                            <div><small>Status: {{ order["payment_status"] or "Pending" }}</small></div>
                             {% if order["payment_bank"] %}
                                 <div><small>{{ order["payment_bank"] }}</small></div>
                             {% endif %}
@@ -55,13 +62,41 @@
                                 <div><small>Ref: {{ order["payment_reference"] }}</small></div>
                             {% endif %}
                         </td>
+                        <td>
+                            <div>{{ order["rider_name"] or "Not assigned" }}</div>
+                            {% if order["rider_phone"] %}
+                                <div><small>{{ order["rider_phone"] }}</small></div>
+                            {% endif %}
+                            {% if order["rider_status"] %}
+                                <div><small>Status: {{ order["rider_status"] }}</small></div>
+                            {% endif %}
+                        </td>
+                        <td>{{ order["delivery_status"] or "Waiting" }}</td>
                         <td>{{ order["status"] }}</td>
                         <td>
                             <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-inline-form">
                                 <select name="status" required>
-                                    <option value="Pending" {% if order["status"] == "Pending" %}selected{% endif %}>Pending</option>
-                                    <option value="Preparing" {% if order["status"] == "Preparing" %}selected{% endif %}>Preparing</option>
-                                    <option value="Completed" {% if order["status"] == "Completed" %}selected{% endif %}>Completed</option>
+                                    {% for value in order_status_options %}
+                                        <option value="{{ value }}" {% if order["status"] == value %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="payment_status" required>
+                                    {% for value in payment_status_options %}
+                                        <option value="{{ value }}" {% if (order["payment_status"] or "Pending") == value %}selected{% endif %}>Pay: {{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="delivery_status" required>
+                                    {% for value in delivery_status_options %}
+                                        <option value="{{ value }}" {% if (order["delivery_status"] or "Waiting") == value %}selected{% endif %}>Delivery: {{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="rider_id">
+                                    <option value="">No Rider</option>
+                                    {% for rider in riders %}
+                                        <option value="{{ rider['id'] }}" {% if (order["rider_id"] or "") == rider["id"] %}selected{% endif %}>
+                                            {{ rider["name"] }} ({{ rider["status"] }})
+                                        </option>
+                                    {% endfor %}
                                 </select>
                                 <button type="submit" class="admin-btn">Save</button>
                             </form>
@@ -69,7 +104,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="9">No orders found.</td>
+                        <td colspan="10">No orders found.</td>
                     </tr>
                 {% endfor %}
             </tbody>

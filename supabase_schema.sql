@@ -33,28 +33,63 @@ create table if not exists public.orders (
     items jsonb not null,
     total_amount numeric(10,2) not null,
     payment_method text not null,
+    payment_status text not null default 'Pending',
     payment_bank text,
     payment_reference text,
     order_type text not null default 'Delivery',
+    delivery_option text not null default 'Delivery',
     delivery_address text,
+    preferred_time text,
     delivery_notes text,
+    rider_id uuid,
+    delivery_status text not null default 'Waiting',
     status text not null default 'Pending',
     created_at timestamptz not null default now()
 );
 
+create table if not exists public.riders (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    phone text,
+    status text not null default 'Available'
+);
+
 alter table public.orders add column if not exists payment_method text;
+alter table public.orders add column if not exists payment_status text not null default 'Pending';
 alter table public.orders add column if not exists payment_bank text;
 alter table public.orders add column if not exists payment_reference text;
 alter table public.orders add column if not exists order_type text not null default 'Delivery';
+alter table public.orders add column if not exists delivery_option text not null default 'Delivery';
 alter table public.orders add column if not exists order_number integer;
 alter table public.orders add column if not exists delivery_address text;
+alter table public.orders add column if not exists preferred_time text;
 alter table public.orders add column if not exists delivery_notes text;
+alter table public.orders add column if not exists rider_id uuid;
+alter table public.orders add column if not exists delivery_status text not null default 'Waiting';
 alter table public.app_users add column if not exists full_name text;
 alter table public.app_users add column if not exists role text not null default 'user';
 alter table public.app_users add column if not exists phone_number text;
 alter table public.app_users add column if not exists delivery_address text;
 alter table public.app_users add column if not exists profile_image text;
 alter table public.menu_items add column if not exists is_available boolean not null default true;
+alter table public.riders add column if not exists phone text;
+alter table public.riders add column if not exists status text not null default 'Available';
+
+do $$
+begin
+    if not exists (
+        select 1
+        from information_schema.table_constraints
+        where table_schema = 'public'
+          and table_name = 'orders'
+          and constraint_name = 'orders_rider_id_fkey'
+    ) then
+        alter table public.orders
+        add constraint orders_rider_id_fkey
+        foreign key (rider_id) references public.riders(id)
+        on delete set null;
+    end if;
+end $$;
 
 -- Keep existing rows valid after adding these columns to an older database.
 update public.orders
@@ -62,8 +97,23 @@ set payment_method = 'Cash'
 where payment_method is null;
 
 update public.orders
+set payment_status = 'Pending'
+where payment_status is null or btrim(payment_status) = '';
+
+update public.orders
 set order_type = 'Delivery'
 where order_type is null or btrim(order_type) = '';
+
+update public.orders
+set delivery_option = case
+    when order_type ilike 'pickup' then 'Pickup'
+    else 'Delivery'
+end
+where delivery_option is null or btrim(delivery_option) = '';
+
+update public.orders
+set delivery_status = 'Waiting'
+where delivery_status is null or btrim(delivery_status) = '';
 
 update public.orders
 set order_number = id::integer
@@ -96,9 +146,14 @@ update public.menu_items
 set is_available = true
 where is_available is null;
 
+update public.riders
+set status = 'Available'
+where status is null or btrim(status) = '';
+
 alter table public.app_users enable row level security;
 alter table public.menu_items enable row level security;
 alter table public.orders enable row level security;
+alter table public.riders enable row level security;
 
 drop policy if exists "Allow app_users select" on public.app_users;
 create policy "Allow app_users select"
@@ -150,6 +205,31 @@ on public.orders for delete
 to anon
 using (true);
 
+drop policy if exists "Allow riders read" on public.riders;
+create policy "Allow riders read"
+on public.riders for select
+to anon
+using (true);
+
+drop policy if exists "Allow riders insert" on public.riders;
+create policy "Allow riders insert"
+on public.riders for insert
+to anon
+with check (true);
+
+drop policy if exists "Allow riders update" on public.riders;
+create policy "Allow riders update"
+on public.riders for update
+to anon
+using (true)
+with check (true);
+
+drop policy if exists "Allow riders delete" on public.riders;
+create policy "Allow riders delete"
+on public.riders for delete
+to anon
+using (true);
+
 insert into public.menu_items (name, description, category, price, image, is_available)
 values
     ('Cheeseburger', 'Juicy beef burger with melted cheese and fresh vegetables.', 'Main Course', 60.00, 'cheeseburger.png', true),
@@ -174,8 +254,9 @@ select table_name, column_name, data_type
 from information_schema.columns
 where table_schema = 'public'
   and (
-      (table_name = 'orders' and column_name in ('payment_method', 'payment_bank', 'payment_reference', 'order_type', 'order_number', 'delivery_address', 'delivery_notes'))
+      (table_name = 'orders' and column_name in ('payment_method', 'payment_status', 'payment_bank', 'payment_reference', 'order_type', 'delivery_option', 'order_number', 'delivery_address', 'preferred_time', 'delivery_notes', 'rider_id', 'delivery_status'))
       or (table_name = 'app_users' and column_name in ('full_name', 'role', 'phone_number', 'delivery_address', 'profile_image'))
+      or (table_name = 'riders' and column_name in ('name', 'phone', 'status'))
       or (table_name = 'menu_items' and column_name in ('is_available'))
   )
 order by table_name, column_name;
@@ -184,6 +265,3 @@ order by table_name, column_name;
 -- "Could not find column in the schema cache" errors.
 notify pgrst, 'reload schema';
 select pg_notification_queue_usage();
-update public.orders
-set order_type = 'Delivery'
-where order_type <> 'Delivery';

@@ -19,29 +19,33 @@
 
             <nav class="admin-nav">
                 <a href="{{ url_for('admin_dashboard') }}" class="{% if admin_section == 'dashboard' %}active{% endif %}">
-                    <span class="admin-nav-icon">▦</span>
+                    <span class="admin-nav-icon">D</span>
                     <span>Dashboard</span>
                 </a>
                 <a href="{{ url_for('admin_orders') }}" class="{% if admin_section == 'orders' %}active{% endif %}">
-                    <span class="admin-nav-icon">▤</span>
+                    <span class="admin-nav-icon">O</span>
                     <span>Orders</span>
                 </a>
+                <a href="{{ url_for('admin_riders') }}" class="{% if admin_section == 'riders' %}active{% endif %}">
+                    <span class="admin-nav-icon">R</span>
+                    <span>Riders</span>
+                </a>
                 <a href="{{ url_for('admin_menu') }}" class="{% if admin_section == 'menu' %}active{% endif %}">
-                    <span class="admin-nav-icon">☰</span>
+                    <span class="admin-nav-icon">M</span>
                     <span>Menu</span>
                 </a>
                 <a href="{{ url_for('admin_users') }}" class="{% if admin_section == 'users' %}active{% endif %}">
-                    <span class="admin-nav-icon">◉</span>
+                    <span class="admin-nav-icon">U</span>
                     <span>Users</span>
                 </a>
                 <a href="{{ url_for('admin_settings') }}" class="{% if admin_section == 'settings' %}active{% endif %}">
-                    <span class="admin-nav-icon">⚙</span>
+                    <span class="admin-nav-icon">S</span>
                     <span>Settings</span>
                 </a>
             </nav>
 
             <a href="{{ url_for('admin_logout') }}" class="admin-logout">
-                <span class="admin-nav-icon">↗</span>
+                <span class="admin-nav-icon">X</span>
                 <span>Log Out</span>
             </a>
         </aside>

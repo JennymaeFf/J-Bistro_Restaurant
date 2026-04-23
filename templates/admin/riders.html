@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Manage Riders | J'Bistro Admin{% endblock %}
+
+{% block admin_content %}
+<section class="admin-page-header">
+    <h1>Manage Riders</h1>
+    <p>Create rider profiles and update their availability.</p>
+</section>
+
+<section class="admin-card" style="margin-bottom:16px;">
+    <h2 style="margin-top:0;">Add Rider</h2>
+    <form action="{{ url_for('admin_riders') }}" method="post" class="admin-inline-form">
+        <input type="hidden" name="action" value="create">
+        <input type="text" name="name" placeholder="Rider name" required>
+        <input type="text" name="phone" placeholder="Phone number">
+        <select name="status" required>
+            {% for value in rider_status_options %}
+                <option value="{{ value }}">{{ value }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="admin-btn">Add Rider</button>
+    </form>
+</section>
+
+<section class="admin-card">
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rider in riders %}
+                    <tr>
+                        <td>{{ rider["name"] }}</td>
+                        <td>{{ rider["phone"] or "N/A" }}</td>
+                        <td>{{ rider["status"] }}</td>
+                        <td>
+                            <form action="{{ url_for('admin_riders') }}" method="post" class="admin-inline-form" style="margin-bottom:8px;">
+                                <input type="hidden" name="action" value="update">
+                                <input type="hidden" name="rider_id" value="{{ rider['id'] }}">
+                                <input type="text" name="name" value="{{ rider['name'] }}" required>
+                                <input type="text" name="phone" value="{{ rider['phone'] }}">
+                                <select name="status" required>
+                                    {% for value in rider_status_options %}
+                                        <option value="{{ value }}" {% if rider["status"] == value %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="admin-btn">Save</button>
+                            </form>
+                            <form action="{{ url_for('admin_riders') }}" method="post" class="admin-inline-form">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="rider_id" value="{{ rider['id'] }}">
+                                <button type="submit" class="admin-btn danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4">No riders found. Add one to start delivery assignment.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -53,6 +53,24 @@ document.addEventListener("DOMContentLoaded", function () {
     const bankAccountPreview = document.getElementById("bankAccountPreview");
     const bankAccountName = document.getElementById("bankAccountName");
     const bankAccountNumber = document.getElementById("bankAccountNumber");
+    const deliveryOptionInputs = document.querySelectorAll('input[name="delivery_option"]');
+    const deliveryAddressInput = document.getElementById("deliveryAddress");
+
+    function selectedDeliveryOption() {
+        const selected = document.querySelector('input[name="delivery_option"]:checked');
+        return selected ? selected.value : "Delivery";
+    }
+
+    function updateDeliveryOption() {
+        const option = selectedDeliveryOption();
+        const isDelivery = option === "Delivery";
+        if (deliveryAddressInput) {
+            deliveryAddressInput.required = isDelivery;
+            deliveryAddressInput.placeholder = isDelivery
+                ? "House no., street, barangay, city"
+                : "Pickup selected (address optional)";
+        }
+    }
 
     function selectedPaymentMethod() {
         const selected = document.querySelector('input[name="payment_method"]:checked');
@@ -98,6 +116,9 @@ document.addEventListener("DOMContentLoaded", function () {
     paymentMethodInputs.forEach(function (input) {
         input.addEventListener("change", updatePaymentDetails);
     });
+    deliveryOptionInputs.forEach(function (input) {
+        input.addEventListener("change", updateDeliveryOption);
+    });
 
     [gcashReference, bankReference].forEach(function (input) {
         if (!input) return;
@@ -115,7 +136,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (checkoutForm) {
         checkoutForm.addEventListener("submit", updatePaymentDetails);
+        checkoutForm.addEventListener("submit", updateDeliveryOption);
         updatePaymentDetails();
+        updateDeliveryOption();
     }
 
     const passwordToggleButtons = document.querySelectorAll(".password-toggle");
