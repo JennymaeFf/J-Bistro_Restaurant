@@ -18,8 +18,8 @@
                     From traditional dishes to modern creations, every meal is prepared with passion.
                 </p>
                 <div class="hero-actions">
-                    <a class="button primary" href="#home-food-grid">Browse Food</a>
-                    <a class="button secondary" href="{{ url_for('menu') }}">Open Menu Page</a>
+                    <a class="button primary" href="#home-categories">Browse Categories</a>
+                    <a class="button secondary" href="#best-sellers">See Best Sellers</a>
                 </div>
             </div>
             <div class="hero-carousel-panel">
@@ -44,6 +44,60 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</section>
+
+<section id="home-categories" class="home-categories-section">
+    <div class="container">
+        <div class="section-header">
+            <p class="eyebrow">Categories</p>
+            <h2>Browse what you are craving</h2>
+            <p>Jump straight into your favorite type of meal with a quick category view.</p>
+        </div>
+        <div class="home-categories-grid">
+            {% for category in categories %}
+                {% set category_slug = category|lower|replace(' ', '-') %}
+                <a href="{{ url_for('menu', category=category_slug) }}" class="home-category-card">
+                    <span class="home-category-tag">Category</span>
+                    <strong>
+                        {% if category|lower in ['main-course', 'main course'] %}Main Course
+                        {% elif category|lower in ['appetizers', 'appetizer'] %}Appetizers
+                        {% elif category|lower in ['beverages', 'beverage'] %}Beverages
+                        {% else %}{{ category }}{% endif %}
+                    </strong>
+                    <span>View items</span>
+                </a>
+            {% else %}
+                <div class="notice-card">Categories are unavailable right now.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section id="best-sellers" class="best-sellers-section">
+    <div class="container">
+        <div class="section-header">
+            <p class="eyebrow">Best Sellers</p>
+            <h2>Most-loved picks from J'Bistro</h2>
+            <p>Three standout dishes customers keep coming back for.</p>
+        </div>
+
+        <div class="best-sellers-grid">
+            {% for item in best_sellers %}
+                <article class="product-card">
+                    <div class="product-image">
+                        <span class="product-badge">Best Seller</span>
+                        <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
+                    </div>
+                    <div class="product-content">
+                        <h3>{{ item.name }}</h3>
+                        <p class="product-description">{{ item.description }}</p>
+                    </div>
+                </article>
+            {% else %}
+                <div class="notice-card">Best sellers are unavailable right now.</div>
+            {% endfor %}
         </div>
     </div>
 </section>

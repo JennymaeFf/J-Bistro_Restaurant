@@ -477,7 +477,18 @@ def home():
         app.logger.exception("Failed to load menu items for home page.")
         menu_items = []
         menu_message = "Unable to load featured menu items right now."
-    return render_template("home.html", menu_items=menu_items, info_message=menu_message)
+    seen_categories: list[str] = []
+    for item in menu_items:
+        category = str(item.get("category") or "").strip()
+        if category and category not in seen_categories:
+            seen_categories.append(category)
+    return render_template(
+        "home.html",
+        menu_items=menu_items,
+        best_sellers=menu_items[:3],
+        categories=seen_categories,
+        info_message=menu_message,
+    )
 
 
 @app.route("/best-sellers")

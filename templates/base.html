@@ -19,7 +19,6 @@
             </a>
             <nav class="site-nav">
                 <a href="{{ url_for('home') }}">HOME</a>
-                <a href="{{ url_for('menu') }}">OUR MENU</a>
                 <a href="{{ url_for('about') }}">ABOUT</a>
                 {% if current_user %}
                     <a href="{{ url_for('dashboard') }}">MY ORDERS</a>
@@ -87,14 +86,33 @@
                     <div class="footer-location-block">
                         <h4>Location</h4>
                         <p class="footer-location-line"><span class="footer-icon">Loc</span> Cebu City, Philippines</p>
+                        <div class="footer-map-wrap">
+                            <div class="footer-map-stage">
+                                <iframe
+                                    class="footer-map"
+                                    title="J'Bistro Cebu City Location"
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer-when-downgrade"
+                                    src="https://www.openstreetmap.org/export/embed.html?bbox=123.8765%2C10.3098%2C123.8948%2C10.3218&layer=mapnik&marker=10.3157%2C123.8854">
+                                </iframe>
+                                <div class="footer-map-marker" aria-label="J'Bistro store location">
+                                    <span class="footer-map-marker-dot"></span>
+                                    <span class="footer-map-marker-pulse"></span>
+                                </div>
+                                <div class="footer-map-label">
+                                    <strong>J'Bistro</strong>
+                                    <span>Cebu City</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="footer-social-block">
-                    <h4>Social</h4>
-                    <div class="social-links" aria-label="Social media links">
-                        <a class="social-link" href="https://www.facebook.com/" target="_blank" rel="noopener" aria-label="Facebook">f</a>
-                        <a class="social-link" href="https://www.instagram.com/" target="_blank" rel="noopener" aria-label="Instagram">ig</a>
-                        <a class="social-link" href="https://www.tiktok.com/" target="_blank" rel="noopener" aria-label="TikTok">tt</a>
-                    </div>
+                        <h4>Social</h4>
+                        <div class="social-links" aria-label="Social media links">
+                            <a class="social-link" href="https://www.facebook.com/" target="_blank" rel="noopener" aria-label="Facebook">f</a>
+                            <a class="social-link" href="https://www.instagram.com/" target="_blank" rel="noopener" aria-label="Instagram">ig</a>
+                            <a class="social-link" href="https://www.tiktok.com/" target="_blank" rel="noopener" aria-label="TikTok">tt</a>
+                        </div>
                         <p class="footer-note">Follow us for menu updates and new specials.</p>
                     </div>
                 </div>
