@@ -214,8 +214,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function closeFooterPanel() {
         if (!footerPanel) return;
-        footerPanel.hidden = true;
         footerPanel.classList.remove("is-visible");
+        footerPanel.setAttribute("aria-hidden", "true");
+        footerPanel.hidden = true;
     }
 
     footerPanelTriggers.forEach(function (trigger) {
@@ -225,6 +226,7 @@ document.addEventListener("DOMContentLoaded", function () {
             footerPanelTitle.textContent = trigger.dataset.footerPanelTitle || "Details";
             footerPanelBody.textContent = trigger.dataset.footerPanelBody || "";
             footerPanel.hidden = false;
+            footerPanel.setAttribute("aria-hidden", "false");
 
             window.requestAnimationFrame(function () {
                 footerPanel.classList.add("is-visible");
@@ -243,6 +245,12 @@ document.addEventListener("DOMContentLoaded", function () {
     if (footerPanel) {
         footerPanel.addEventListener("click", function (event) {
             if (event.target === footerPanel) {
+                closeFooterPanel();
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !footerPanel.hidden) {
                 closeFooterPanel();
             }
         });

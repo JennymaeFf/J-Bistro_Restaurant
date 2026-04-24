@@ -1533,6 +1533,10 @@ select {
     z-index: 30;
 }
 
+.footer-mini-panel[hidden] {
+    display: none !important;
+}
+
 .footer-mini-panel-card {
     background: linear-gradient(180deg, #fffaf4 0%, #f5e8d9 100%);
     border: 1px solid rgba(141, 85, 36, 0.18);
