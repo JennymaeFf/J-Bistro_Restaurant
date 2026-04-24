@@ -481,6 +481,9 @@ def home():
     seen_categories: list[str] = []
     for item in menu_items:
         category = str(item.get("category") or "").strip()
+        category_slug = normalize_category_slug(category)
+        if category_slug in {"snack", "snacks"}:
+            continue
         if category and category not in seen_categories:
             seen_categories.append(category)
     filtered_menu_items = menu_items
