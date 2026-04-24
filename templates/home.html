@@ -3,118 +3,140 @@
 {% block title %}Home | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero hero-home">
     <div class="hero-background">
         <img src="{{ url_for('static', filename='images/bg.png') }}" alt="Restaurant background">
     </div>
     <div class="hero-overlay"></div>
-    <div class="container hero-content">
-        <div class="hero-card">
-            <p class="eyebrow">Welcome to J'Bistro</p>
-            <h1>Delicious Food, Exceptional Experience</h1>
-            <p class="hero-text">
-                Discover our carefully crafted menu featuring the finest ingredients and authentic flavors.
-                From traditional dishes to modern creations, every meal is prepared with passion.
-            </p>
-            <div class="hero-actions">
-                <a class="button primary" href="{{ url_for('menu') }}">Explore Our Menu</a>
-                <a class="button secondary" href="#best-sellers">View Best Sellers</a>
+    <div class="container hero-content hero-content-expanded">
+        <div class="hero-card hero-card-wide">
+            <div class="hero-copy">
+                <p class="eyebrow">Welcome to J'Bistro</p>
+                <h1>Delicious Food, Exceptional Experience</h1>
+                <p class="hero-text">
+                    Discover our carefully crafted menu featuring the finest ingredients and authentic flavors.
+                    From traditional dishes to modern creations, every meal is prepared with passion.
+                </p>
+                <div class="hero-actions">
+                    <a class="button primary" href="#home-food-grid">Browse Food</a>
+                    <a class="button secondary" href="{{ url_for('menu') }}">Open Menu Page</a>
+                </div>
+            </div>
+            <div class="hero-carousel-panel">
+                <div class="hero-carousel-copy">
+                    <p class="eyebrow">Kitchen Spotlight</p>
+                    <h2>Fresh picks from today's lineup</h2>
+                </div>
+                <div class="home-carousel home-carousel-compact" aria-label="J'Bistro featured meals">
+                    <div class="home-carousel-track">
+                        <img class="home-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
+                        <img class="home-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
+                        <img class="home-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                        <img class="home-carousel-slide" src="{{ url_for('static', filename='images/calamares.png') }}" alt="Calamares">
+                        <img class="home-carousel-slide" src="{{ url_for('static', filename='images/french_fries.png') }}" alt="French fries">
+                    </div>
+                    <div class="home-carousel-dots" aria-hidden="true">
+                        <span class="active"></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="home-carousel-section">
+<section id="home-food-grid" class="home-food-section">
     <div class="container">
-        <div class="section-header">
-            <p class="eyebrow">Spotlight</p>
-            <h2>Fresh Picks Today</h2>
-            <p>See what is trending from our kitchen in one quick preview.</p>
-        </div>
-        <div class="home-carousel" aria-label="J'Bistro featured meals">
-            <div class="home-carousel-track">
-                <img class="home-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
-                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
-                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
-                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/calamares.png') }}" alt="Calamares">
-                <img class="home-carousel-slide" src="{{ url_for('static', filename='images/french_fries.png') }}" alt="French fries">
-            </div>
-            <div class="home-carousel-dots" aria-hidden="true">
-                <span class="active"></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section id="best-sellers" class="best-sellers-section">
-    <div class="container">
-        <div class="section-header">
-            <p class="eyebrow">Customer Favorites</p>
-            <h2>Our Best Sellers</h2>
-            <p>Featured dishes guests can browse anytime. Log in only when you are ready to add items to your cart.</p>
-        </div>
-
         {% if info_message %}
             <div class="notice-card">{{ info_message }}</div>
         {% endif %}
 
-        <div class="best-sellers-grid">
-            {% for item in best_sellers %}
+        <div class="home-food-grid menu-grid-custom">
+            {% for item in menu_items %}
                 {% set item_available = item.get('is_available', true) %}
-                <article class="product-card">
-                    <div class="product-image">
-                        <span class="product-badge">{% if item_available %}Best Seller{% else %}Out of Stock{% endif %}</span>
+                <article
+                    class="menu-item-card {% if not item_available %}is-unavailable{% endif %}"
+                    role="button"
+                    tabindex="0"
+                    data-id="{{ item.id }}"
+                    data-name="{{ item.name }}"
+                    data-description="{{ item.description }}"
+                    data-price="{{ item.price|float }}"
+                    data-category="{{ item.category }}"
+                    data-sizes='{{ item.sizes|tojson|forceescape if item.sizes else "null" }}'
+                    data-image="{{ item.image or 'plogo.png' }}"
+                    data-available="{{ 'true' if item_available else 'false' }}"
+                >
+                    <div class="menu-image-wrap">
                         <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
+                        <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
+                            {% if item_available %}Available{% else %}Out of Stock{% endif %}
+                        </span>
                     </div>
-                    <div class="product-content">
-                        <h3>{{ item.name }}</h3>
-                        <p class="product-description">{{ item.description }}</p>
-                        <div class="product-footer">
-                            <strong class="price">PHP {{ "%.2f"|format(item.price|float) }}</strong>
-                            {% if item_available %}
-                                <form action="{{ url_for('add_to_cart', item_id=item.id) }}" method="post">
-                                    <button type="submit" class="button primary small">Add to Cart</button>
-                                </form>
-                            {% else %}
-                                <span class="availability-pill unavailable">Not Available</span>
-                            {% endif %}
+                    <div class="menu-item-content">
+                        <span class="category-label">
+                            {% if item.category|lower in ['main-course', 'main course'] %}Main Course
+                            {% elif item.category|lower in ['appetizers', 'appetizer'] %}Appetizers
+                            {% elif item.category|lower in ['beverages', 'beverage'] %}Beverages
+                            {% else %}{{ item.category }}{% endif %}
+                        </span>
+                        <h2>{{ item.name }}</h2>
+                        <p>{{ item.description }}</p>
+                        <div class="menu-item-footer">
+                            <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                            <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
+                                {% if item_available %}Available{% else %}Not Available{% endif %}
+                            </span>
                         </div>
                     </div>
                 </article>
             {% else %}
-                <p class="empty-state">Featured menu items are not available right now.</p>
+                <section class="notice-card">
+                    No menu items are available right now.
+                </section>
             {% endfor %}
         </div>
-
-        <div class="section-actions">
-            <a class="button primary" href="{{ url_for('menu') }}">View Full Menu</a>
-        </div>
     </div>
 </section>
 
-<section class="features-section">
-    <div class="container">
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">🍽️</div>
-                <h3>Fresh Ingredients</h3>
-                <p>We use only the freshest, locally-sourced ingredients in every dish.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">👨‍🍳</div>
-                <h3>Expert Chefs</h3>
-                <p>Our experienced chefs bring years of culinary expertise to your table.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🚚</div>
-                <h3>Fast Delivery</h3>
-                <p>Quick and reliable delivery service to get your food hot and fresh.</p>
+<!-- Item Modal -->
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeItemModal()">&times;</span>
+        <div class="modal-body">
+            <img id="modalImage" src="" alt="">
+            <div class="modal-details">
+                <h2 id="modalName"></h2>
+                <p id="modalDescription"></p>
+                <div class="modal-price">
+                    <strong>PHP <span id="modalPrice"></span></strong>
+                </div>
+                <span id="modalAvailability" class="availability-pill available">Available</span>
+
+                <div class="quantity-selector">
+                    <label>Quantity:</label>
+                    <div class="quantity-controls">
+                        <button type="button" onclick="changeQuantity(-1)">-</button>
+                        <span id="quantity">1</span>
+                        <button type="button" onclick="changeQuantity(1)">+</button>
+                    </div>
+                </div>
+
+                <div id="sizeSelector" class="size-selector" style="display: none;">
+                    <label>Size:</label>
+                    <div class="size-options">
+                        <label><input type="radio" name="size" value="small" checked> Small</label>
+                        <label><input type="radio" name="size" value="medium"> Medium</label>
+                        <label><input type="radio" name="size" value="large"> Large</label>
+                    </div>
+                </div>
+
+                <button id="modalAddButton" onclick="addToCart()" class="button primary">Add to Cart</button>
             </div>
         </div>
     </div>
-</section>
+</div>
 {% endblock %}

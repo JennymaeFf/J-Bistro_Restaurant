@@ -3,82 +3,67 @@
 {% block title %}Menu | J'Bistro Restaurant{% endblock %}
 
 {% block content %}
-<section class="menu-shell">
+<section class="menu-shell menu-shell-simple">
     <div class="container">
-        <div class="menu-hero">
-            <div>
-                <p class="eyebrow">Food List</p>
-                <h1>Restaurant Menu</h1>
-            </div>
-            <div class="menu-side-note">
-                <span>Fresh picks</span>
-                <strong>{{ menu_items|length }} items</strong>
-            </div>
-        </div>
-
         {% if info_message %}
             <div class="notice-card">{{ info_message }}</div>
         {% endif %}
 
-        <div class="menu-layout">
-            <aside class="menu-sidebar">
-                <h3>Categories</h3>
-                <nav class="category-nav">
-                    <a href="{{ url_for('menu') }}" class="category-link {% if not selected_category %}active{% endif %}">All Items</a>
-                    <a href="{{ url_for('menu', category='main-course') }}" class="category-link {% if selected_category == 'main-course' %}active{% endif %}">Main Course</a>
-                    <a href="{{ url_for('menu', category='appetizers') }}" class="category-link {% if selected_category == 'appetizers' %}active{% endif %}">Appetizers</a>
-                    <a href="{{ url_for('menu', category='beverages') }}" class="category-link {% if selected_category == 'beverages' %}active{% endif %}">Beverages</a>
-                </nav>
-            </aside>
-
-            <main class="menu-content">
-                <section class="menu-grid menu-grid-custom">
-                    {% for item in menu_items %}
-                        {% set item_available = item.get('is_available', true) %}
-                        <article
-                            class="menu-item-card {% if not item_available %}is-unavailable{% endif %}"
-                            role="button"
-                            tabindex="0"
-                            data-id="{{ item.id }}"
-                            data-name="{{ item.name }}"
-                            data-description="{{ item.description }}"
-                            data-price="{{ item.price|float }}"
-                            data-category="{{ item.category }}"
-                            data-sizes='{{ item.sizes|tojson|forceescape if item.sizes else "null" }}'
-                            data-image="{{ item.image or 'plogo.png' }}"
-                            data-available="{{ 'true' if item_available else 'false' }}"
-                        >
-                            <div class="menu-image-wrap">
-                                <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
-                                <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
-                                    {% if item_available %}Available{% else %}Out of Stock{% endif %}
-                                </span>
-                            </div>
-                            <div class="menu-item-content">
-                                <span class="category-label">
-                                    {% if item.category|lower in ['main-course', 'main course'] %}Main Course
-                                    {% elif item.category|lower in ['appetizers', 'appetizer'] %}Appetizers
-                                    {% elif item.category|lower in ['beverages', 'beverage'] %}Beverages
-                                    {% else %}{{ item.category }}{% endif %}
-                                </span>
-                                <h2>{{ item.name }}</h2>
-                                <p>{{ item.description }}</p>
-                                <div class="menu-item-footer">
-                                    <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
-                                    <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
-                                        {% if item_available %}Available{% else %}Not Available{% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                        </article>
-                    {% else %}
-                        <section class="notice-card">
-                            No menu items found in this category.
-                        </section>
-                    {% endfor %}
-                </section>
-            </main>
+        <div class="menu-toolbar">
+            <nav class="category-nav menu-category-nav">
+                <a href="{{ url_for('menu') }}" class="category-link {% if not selected_category %}active{% endif %}">All Items</a>
+                <a href="{{ url_for('menu', category='main-course') }}" class="category-link {% if selected_category == 'main-course' %}active{% endif %}">Main Course</a>
+                <a href="{{ url_for('menu', category='appetizers') }}" class="category-link {% if selected_category == 'appetizers' %}active{% endif %}">Appetizers</a>
+                <a href="{{ url_for('menu', category='beverages') }}" class="category-link {% if selected_category == 'beverages' %}active{% endif %}">Beverages</a>
+            </nav>
+            <span class="menu-count">{{ menu_items|length }} items</span>
         </div>
+
+        <section class="menu-grid menu-grid-custom">
+            {% for item in menu_items %}
+                {% set item_available = item.get('is_available', true) %}
+                <article
+                    class="menu-item-card {% if not item_available %}is-unavailable{% endif %}"
+                    role="button"
+                    tabindex="0"
+                    data-id="{{ item.id }}"
+                    data-name="{{ item.name }}"
+                    data-description="{{ item.description }}"
+                    data-price="{{ item.price|float }}"
+                    data-category="{{ item.category }}"
+                    data-sizes='{{ item.sizes|tojson|forceescape if item.sizes else "null" }}'
+                    data-image="{{ item.image or 'plogo.png' }}"
+                    data-available="{{ 'true' if item_available else 'false' }}"
+                >
+                    <div class="menu-image-wrap">
+                        <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
+                        <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
+                            {% if item_available %}Available{% else %}Out of Stock{% endif %}
+                        </span>
+                    </div>
+                    <div class="menu-item-content">
+                        <span class="category-label">
+                            {% if item.category|lower in ['main-course', 'main course'] %}Main Course
+                            {% elif item.category|lower in ['appetizers', 'appetizer'] %}Appetizers
+                            {% elif item.category|lower in ['beverages', 'beverage'] %}Beverages
+                            {% else %}{{ item.category }}{% endif %}
+                        </span>
+                        <h2>{{ item.name }}</h2>
+                        <p>{{ item.description }}</p>
+                        <div class="menu-item-footer">
+                            <strong>PHP {{ "%.2f"|format(item.price|float) }}</strong>
+                            <span class="availability-pill {% if item_available %}available{% else %}unavailable{% endif %}">
+                                {% if item_available %}Available{% else %}Not Available{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </article>
+            {% else %}
+                <section class="notice-card">
+                    No menu items found in this category.
+                </section>
+            {% endfor %}
+        </section>
     </div>
 </section>
 
@@ -95,7 +80,7 @@
                     <strong>PHP <span id="modalPrice"></span></strong>
                 </div>
                 <span id="modalAvailability" class="availability-pill available">Available</span>
-                
+
                 <div class="quantity-selector">
                     <label>Quantity:</label>
                     <div class="quantity-controls">
@@ -104,7 +89,7 @@
                         <button type="button" onclick="changeQuantity(1)">+</button>
                     </div>
                 </div>
-                
+
                 <div id="sizeSelector" class="size-selector" style="display: none;">
                     <label>Size:</label>
                     <div class="size-options">
@@ -113,7 +98,7 @@
                         <label><input type="radio" name="size" value="large"> Large</label>
                     </div>
                 </div>
-                
+
                 <button id="modalAddButton" onclick="addToCart()" class="button primary">Add to Cart</button>
             </div>
         </div>

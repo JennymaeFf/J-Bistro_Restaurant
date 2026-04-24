@@ -28,94 +28,59 @@
         </div>
 
         {% if cart %}
-            <div class="checkout-container">
-                <div class="checkout-left-column">
-                    <div class="order-summary">
-                        <div class="order-summary-header">
-                            <div>
-                                <p class="summary-eyebrow">Order overview</p>
-                                <h2>Order Summary</h2>
-                            </div>
-                            <span class="summary-badge">{{ cart|sum(attribute='quantity') }} pcs</span>
+            <div class="checkout-stack">
+                <section class="order-summary checkout-section-card">
+                    <div class="order-summary-header">
+                        <div>
+                            <p class="summary-eyebrow">Order overview</p>
+                            <h2>Order Summary</h2>
                         </div>
-                        <div class="order-items">
-                            {% for item in cart %}
-                                <div class="order-item">
-                                    <div class="item-info">
-                                        <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
-                                        <div>
-                                            <h4>{{ item.display_name }}</h4>
-                                            <p>Quantity: {{ item.quantity }}</p>
-                                            {% if item.size %}
-                                                <p>Size: {{ item.size|capitalize }}</p>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="item-price">
-                                        PHP {{ "%.2f"|format(item.price * item.quantity) }}
+                        <span class="summary-badge">{{ cart|sum(attribute='quantity') }} pcs</span>
+                    </div>
+                    <div class="order-items">
+                        {% for item in cart %}
+                            <div class="order-item">
+                                <div class="item-info">
+                                    <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
+                                    <div>
+                                        <h4>{{ item.display_name }}</h4>
+                                        <p>Quantity: {{ item.quantity }}</p>
+                                        {% if item.size %}
+                                            <p>Size: {{ item.size|capitalize }}</p>
+                                        {% endif %}
                                     </div>
                                 </div>
-                            {% endfor %}
-                        </div>
-                        <div class="order-total">
-                            <div class="summary-row">
-                                <span>Food Total</span>
-                                <span>PHP {{ "%.2f"|format(total_amount) }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Service Fee</span>
-                                <span>PHP 0.00</span>
-                            </div>
-                            <div class="total-row">
-                                <span>Total Amount</span>
-                                <span>PHP {{ "%.2f"|format(total_amount) }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="checkout-promo-card">
-                        <div class="checkout-promo-copy">
-                            <p class="summary-eyebrow">J'Bistro Promise</p>
-                            <h3>Freshly prepared and packed for a smooth handoff</h3>
-                            <p>Double-check your address and contact details so your order arrives exactly where you want it.</p>
-                            <div class="checkout-promo-pills">
-                                <span>Fresh kitchen prep</span>
-                                <span>Flexible delivery or pickup</span>
-                                <span>Simple payment options</span>
-                            </div>
-                        </div>
-                        <div class="carousel-container">
-                            <div class="checkout-carousel" aria-label="J'Bistro featured dishes">
-                                <div class="checkout-carousel-track">
-                                    <img class="checkout-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
-                                    <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
-                                    <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
-                                </div>
-                                <div class="checkout-carousel-dots" aria-hidden="true">
-                                    <span class="active"></span>
-                                    <span></span>
-                                    <span></span>
+                                <div class="item-price">
+                                    PHP {{ "%.2f"|format(item.price * item.quantity) }}
                                 </div>
                             </div>
+                        {% endfor %}
+                    </div>
+                    <div class="order-total">
+                        <div class="summary-row">
+                            <span>Food Total</span>
+                            <span>PHP {{ "%.2f"|format(total_amount) }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Service Fee</span>
+                            <span>PHP 0.00</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Total Amount</span>
+                            <span>PHP {{ "%.2f"|format(total_amount) }}</span>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div class="checkout-form-section">
+                <section class="checkout-form-section checkout-section-card">
                     <div class="customer-info">
-                        <div class="customer-info-identity">
-                            <div class="customer-info-header">
-                                <div class="customer-avatar" aria-hidden="true">
-                                    {{ (user.full_name or user.email or "C")[:1]|upper }}
-                                </div>
-                                <div>
-                                    <p class="customer-eyebrow">Ordering as</p>
-                                    <h2>Customer Information</h2>
-                                </div>
+                        <div class="customer-info-header">
+                            <div class="customer-avatar" aria-hidden="true">
+                                {{ (user.full_name or user.email or "C")[:1]|upper }}
                             </div>
-                            <div class="customer-info-summary">
-                                <strong>{{ user.full_name or user.email.split('@')[0]|title }}</strong>
-                                <span>{{ user.phone_number or "Phone not added yet" }}</span>
+                            <div>
+                                <p class="customer-eyebrow">Ordering as</p>
+                                <h2>Customer Information</h2>
                             </div>
                         </div>
                         <div class="info-display customer-info-details">
@@ -299,7 +264,29 @@
                             <button type="submit" class="btn-primary">Place Delivery Order</button>
                         </div>
                     </form>
-                </div>
+                </section>
+
+                <section class="checkout-promo-card checkout-promo-card-bottom">
+                    <div class="checkout-promo-copy">
+                        <p class="summary-eyebrow">J'Bistro Promise</p>
+                        <h3>Freshly prepared and packed for a smooth handoff</h3>
+                        <p>Double-check your address and contact details so your order arrives exactly where you want it.</p>
+                    </div>
+                    <div class="carousel-container">
+                        <div class="checkout-carousel checkout-carousel-small" aria-label="J'Bistro featured dishes">
+                            <div class="checkout-carousel-track">
+                                <img class="checkout-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
+                                <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
+                                <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                            </div>
+                            <div class="checkout-carousel-dots" aria-hidden="true">
+                                <span class="active"></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         {% else %}
             <div class="empty-checkout">

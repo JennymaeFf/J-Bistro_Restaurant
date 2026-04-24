@@ -477,9 +477,7 @@ def home():
         app.logger.exception("Failed to load menu items for home page.")
         menu_items = []
         menu_message = "Unable to load featured menu items right now."
-    # Select some popular items as best sellers
-    best_sellers = menu_items[:6]  # First 6 items as best sellers
-    return render_template("home.html", best_sellers=best_sellers, info_message=menu_message)
+    return render_template("home.html", menu_items=menu_items, info_message=menu_message)
 
 
 @app.route("/best-sellers")
