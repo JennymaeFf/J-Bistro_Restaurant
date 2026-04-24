@@ -6,8 +6,21 @@
 <section class="cart-shell">
     <div class="container">
         <div class="cart-header">
-            <h1>Your Shopping Cart</h1>
-            <p class="cart-subtitle">Review your delicious selections</p>
+            <div>
+                <p class="cart-eyebrow">Ready for checkout</p>
+                <h1>Your Shopping Cart</h1>
+                <p class="cart-subtitle">Review your selections, adjust quantities, and head to delivery checkout when everything looks right.</p>
+            </div>
+            <div class="cart-hero-stats">
+                <div class="cart-hero-stat">
+                    <span>Items</span>
+                    <strong>{{ cart_items|length }}</strong>
+                </div>
+                <div class="cart-hero-stat">
+                    <span>Total</span>
+                    <strong>PHP {{ "%.0f"|format(total) }}</strong>
+                </div>
+            </div>
         </div>
 
         {% if cart_items %}
@@ -19,8 +32,12 @@
                                 <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
                             </div>
                             <div class="item-details">
-                                <h3>{{ item.display_name }}</h3>
+                                <div class="item-topline">
+                                    <h3>{{ item.display_name }}</h3>
+                                    <span class="item-line-total">PHP {{ "%.2f"|format(item.price * item.quantity) }}</span>
+                                </div>
                                 <div class="item-meta">
+                                    <span class="menu-chip">Freshly prepared</span>
                                     {% if item.size %}
                                         <span class="size-badge">{{ item.size|capitalize }}</span>
                                     {% endif %}
@@ -43,7 +60,7 @@
                                 </div>
                                 <div class="item-price">
                                     <span class="unit-price">PHP {{ "%.2f"|format(item.price|float) }} each</span>
-                                    <span class="total-price">PHP {{ "%.2f"|format(item.price * item.quantity) }}</span>
+                                    <span class="item-note">Best enjoyed hot and fresh</span>
                                 </div>
                             </div>
                             <div class="item-actions">
@@ -62,7 +79,18 @@
 
                 <div class="cart-summary">
                     <div class="summary-card">
-                        <h3>Order Summary</h3>
+                        <div class="summary-card-header">
+                            <div>
+                                <p class="summary-eyebrow">Checkout Snapshot</p>
+                                <h3>Order Summary</h3>
+                            </div>
+                            <span class="summary-badge">{{ cart_items|sum(attribute='quantity') }} pcs</span>
+                        </div>
+                        <div class="summary-highlight">
+                            <span>Estimated payment</span>
+                            <strong>PHP {{ "%.2f"|format(total) }}</strong>
+                            <small>Delivery details and payment option will be confirmed on the next page.</small>
+                        </div>
                         <div class="summary-row">
                             <span>Subtotal</span>
                             <span>PHP {{ "%.2f"|format(total) }}</span>
@@ -74,6 +102,16 @@
                         <div class="summary-row total-row">
                             <span><strong>Total</strong></span>
                             <span><strong>PHP {{ "%.2f"|format(total) }}</strong></span>
+                        </div>
+                        <div class="summary-benefits">
+                            <div class="summary-benefit">
+                                <strong>Fast handoff</strong>
+                                <span>Continue to checkout to choose delivery or pickup.</span>
+                            </div>
+                            <div class="summary-benefit">
+                                <strong>Flexible payment</strong>
+                                <span>Cash, GCash, and card transfer are available.</span>
+                            </div>
                         </div>
                         <div class="checkout-actions">
                             <a href="{{ url_for('menu') }}" class="btn-secondary">

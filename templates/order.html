@@ -6,15 +6,38 @@
 <section class="checkout-shell">
     <div class="container">
         <div class="checkout-header">
-            <h1>Delivery Checkout</h1>
-            <p class="checkout-subtitle">Confirm your drop-off details and payment to place your order.</p>
+            <div>
+                <p class="checkout-eyebrow">Final step</p>
+                <h1>Delivery Checkout</h1>
+                <p class="checkout-subtitle">Confirm your drop-off details, choose payment, and review everything before placing your order.</p>
+            </div>
+            <div class="checkout-progress">
+                <div class="checkout-progress-step done">
+                    <span>1</span>
+                    <strong>Cart</strong>
+                </div>
+                <div class="checkout-progress-step active">
+                    <span>2</span>
+                    <strong>Details</strong>
+                </div>
+                <div class="checkout-progress-step">
+                    <span>3</span>
+                    <strong>Receipt</strong>
+                </div>
+            </div>
         </div>
 
         {% if cart %}
             <div class="checkout-container">
                 <div class="checkout-left-column">
                     <div class="order-summary">
-                        <h2>Order Summary</h2>
+                        <div class="order-summary-header">
+                            <div>
+                                <p class="summary-eyebrow">Order overview</p>
+                                <h2>Order Summary</h2>
+                            </div>
+                            <span class="summary-badge">{{ cart|sum(attribute='quantity') }} pcs</span>
+                        </div>
                         <div class="order-items">
                             {% for item in cart %}
                                 <div class="order-item">
@@ -35,6 +58,14 @@
                             {% endfor %}
                         </div>
                         <div class="order-total">
+                            <div class="summary-row">
+                                <span>Food Total</span>
+                                <span>PHP {{ "%.2f"|format(total_amount) }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Service Fee</span>
+                                <span>PHP 0.00</span>
+                            </div>
                             <div class="total-row">
                                 <span>Total Amount</span>
                                 <span>PHP {{ "%.2f"|format(total_amount) }}</span>
@@ -42,17 +73,29 @@
                         </div>
                     </div>
 
-                    <div class="carousel-container">
-                        <div class="checkout-carousel" aria-label="J'Bistro featured dishes">
-                            <div class="checkout-carousel-track">
-                                <img class="checkout-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
-                                <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
-                                <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                    <div class="checkout-promo-card">
+                        <div class="checkout-promo-copy">
+                            <p class="summary-eyebrow">J'Bistro Promise</p>
+                            <h3>Freshly prepared and packed for a smooth handoff</h3>
+                            <p>Double-check your address and contact details so your order arrives exactly where you want it.</p>
+                            <div class="checkout-promo-pills">
+                                <span>Fresh kitchen prep</span>
+                                <span>Flexible delivery or pickup</span>
+                                <span>Simple payment options</span>
                             </div>
-                            <div class="checkout-carousel-dots" aria-hidden="true">
-                                <span class="active"></span>
-                                <span></span>
-                                <span></span>
+                        </div>
+                        <div class="carousel-container">
+                            <div class="checkout-carousel" aria-label="J'Bistro featured dishes">
+                                <div class="checkout-carousel-track">
+                                    <img class="checkout-carousel-slide active" src="{{ url_for('static', filename='images/cheeseburger.png') }}" alt="Cheeseburger">
+                                    <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/spicychicken.png') }}" alt="Spicy chicken">
+                                    <img class="checkout-carousel-slide" src="{{ url_for('static', filename='images/salmonfillet.png') }}" alt="Salmon fillet">
+                                </div>
+                                <div class="checkout-carousel-dots" aria-hidden="true">
+                                    <span class="active"></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -83,6 +126,11 @@
                             Edit profile information
                             <span aria-hidden="true">&rarr;</span>
                         </a>
+                    </div>
+
+                    <div class="checkout-panel-note">
+                        <strong>Before placing your order</strong>
+                        <p>Make sure your contact details, address, and payment reference are correct so the team can process everything quickly.</p>
                     </div>
 
                     <form action="{{ url_for('order') }}" method="post" class="checkout-form">
