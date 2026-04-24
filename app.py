@@ -551,7 +551,45 @@ def remove_from_cart(item_id: int):
     session["cart"] = [item for item in get_cart() if item.get("item_key", str(item["id"])) != item_key]
     session.modified = True
     flash("Item removed from cart.", "success")
-    return redirect(url_for("order"))
+    return redirect(url_for("cart"))
+
+
+@app.route("/cart/update/<int:item_id>", methods=["POST"])
+@login_required_for_order
+def update_cart_quantity(item_id: int):
+    item_key = request.form.get("item_key", str(item_id))
+    delta = coerce_int(request.form.get("delta"), 0)
+    if delta == 0:
+        return redirect(url_for("cart"))
+
+    cart = get_cart()
+    target_item = next((item for item in cart if item.get("item_key", str(item["id"])) == item_key), None)
+    if not target_item:
+        flash("Cart item not found.", "error")
+        return redirect(url_for("cart"))
+
+    if delta > 0:
+        menu_items, _ = fetch_menu_items()
+        selected_item = next((item for item in menu_items if int(item["id"]) == item_id), None)
+        if not selected_item or selected_item.get("is_available") is False:
+            flash(f"{target_item.get('display_name', 'This item')} is currently out of stock.", "warning")
+            return redirect(url_for("cart"))
+        stock_quantity = coerce_int(selected_item.get("stock_quantity"), 0)
+        current_quantity = coerce_int(target_item.get("quantity"), 1)
+        if stock_quantity > 0 and current_quantity >= stock_quantity:
+            flash(f"Only {stock_quantity} of {selected_item.get('name', 'this item')} is available right now.", "warning")
+            return redirect(url_for("cart"))
+
+    new_quantity = max(0, coerce_int(target_item.get("quantity"), 1) + delta)
+    if new_quantity <= 0:
+        session["cart"] = [item for item in cart if item.get("item_key", str(item["id"])) != item_key]
+        flash("Item removed from cart.", "success")
+    else:
+        target_item["quantity"] = new_quantity
+        session["cart"] = cart
+        session.modified = True
+    session.modified = True
+    return redirect(url_for("cart"))
 
 
 @app.route("/order", methods=["GET", "POST"])

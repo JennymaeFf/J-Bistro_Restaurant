@@ -21,10 +21,25 @@
                             <div class="item-details">
                                 <h3>{{ item.display_name }}</h3>
                                 <div class="item-meta">
-                                    <span class="quantity-badge">Qty: {{ item.quantity }}</span>
                                     {% if item.size %}
                                         <span class="size-badge">{{ item.size|capitalize }}</span>
                                     {% endif %}
+                                </div>
+                                <div class="cart-quantity-row">
+                                    <span class="cart-quantity-label">Quantity</span>
+                                    <div class="cart-quantity-controls">
+                                        <form action="{{ url_for('update_cart_quantity', item_id=item.id) }}" method="post">
+                                            <input type="hidden" name="item_key" value="{{ item.item_key }}">
+                                            <input type="hidden" name="delta" value="-1">
+                                            <button type="submit" class="cart-quantity-btn" aria-label="Decrease quantity">-</button>
+                                        </form>
+                                        <span class="cart-quantity-value">{{ item.quantity }}</span>
+                                        <form action="{{ url_for('update_cart_quantity', item_id=item.id) }}" method="post">
+                                            <input type="hidden" name="item_key" value="{{ item.item_key }}">
+                                            <input type="hidden" name="delta" value="1">
+                                            <button type="submit" class="cart-quantity-btn" aria-label="Increase quantity">+</button>
+                                        </form>
+                                    </div>
                                 </div>
                                 <div class="item-price">
                                     <span class="unit-price">PHP {{ "%.2f"|format(item.price|float) }} each</span>
