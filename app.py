@@ -471,6 +471,7 @@ def index():
 def home():
     if current_session_role() == "admin":
         return redirect(url_for("admin_dashboard"))
+    selected_category = normalize_category_slug(request.args.get("category", ""))
     try:
         menu_items, menu_message = fetch_menu_items()
     except Exception:
@@ -482,11 +483,17 @@ def home():
         category = str(item.get("category") or "").strip()
         if category and category not in seen_categories:
             seen_categories.append(category)
+    filtered_menu_items = menu_items
+    if selected_category:
+        filtered_menu_items = [
+            item for item in menu_items if category_matches(item.get("category", ""), selected_category)
+        ]
     return render_template(
         "home.html",
-        menu_items=menu_items,
+        menu_items=filtered_menu_items,
         best_sellers=menu_items[:3],
         categories=seen_categories,
+        selected_category=selected_category,
         info_message=menu_message,
     )
 

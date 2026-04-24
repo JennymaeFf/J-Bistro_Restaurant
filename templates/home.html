@@ -58,7 +58,7 @@
         <div class="home-categories-grid">
             {% for category in categories %}
                 {% set category_slug = category|lower|replace(' ', '-') %}
-                <a href="{{ url_for('menu', category=category_slug) }}" class="home-category-card">
+                <a href="{{ url_for('home', category=category_slug, _anchor='home-food-grid') }}" class="home-category-card {% if selected_category == category_slug %}active{% endif %}">
                     <span class="home-category-tag">Category</span>
                     <strong>
                         {% if category|lower in ['main-course', 'main course'] %}Main Course
@@ -107,6 +107,25 @@
         {% if info_message %}
             <div class="notice-card">{{ info_message }}</div>
         {% endif %}
+
+        <div class="home-menu-header">
+            <div>
+                <p class="eyebrow">Menu</p>
+                <h2>
+                    {% if selected_category %}
+                        {% if selected_category in ['main-course', 'main course'] %}Main Course
+                        {% elif selected_category in ['appetizers', 'appetizer'] %}Appetizers
+                        {% elif selected_category in ['beverages', 'beverage'] %}Beverages
+                        {% else %}{{ selected_category|replace('-', ' ')|title }}{% endif %}
+                    {% else %}
+                        Full Menu
+                    {% endif %}
+                </h2>
+            </div>
+            {% if selected_category %}
+                <a href="{{ url_for('home', _anchor='home-food-grid') }}" class="button secondary home-menu-back">Back</a>
+            {% endif %}
+        </div>
 
         <div class="home-food-grid menu-grid-custom">
             {% for item in menu_items %}
