@@ -1357,18 +1357,18 @@ select {
 .footer-brand {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 22px;
     text-decoration: none;
 }
 
 .footer-brand img {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-    border-radius: 999px;
-    box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
-    height: 92px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    height: 132px;
     object-fit: contain;
-    padding: 14px;
-    width: 92px;
+    padding: 0;
+    width: 132px;
 }
 
 .footer-brand h3 {
@@ -1382,36 +1382,6 @@ select {
     font-size: 0.95rem;
     font-weight: 700;
     margin: 0;
-}
-
-.footer-app-buttons {
-    display: grid;
-    gap: 10px;
-}
-
-.footer-app-btn {
-    background: rgba(255, 250, 244, 0.08);
-    border: 1px solid rgba(229, 207, 183, 0.18);
-    border-radius: 10px;
-    color: #ffffff;
-    display: grid;
-    gap: 2px;
-    min-width: 160px;
-    padding: 10px 14px;
-    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.footer-app-btn:hover {
-    background: rgba(255, 250, 244, 0.14);
-    border-color: rgba(229, 207, 183, 0.34);
-    transform: translateY(-2px);
-}
-
-.footer-app-small {
-    color: rgba(247, 239, 228, 0.64);
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
 }
 
 .footer-section h4 {
