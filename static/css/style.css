@@ -1327,13 +1327,13 @@ select {
 /* Footer */
 .site-footer {
     background:
-        radial-gradient(circle at 12% 0%, rgba(197, 138, 87, 0.18), transparent 34%),
-        linear-gradient(135deg, #2f2119 0%, #1f1510 58%, #140d0a 100%);
-    border-top: 1px solid rgba(229, 207, 183, 0.24);
-    box-shadow: 0 -20px 60px rgba(60, 37, 22, 0.16);
-    color: #fffaf4;
+        radial-gradient(circle at top left, rgba(173, 107, 47, 0.18), transparent 32%),
+        linear-gradient(180deg, #3e2517 0%, #2c1a10 100%);
+    border-top: 1px solid rgba(229, 207, 183, 0.12);
+    box-shadow: 0 -24px 52px rgba(28, 16, 10, 0.28);
+    color: #f7efe4;
     margin-top: 80px;
-    padding: 58px 0 24px;
+    padding: 34px 0 20px;
 }
 
 .footer-content {
@@ -1343,9 +1343,15 @@ select {
 .footer-main {
     align-items: start;
     display: grid;
-    gap: 28px;
-    grid-template-columns: minmax(280px, 1.15fr) minmax(210px, 0.8fr) minmax(230px, 0.9fr);
+    gap: 26px;
+    grid-template-columns: minmax(280px, 1.25fr) repeat(2, minmax(150px, 0.8fr)) minmax(220px, 0.9fr);
     margin-bottom: 26px;
+}
+
+.footer-brand-wrap {
+    align-items: center;
+    display: flex;
+    gap: 20px;
 }
 
 .footer-brand {
@@ -1356,97 +1362,109 @@ select {
 }
 
 .footer-brand img {
-    background: rgba(255, 250, 244, 0.92);
-    border-radius: 16px;
-    box-shadow: 0 14px 32px rgba(11, 6, 4, 0.22);
-    height: 70px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 999px;
+    box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
+    height: 92px;
     object-fit: contain;
-    padding: 6px;
-    width: 70px;
+    padding: 14px;
+    width: 92px;
 }
 
 .footer-brand h3 {
-    font-size: 1.5rem;
+    font-size: 2rem;
     margin: 0 0 5px;
     color: #fffaf4;
 }
 
 .footer-brand p {
-    color: rgba(255, 250, 244, 0.74);
-    font-size: 0.9rem;
+    color: rgba(247, 239, 228, 0.78);
+    font-size: 0.95rem;
+    font-weight: 700;
     margin: 0;
 }
 
-.footer-description,
-.footer-note {
-    color: rgba(255, 250, 244, 0.72);
-    line-height: 1.6;
-    margin: 16px 0 0;
-}
-
-.footer-status {
-    display: flex;
-    flex-wrap: wrap;
+.footer-app-buttons {
+    display: grid;
     gap: 10px;
-    margin-top: 18px;
 }
 
-.footer-status span {
+.footer-app-btn {
     background: rgba(255, 250, 244, 0.08);
-    border: 1px solid rgba(255, 250, 244, 0.12);
-    border-radius: 999px;
-    color: rgba(255, 250, 244, 0.84);
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding: 8px 12px;
+    border: 1px solid rgba(229, 207, 183, 0.18);
+    border-radius: 10px;
+    color: #ffffff;
+    display: grid;
+    gap: 2px;
+    min-width: 160px;
+    padding: 10px 14px;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-.footer-note {
-    font-size: 0.9rem;
-    max-width: 280px;
+.footer-app-btn:hover {
+    background: rgba(255, 250, 244, 0.14);
+    border-color: rgba(229, 207, 183, 0.34);
+    transform: translateY(-2px);
+}
+
+.footer-app-small {
+    color: rgba(247, 239, 228, 0.64);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .footer-section h4 {
     font-size: 1.1rem;
-    margin: 0 0 16px;
-    color: #f4c783;
+    margin: 0 0 10px;
+    color: #fffaf4;
 }
 
 .footer-column {
-    display: grid;
-    gap: 18px;
+    display: block;
 }
 
 .footer-block {
-    background: rgba(255, 250, 244, 0.05);
-    border: 1px solid rgba(255, 250, 244, 0.08);
-    border-radius: 18px;
-    min-height: 100%;
-    padding: 18px;
+    background: transparent;
+    border: 0;
+    padding: 0;
 }
 
-.contact-info p,
-.footer-nav a {
-    display: flex;
-    align-items: center;
+.footer-link-list {
+    display: grid;
     gap: 10px;
-    margin: 0 0 10px;
-    color: rgba(255, 250, 244, 0.78);
-    transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.contact-info p:hover,
-.footer-nav a:hover {
-    color: #f4c783;
-    transform: translateX(3px);
+.footer-link-list a,
+.footer-location-line,
+.contact-info p {
+    color: rgba(247, 239, 228, 0.86);
+    display: flex;
+    gap: 10px;
+    line-height: 1.45;
+    margin: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.footer-link-list a:hover,
+.contact-info p:hover {
+    opacity: 0.74;
+    transform: translateX(2px);
 }
 
 .footer-location-line {
     align-items: center;
-    color: rgba(255, 250, 244, 0.78);
-    display: flex;
-    gap: 10px;
-    margin: 0;
+}
+
+.footer-location-text {
+    margin-top: 14px;
+}
+
+.footer-note {
+    color: rgba(247, 239, 228, 0.76);
+    line-height: 1.55;
+    margin: 10px 0 0;
+    max-width: 260px;
 }
 
 .footer-map-wrap,
@@ -1458,10 +1476,10 @@ select {
 }
 
 .footer-icon {
-    background: rgba(244, 199, 131, 0.13);
-    border: 1px solid rgba(244, 199, 131, 0.22);
+    background: rgba(173, 107, 47, 0.18);
+    border: 1px solid rgba(229, 207, 183, 0.18);
     border-radius: 999px;
-    color: #f4c783;
+    color: #f7d6aa;
     flex: 0 0 auto;
     font-size: 0.72rem;
     font-weight: 800;
@@ -1480,28 +1498,29 @@ select {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    background: rgba(255, 250, 244, 0.1);
-    border: 1px solid rgba(255, 250, 244, 0.16);
-    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    background: rgba(255, 250, 244, 0.08);
+    border: 1px solid rgba(229, 207, 183, 0.18);
+    border-radius: 14px;
     color: #fffaf4;
-    font-size: 0.82rem;
+    font-size: 1rem;
     font-weight: 800;
     text-transform: uppercase;
-    transition: background 0.3s ease, transform 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s ease, border-color 0.3s ease;
 }
 
 .social-link:hover {
-    background: #f4c783;
-    color: #35251d;
+    background: rgba(141, 85, 36, 0.42);
+    border-color: rgba(229, 207, 183, 0.34);
+    opacity: 1;
     transform: translateY(-3px);
 }
 
 .footer-bottom-bar {
     align-items: center;
-    border-top: 1px solid rgba(255, 250, 244, 0.12);
-    color: rgba(255, 250, 244, 0.64);
+    border-top: 1px solid rgba(229, 207, 183, 0.12);
+    color: rgba(247, 239, 228, 0.66);
     display: flex;
     font-size: 0.88rem;
     gap: 12px;
@@ -3476,6 +3495,11 @@ select {
     .footer-main {
         gap: 22px;
         grid-template-columns: 1fr;
+    }
+
+    .footer-brand-wrap {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .footer-brand {

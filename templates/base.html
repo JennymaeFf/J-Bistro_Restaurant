@@ -69,47 +69,59 @@
         <div class="container footer-content">
             <div class="footer-main">
                 <div class="footer-about">
-                    <a class="footer-brand" href="{{ url_for('home') }}">
-                        <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro logo">
-                        <div>
-                            <h3>J'Bistro</h3>
-                            <p>Restaurant System</p>
+                    <div class="footer-brand-wrap">
+                        <a class="footer-brand" href="{{ url_for('home') }}">
+                            <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro logo">
+                            <div>
+                                <h3>J'Bistro</h3>
+                                <p>Delivery</p>
+                            </div>
+                        </a>
+                        <div class="footer-app-buttons" aria-label="Download options">
+                            <a href="{{ url_for('home') }}" class="footer-app-btn">
+                                <span class="footer-app-small">Get it on</span>
+                                <strong>Google Play</strong>
+                            </a>
+                            <a href="{{ url_for('home') }}" class="footer-app-btn">
+                                <span class="footer-app-small">Download on the</span>
+                                <strong>App Store</strong>
+                            </a>
                         </div>
-                    </a>
-                    <p class="footer-description">
-                        Serving comforting favorites, fresh flavors, and a smoother way to order your next meal.
-                    </p>
-                    <div class="footer-status">
-                        <span>Fresh meals</span>
-                        <span>Easy ordering</span>
-                        <span>Warm service</span>
                     </div>
                 </div>
 
                 <div class="footer-section footer-column">
                     <div class="footer-block">
-                        <h4>Location</h4>
-                        <p class="footer-location-line"><span class="footer-icon">Loc</span> Cebu City, Philippines</p>
-                        <p class="footer-note">Visit us in Cebu City for fresh meals and warm service every day.</p>
+                        <nav class="footer-link-list" aria-label="Company links">
+                            <a href="{{ url_for('about') }}">Privacy Policy</a>
+                            <a href="{{ url_for('home', _anchor='home-food-grid') }}">Our Food</a>
+                            <a href="{{ url_for('about') }}">Terms and Conditions</a>
+                            <a href="{{ url_for('about') }}">Opportunities</a>
+                        </nav>
                     </div>
                 </div>
 
                 <div class="footer-section footer-column">
                     <div class="footer-block">
-                        <h4>Contact</h4>
-                        <div class="contact-info">
-                            <p><span class="footer-icon">Tel</span> +63 948 612 3571</p>
-                            <p><span class="footer-icon">Hr</span> 9:00 AM - 9:00 PM</p>
-                        </div>
+                        <nav class="footer-link-list" aria-label="Site links">
+                            <a href="{{ url_for('about') }}">About Us</a>
+                            <a href="{{ url_for('home') }}">Careers</a>
+                            <a href="{{ url_for('menu') }}">Menu</a>
+                            <a href="{{ url_for('home', _anchor='best-sellers') }}">Best Sellers</a>
+                        </nav>
                     </div>
+                </div>
+
+                <div class="footer-section footer-column footer-social-column">
                     <div class="footer-block">
-                        <h4>Social</h4>
+                        <h4>Follow us on</h4>
                         <div class="social-links" aria-label="Social media links">
-                            <a class="social-link" href="https://www.facebook.com/" target="_blank" rel="noopener" aria-label="Facebook">f</a>
+                            <a class="social-link" href="https://www.facebook.com/" target="_blank" rel="noopener" aria-label="Facebook">fb</a>
                             <a class="social-link" href="https://www.instagram.com/" target="_blank" rel="noopener" aria-label="Instagram">ig</a>
                             <a class="social-link" href="https://www.tiktok.com/" target="_blank" rel="noopener" aria-label="TikTok">tt</a>
                         </div>
-                        <p class="footer-note">Follow us for menu updates and new specials.</p>
+                        <p class="footer-location-line footer-location-text"><span class="footer-icon">Loc</span> Cebu City, Philippines</p>
+                        <p class="footer-location-line footer-location-text"><span class="footer-icon">Tel</span> +63 948 612 3571</p>
                     </div>
                 </div>
             </div>
