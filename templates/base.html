@@ -83,10 +83,31 @@
                 <div class="footer-section footer-column">
                     <div class="footer-block">
                         <nav class="footer-link-list" aria-label="Company links">
-                            <a href="{{ url_for('about') }}">Privacy Policy</a>
+                            <button
+                                type="button"
+                                class="footer-link-button footer-panel-trigger"
+                                data-footer-panel-title="Privacy Policy"
+                                data-footer-panel-body="We only collect the details needed to process orders, deliveries, and account access. Your customer information stays within the J'Bistro ordering system and is used to improve service and support."
+                            >
+                                Privacy Policy
+                            </button>
                             <a href="{{ url_for('home', _anchor='home-food-grid') }}">Our Food</a>
-                            <a href="{{ url_for('about') }}">Terms and Conditions</a>
-                            <a href="{{ url_for('about') }}">Opportunities</a>
+                            <button
+                                type="button"
+                                class="footer-link-button footer-panel-trigger"
+                                data-footer-panel-title="Terms and Conditions"
+                                data-footer-panel-body="By ordering with J'Bistro, customers agree to provide accurate details, follow payment instructions, and understand that delivery times may vary depending on order volume, rider availability, and location."
+                            >
+                                Terms and Conditions
+                            </button>
+                            <button
+                                type="button"
+                                class="footer-link-button footer-panel-trigger"
+                                data-footer-panel-title="Opportunities"
+                                data-footer-panel-body="J'Bistro welcomes collaborations for riders, kitchen staff, and business partners. Reach out through our contact number or social channels to learn about current openings and partnership opportunities."
+                            >
+                                Opportunities
+                            </button>
                         </nav>
                     </div>
                 </div>
@@ -119,6 +140,15 @@
             <div class="footer-bottom-bar">
                 <p>&copy; 2026 J'Bistro Restaurant. All rights reserved.</p>
                 <p>Designed for a smoother ordering experience.</p>
+            </div>
+
+            <div class="footer-mini-panel" id="footerMiniPanel" hidden>
+                <div class="footer-mini-panel-card" role="dialog" aria-modal="false" aria-labelledby="footerMiniPanelTitle">
+                    <button type="button" class="footer-mini-panel-close" id="footerMiniPanelClose" aria-label="Close footer information">x</button>
+                    <p class="footer-mini-panel-kicker">J'Bistro Info</p>
+                    <h4 id="footerMiniPanelTitle">Details</h4>
+                    <p id="footerMiniPanelBody"></p>
+                </div>
             </div>
         </div>
     </footer>

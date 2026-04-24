@@ -1405,7 +1405,24 @@ select {
     gap: 10px;
 }
 
+.footer-link-button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: rgba(247, 239, 228, 0.86);
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    gap: 10px;
+    line-height: 1.45;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
 .footer-link-list a,
+.footer-link-button,
 .footer-location-line,
 .contact-info p {
     color: rgba(247, 239, 228, 0.86);
@@ -1417,6 +1434,7 @@ select {
 }
 
 .footer-link-list a:hover,
+.footer-link-button:hover,
 .contact-info p:hover {
     opacity: 0.74;
     transform: translateX(2px);
@@ -1500,6 +1518,79 @@ select {
 
 .footer-bottom-bar p {
     margin: 0;
+}
+
+.footer-mini-panel {
+    align-items: flex-end;
+    background: rgba(7, 4, 2, 0.28);
+    display: flex;
+    justify-content: flex-end;
+    left: 0;
+    padding: 18px 0 0;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 30;
+}
+
+.footer-mini-panel-card {
+    background: linear-gradient(180deg, #fffaf4 0%, #f5e8d9 100%);
+    border: 1px solid rgba(141, 85, 36, 0.18);
+    border-radius: 18px;
+    box-shadow: 0 22px 40px rgba(25, 16, 11, 0.24);
+    color: var(--text);
+    margin: 0 24px 24px;
+    max-width: 360px;
+    padding: 18px 18px 16px;
+    position: relative;
+    transform: translateY(10px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    width: calc(100% - 32px);
+}
+
+.footer-mini-panel.is-visible .footer-mini-panel-card {
+    transform: translateY(0);
+}
+
+.footer-mini-panel-kicker {
+    color: var(--primary);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.footer-mini-panel-card h4 {
+    color: var(--text);
+    font-size: 1.1rem;
+    margin: 0 0 8px;
+    padding-right: 28px;
+}
+
+.footer-mini-panel-card p:last-child {
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.footer-mini-panel-close {
+    align-items: center;
+    appearance: none;
+    background: rgba(141, 85, 36, 0.1);
+    border: 0;
+    border-radius: 999px;
+    color: var(--primary-dark);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 0.9rem;
+    font-weight: 800;
+    height: 28px;
+    justify-content: center;
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    width: 28px;
 }
 
 /* Enhanced Button Styles */

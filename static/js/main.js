@@ -205,6 +205,44 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
+    const footerPanel = document.getElementById("footerMiniPanel");
+    const footerPanelTitle = document.getElementById("footerMiniPanelTitle");
+    const footerPanelBody = document.getElementById("footerMiniPanelBody");
+    const footerPanelClose = document.getElementById("footerMiniPanelClose");
+    const footerPanelTriggers = document.querySelectorAll(".footer-panel-trigger");
+
+    function closeFooterPanel() {
+        if (!footerPanel) return;
+        footerPanel.hidden = true;
+        footerPanel.classList.remove("is-visible");
+    }
+
+    footerPanelTriggers.forEach(function (trigger) {
+        trigger.addEventListener("click", function () {
+            if (!footerPanel || !footerPanelTitle || !footerPanelBody) return;
+
+            footerPanelTitle.textContent = trigger.dataset.footerPanelTitle || "Details";
+            footerPanelBody.textContent = trigger.dataset.footerPanelBody || "";
+            footerPanel.hidden = false;
+
+            window.requestAnimationFrame(function () {
+                footerPanel.classList.add("is-visible");
+            });
+        });
+    });
+
+    if (footerPanelClose) {
+        footerPanelClose.addEventListener("click", closeFooterPanel);
+    }
+
+    if (footerPanel) {
+        footerPanel.addEventListener("click", function (event) {
+            if (event.target === footerPanel) {
+                closeFooterPanel();
+            }
+        });
+    }
 });
 
 // Modal functionality for menu items
