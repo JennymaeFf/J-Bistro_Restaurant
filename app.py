@@ -39,6 +39,7 @@ from supabase_client import (
     fetch_employees,
     fetch_admin_menu_items,
     fetch_admin_users,
+    fetch_inventory_items,
     fetch_menu_items,
     fetch_latest_order,
     fetch_orders,
@@ -53,6 +54,7 @@ from supabase_client import (
     update_admin_password,
     update_admin_menu_item,
     update_admin_user,
+    update_inventory_item,
     update_order_status,
     upload_profile_image_to_storage,
     update_user_profile,
@@ -817,6 +819,26 @@ def admin_orders_update_status(order_id: int):
     )
     flash(message, "success" if success else "error")
     return redirect(url_for("admin_orders"))
+
+
+@app.route("/admin/inventory", methods=["GET", "POST"])
+@admin_required
+def admin_inventory():
+    if request.method == "POST":
+        item_id = coerce_int(request.form.get("item_id"), 0)
+        stock_quantity = coerce_int(request.form.get("stock_quantity"), 0)
+        low_stock_threshold = coerce_int(request.form.get("low_stock_threshold"), 5)
+        success, message = update_inventory_item(item_id, stock_quantity, low_stock_threshold)
+        flash(message, "success" if success else "error")
+        return redirect(url_for("admin_inventory"))
+
+    inventory_items, info_message = fetch_inventory_items()
+    return render_template(
+        "admin/inventory.html",
+        inventory_items=inventory_items,
+        info_message=info_message,
+        admin_section="inventory",
+    )
 
 
 @app.route("/admin/riders", methods=["GET", "POST"])

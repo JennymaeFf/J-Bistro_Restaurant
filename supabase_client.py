@@ -1021,7 +1021,7 @@ def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
         if stock_quantity <= low_stock_threshold
         else "In Stock"
     )
-    normalized["is_available"] = item.get("is_available") is not False
+    normalized["is_available"] = stock_quantity > 0 and item.get("is_available") is not False
     normalized["image"] = item.get("image") or "plogo.png"
     return normalized
 
@@ -2033,8 +2033,113 @@ def delete_employee(employee_id: str) -> tuple[bool, str]:
 
 
 def reduce_menu_stock_after_order(cart: list[dict[str, Any]]) -> None:
-    # Inventory monitoring removed from active flow.
-    return
+    config_error = supabase_config_error()
+    if config_error or not cart:
+        return
+
+    requested_quantities: dict[int, int] = {}
+    for item in cart:
+        try:
+            item_id = int(item.get("id"))
+            quantity = max(0, int(item.get("quantity") or 0))
+        except (TypeError, ValueError):
+            continue
+        if item_id <= 0 or quantity <= 0:
+            continue
+        requested_quantities[item_id] = requested_quantities.get(item_id, 0) + quantity
+
+    if not requested_quantities:
+        return
+
+    menu_items, error = fetch_menu_items()
+    if error:
+        return
+
+    supabase_url, _ = current_supabase_config()
+    menu_by_id = {}
+    for item in menu_items:
+        try:
+            menu_by_id[int(item.get("id"))] = item
+        except (TypeError, ValueError):
+            continue
+
+    for item_id, ordered_quantity in requested_quantities.items():
+        menu_item = menu_by_id.get(item_id)
+        if not menu_item:
+            continue
+        try:
+            current_stock = max(0, int(menu_item.get("stock_quantity") or 0))
+            low_stock_threshold = max(1, int(menu_item.get("low_stock_threshold") or 5))
+        except (TypeError, ValueError):
+            current_stock = 0
+            low_stock_threshold = 5
+
+        new_stock = max(0, current_stock - ordered_quantity)
+        payload = {
+            "stock_quantity": new_stock,
+            "low_stock_threshold": low_stock_threshold,
+            "is_available": new_stock > 0 and menu_item.get("is_available") is not False,
+        }
+        try:
+            requests.patch(
+                f"{supabase_url}/rest/v1/menu_items",
+                headers=supabase_headers("return=minimal"),
+                params={"id": f"eq.{item_id}"},
+                json=payload,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException:
+            continue
+
+
+def validate_cart_against_inventory(cart: list[dict[str, Any]]) -> str | None:
+    if not cart:
+        return "Add menu items before placing an order."
+
+    menu_items, error = fetch_menu_items()
+    if error:
+        return error
+
+    menu_by_id: dict[int, dict[str, Any]] = {}
+    for item in menu_items:
+        try:
+            menu_by_id[int(item.get("id"))] = item
+        except (TypeError, ValueError):
+            continue
+
+    requested_quantities: dict[int, int] = {}
+    item_names: dict[int, str] = {}
+    for item in cart:
+        try:
+            item_id = int(item.get("id"))
+            quantity = max(0, int(item.get("quantity") or 0))
+        except (TypeError, ValueError):
+            return "One of the cart items is invalid. Please review your cart and try again."
+        if item_id <= 0 or quantity <= 0:
+            return "One of the cart items is invalid. Please review your cart and try again."
+        requested_quantities[item_id] = requested_quantities.get(item_id, 0) + quantity
+        item_names[item_id] = str(item.get("display_name") or item.get("name") or "This item")
+
+    for item_id, requested_quantity in requested_quantities.items():
+        menu_item = menu_by_id.get(item_id)
+        item_name = item_names.get(item_id, "This item")
+        if not menu_item:
+            return f"{item_name} is no longer on the menu."
+        if menu_item.get("is_available") is False:
+            return f"{menu_item.get('name', item_name)} is currently out of stock."
+        try:
+            stock_quantity = max(0, int(menu_item.get("stock_quantity") or 0))
+        except (TypeError, ValueError):
+            stock_quantity = 0
+        if stock_quantity <= 0:
+            return f"{menu_item.get('name', item_name)} is currently out of stock."
+        if requested_quantity > stock_quantity:
+            return (
+                f"Only {stock_quantity} of {menu_item.get('name', item_name)} "
+                "is available right now. Please update your cart and try again."
+            )
+
+    return None
 
 
 def get_next_order_number() -> tuple[int, str | None]:
@@ -2087,8 +2192,9 @@ def create_order(
             return False, "Please choose a bank for card or bank payment."
         if not payment_reference:
             return False, "Please enter your bank transaction reference number."
-    if not cart:
-        return False, "Add menu items before placing an order."
+    inventory_error = validate_cart_against_inventory(cart)
+    if inventory_error:
+        return False, inventory_error
 
     order_number, order_number_error = get_next_order_number()
     if order_number_error:
