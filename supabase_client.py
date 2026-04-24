@@ -160,6 +160,10 @@ def valid_email_message(email: str) -> str | None:
     return None
 
 
+def verification_required_message() -> str:
+    return "Please verify your email before logging in."
+
+
 def normalize_env_value(value: str | None, fallback: str) -> str:
     cleaned = (value or fallback).strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
@@ -523,9 +527,35 @@ def register_user(
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
             return True, f"Registration successful, but admin role assignment failed: {role_error}"
-        return True, "Admin registration successful."
+        return True, "Admin registration successful. Please verify your email before logging in."
 
-    return True, "Registration successful."
+    return True, "Registration successful. Please check your email for the verification link before logging in."
+
+
+def resend_verification_email(email: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/auth/v1/resend",
+            headers=auth_headers(),
+            json={"type": "signup", "email": email},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to send the verification email right now."
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        lowered_error = error_message.lower()
+        if "not found" in lowered_error or "no user" in lowered_error:
+            return False, "We could not find an account with that email address."
+        return False, error_message
+
+    return True, "Verification email sent. Please check your inbox before logging in."
 
 
 def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | None, str | None]:
@@ -962,16 +992,21 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
 
     if response.status_code >= 400:
         error_message = parse_response_error(response)
-        if "invalid login credentials" in error_message.lower():
+        lowered_error = error_message.lower()
+        if "email not confirmed" in lowered_error or "email not verified" in lowered_error:
+            return False, verification_required_message(), None
+        if "invalid login credentials" in lowered_error:
             return (
                 False,
-                "Invalid email or password. Make sure this account exists in Supabase Authentication and the password is correct.",
+                "Invalid email or password. Please try again.",
                 None,
             )
         return False, error_message, None
 
     payload = response.json()
     user_data = payload.get("user") or {}
+    if not (user_data.get("email_confirmed_at") or user_data.get("confirmed_at")):
+        return False, verification_required_message(), None
     user_id = user_data.get("id")
     profile, profile_message = fetch_user_profile(user_id, user_data.get("email", email)) if user_id else (None, None)
     if not profile:

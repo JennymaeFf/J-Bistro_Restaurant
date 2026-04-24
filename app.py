@@ -3,6 +3,7 @@ import sys
 import hmac
 import re
 from uuid import uuid4
+from datetime import timedelta
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,7 @@ from supabase_client import (
     fetch_riders,
     fetch_user_profile,
     register_user,
+    resend_verification_email,
     send_password_reset,
     update_order_tracking,
     update_employee,
@@ -99,6 +101,7 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_NAME"] = "jbistro_session"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
 # Wrap app with WhiteNoise for production static file serving
 try:
@@ -1300,10 +1303,8 @@ def login():
             if user_session is None:
                 flash("Login successful, but the app could not load your session details.", "error")
                 return redirect(url_for("login"))
-            # Replace any previous session identity (e.g., switching user -> admin).
-            session.pop("user", None)
-            session.pop("role", None)
-            session.pop("user_email", None)
+            existing_cart = list(session.get("cart") or [])
+            session.clear()
             user_role = str((user_session or {}).get("role", "user")).strip().lower()
             if user_role not in {"admin", "user"}:
                 user_role = "user"
@@ -1311,6 +1312,9 @@ def login():
             session["user"] = user_session
             session["role"] = user_role
             session["user_email"] = (user_session.get("email") or email).strip().lower()
+            if existing_cart:
+                session["cart"] = existing_cart
+            session.permanent = True
             session.modified = True
             try:
                 destination = destination_for_role(user_role)
@@ -1342,6 +1346,23 @@ def forgot_password():
     return render_template("forgot_password.html", auth_page=True)
 
 
+@app.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    email = request.form.get("email", "").strip().lower()
+    if not email:
+        flash("Enter your email address first so we can resend the verification link.", "error")
+        return redirect(url_for("login"))
+
+    email_message = valid_email_message(email)
+    if email_message:
+        flash(email_message, "error")
+        return redirect(url_for("login"))
+
+    success, message = resend_verification_email(email)
+    flash(message, "success" if success else "error")
+    return redirect(url_for("login"))
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if is_logged_in():
@@ -1353,10 +1374,11 @@ def register():
         phone_number = request.form.get("phone_number", "").strip()
         delivery_address = request.form.get("address", "").strip()
         password = request.form.get("password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
         admin_code = request.form.get("admin_code", "").strip()
         configured_admin_code = os.environ.get("ADMIN_REGISTRATION_CODE", "").strip()
 
-        if not full_name or not email or not phone_number or not delivery_address or not password:
+        if not full_name or not email or not phone_number or not delivery_address or not password or not confirm_password:
             flash("Please fill in all registration fields.", "error")
             return redirect(url_for("register"))
 
@@ -1367,6 +1389,10 @@ def register():
 
         if len(password) < 6:
             flash("Password must be at least 6 characters long.", "error")
+            return redirect(url_for("register"))
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
             return redirect(url_for("register"))
 
         target_role = "user"
@@ -1387,9 +1413,9 @@ def register():
         flash(message, "success" if success else "error")
         if success:
             if target_role == "admin":
-                flash("Admin account created. Please log in.", "success")
+                flash("Admin account created. Please verify the email before logging in.", "success")
             else:
-                flash("Registration complete. Please log in to continue ordering.", "success")
+                flash("Registration complete. Please verify your email before logging in.", "success")
             return redirect(url_for("login"))
 
     return render_template("register.html", auth_page=True)
