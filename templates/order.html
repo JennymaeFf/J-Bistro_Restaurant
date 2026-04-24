@@ -75,9 +75,17 @@
                 <section class="checkout-form-section checkout-section-card">
                     <div class="customer-info">
                         <div class="customer-info-header">
-                            <div class="customer-avatar" aria-hidden="true">
-                                {{ (user.full_name or user.email or "C")[:1]|upper }}
-                            </div>
+                            {% if user.profile_image %}
+                                <img
+                                    src="{{ current_user_image_url }}"
+                                    alt="{{ user.full_name or user.email }} profile picture"
+                                    class="customer-avatar customer-avatar-image"
+                                >
+                            {% else %}
+                                <div class="customer-avatar" aria-hidden="true">
+                                    {{ (user.full_name or user.email or "C")[:1]|upper }}
+                                </div>
+                            {% endif %}
                             <div>
                                 <p class="customer-eyebrow">Ordering as</p>
                                 <h2>Customer Information</h2>
@@ -86,11 +94,11 @@
                         <div class="info-display customer-info-details">
                             <div class="info-row">
                                 <span>Name</span>
-                                <span class="customer-name-value">{{ user.full_name or user.email.split('@')[0]|title }}</span>
+                                <span class="customer-name-value" title="{{ user.full_name or user.email.split('@')[0]|title }}">{{ user.full_name or user.email.split('@')[0]|title }}</span>
                             </div>
                             <div class="info-row">
                                 <span>Email</span>
-                                <span>{{ user.email }}</span>
+                                <span class="customer-email-value" title="{{ user.email }}">{{ user.email }}</span>
                             </div>
                             <div class="info-row">
                                 <span>Phone</span>
