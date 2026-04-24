@@ -127,6 +127,14 @@
                                 <span>Email</span>
                                 <span>{{ user.email }}</span>
                             </div>
+                            <div class="info-row">
+                                <span>Phone</span>
+                                <span>{{ user.phone_number or "Not added yet" }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Address</span>
+                                <span>{{ user.delivery_address or "No saved address yet" }}</span>
+                            </div>
                         </div>
                         <div class="customer-info-action">
                             <a class="profile-edit-link" href="{{ url_for('profile') }}">

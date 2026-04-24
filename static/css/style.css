@@ -2722,10 +2722,10 @@ select {
 }
 
 .customer-info {
-    align-items: center;
+    align-items: stretch;
     display: grid;
-    gap: 18px;
-    grid-template-columns: minmax(220px, 0.95fr) minmax(280px, 1.35fr) auto;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
     margin-bottom: 18px;
     padding: 20px;
     border: 1px solid rgba(141, 85, 36, 0.18);
@@ -2736,12 +2736,14 @@ select {
 }
 
 .customer-info-identity {
+    align-items: center;
     background: rgba(255, 250, 244, 0.72);
     border: 1px solid rgba(229, 207, 183, 0.86);
     border-radius: 16px;
-    display: grid;
-    gap: 12px;
-    min-height: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    justify-content: space-between;
     padding: 14px 16px;
 }
 
@@ -2775,6 +2777,8 @@ select {
 .customer-info-summary {
     display: grid;
     gap: 4px;
+    margin-left: auto;
+    text-align: right;
 }
 
 .customer-info-summary strong {
@@ -2821,18 +2825,20 @@ select {
 .info-display {
     display: grid;
     gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .customer-info-details {
     align-self: stretch;
+    min-width: 0;
 }
 
 .info-row {
     display: grid;
     align-content: center;
     gap: 6px;
-    min-height: 74px;
+    min-height: 78px;
+    min-width: 0;
     padding: 12px 14px;
     border: 1px solid rgba(229, 207, 183, 0.85);
     border-radius: 14px;
@@ -2861,7 +2867,6 @@ select {
 .customer-info-action {
     display: flex;
     justify-content: flex-end;
-    align-self: stretch;
 }
 
 .profile-edit-link {
@@ -3247,6 +3252,16 @@ select {
 
     .customer-info-action {
         justify-content: flex-start;
+    }
+
+    .customer-info-identity {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .customer-info-summary {
+        margin-left: 0;
+        text-align: left;
     }
 
     .bank-options {
