@@ -62,6 +62,7 @@ from supabase_client import (
     update_user_profile,
     update_user_profile_image,
     valid_email_message,
+    verification_required_message,
 )
 
 app = Flask(
@@ -1298,6 +1299,15 @@ def login():
             return redirect(url_for("login"))
 
         success, message, user_session = authenticate_user(email, password)
+        if not success and message == verification_required_message():
+            flash(message, "error")
+            return render_template(
+                "login.html",
+                auth_page=True,
+                show_resend_verification=True,
+                verification_email=email,
+            )
+
         flash(message, "success" if success else "error")
         if success:
             if user_session is None:
@@ -1323,7 +1333,12 @@ def login():
                 destination = url_for("home")
             return redirect(destination)
 
-    return render_template("login.html", auth_page=True)
+    return render_template(
+        "login.html",
+        auth_page=True,
+        show_resend_verification=False,
+        verification_email="",
+    )
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])

@@ -31,14 +31,16 @@
                 <button type="submit" class="auth-button">Login</button>
             </form>
 
-            <form action="{{ url_for('resend_verification') }}" method="post" class="auth-secondary-form">
-                <p class="auth-support-text">Haven’t received your verification email yet?</p>
-                <label>
-                    Resend verification to
-                    <input type="email" name="email" placeholder="Enter your email again" autocomplete="email" required>
-                </label>
-                <button type="submit" class="auth-secondary-button">Resend Verification Email</button>
-            </form>
+            {% if show_resend_verification %}
+                <form action="{{ url_for('resend_verification') }}" method="post" class="auth-secondary-form">
+                    <p class="auth-support-text">Haven’t received your verification email yet?</p>
+                    <label>
+                        Resend verification to
+                        <input type="email" name="email" value="{{ verification_email or '' }}" placeholder="Enter your email again" autocomplete="email" required>
+                    </label>
+                    <button type="submit" class="auth-secondary-button">Resend Verification Email</button>
+                </form>
+            {% endif %}
 
             <p class="auth-footer-text">
                 Don't have an account?
