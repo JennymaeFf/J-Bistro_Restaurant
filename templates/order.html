@@ -103,16 +103,22 @@
 
                 <div class="checkout-form-section">
                     <div class="customer-info">
-                        <div class="customer-info-header">
-                            <div class="customer-avatar" aria-hidden="true">
-                                {{ (user.full_name or user.email or "C")[:1]|upper }}
+                        <div class="customer-info-identity">
+                            <div class="customer-info-header">
+                                <div class="customer-avatar" aria-hidden="true">
+                                    {{ (user.full_name or user.email or "C")[:1]|upper }}
+                                </div>
+                                <div>
+                                    <p class="customer-eyebrow">Ordering as</p>
+                                    <h2>Customer Information</h2>
+                                </div>
                             </div>
-                            <div>
-                                <p class="customer-eyebrow">Ordering as</p>
-                                <h2>Customer Information</h2>
+                            <div class="customer-info-summary">
+                                <strong>{{ user.full_name or user.email.split('@')[0]|title }}</strong>
+                                <span>{{ user.phone_number or "Phone not added yet" }}</span>
                             </div>
                         </div>
-                        <div class="info-display">
+                        <div class="info-display customer-info-details">
                             <div class="info-row">
                                 <span>Name</span>
                                 <span>{{ user.full_name or user.email.split('@')[0]|title }}</span>
