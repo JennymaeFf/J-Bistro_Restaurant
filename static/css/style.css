@@ -1357,7 +1357,7 @@ select {
 .footer-brand {
     display: flex;
     align-items: center;
-    gap: 22px;
+    gap: 34px;
     text-decoration: none;
 }
 
@@ -1577,20 +1577,26 @@ select {
 .footer-mini-panel-close {
     align-items: center;
     appearance: none;
-    background: rgba(141, 85, 36, 0.1);
-    border: 0;
+    background: rgba(141, 85, 36, 0.14);
+    border: 1px solid rgba(141, 85, 36, 0.14);
     border-radius: 999px;
     color: var(--primary-dark);
     cursor: pointer;
     display: inline-flex;
-    font-size: 0.9rem;
+    font-size: 1.2rem;
     font-weight: 800;
-    height: 28px;
+    height: 34px;
     justify-content: center;
+    line-height: 1;
     position: absolute;
-    right: 14px;
-    top: 14px;
-    width: 28px;
+    right: 12px;
+    top: 12px;
+    width: 34px;
+    z-index: 2;
+}
+
+.footer-mini-panel-close:hover {
+    background: rgba(141, 85, 36, 0.2);
 }
 
 /* Enhanced Button Styles */

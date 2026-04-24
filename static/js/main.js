@@ -233,7 +233,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     if (footerPanelClose) {
-        footerPanelClose.addEventListener("click", closeFooterPanel);
+        footerPanelClose.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeFooterPanel();
+        });
     }
 
     if (footerPanel) {
