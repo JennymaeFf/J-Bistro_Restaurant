@@ -12,7 +12,7 @@
         <div class="auth-card register-card">
             <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro Restaurant Logo" class="auth-logo">
             <p class="auth-title register-title">Create Your J'Bistro Account</p>
-            <p class="register-subtitle">Fill in your details to start ordering delicious meals. We will send a verification link to your email before you can log in.</p>
+            <p class="register-subtitle">Fill in your details to start ordering delicious meals. We will send a 6-digit verification code to your email before you can log in.</p>
 
             <form action="{{ url_for('register') }}" method="post" class="auth-form register-form" id="registerForm">
                 <label>
@@ -47,7 +47,7 @@
                         <button type="button" class="password-toggle" data-target="confirm_password" aria-label="Show confirm password">&#128065;</button>
                     </span>
                 </label>
-                <p class="auth-support-text register-help-text">Use a real email address so you can receive your verification link.</p>
+                <p class="auth-support-text register-help-text">Use a real email address so you can receive your 6-digit verification code.</p>
                 <button type="submit" class="auth-button" id="registerSubmitButton">Register</button>
             </form>
 
@@ -58,12 +58,146 @@
         </div>
     </div>
 </section>
+{% if show_otp_modal %}
+<div class="otp-modal-backdrop" id="otpModalBackdrop">
+    <div class="otp-modal-card" role="dialog" aria-modal="true" aria-labelledby="otpModalTitle">
+        <h2 id="otpModalTitle">Verify Your Email</h2>
+        <p class="otp-modal-copy">Enter the 6-digit verification code sent to your email.</p>
+        <p class="otp-modal-email">{{ verification_email }}</p>
+
+        {% if otp_notice %}
+            <p class="otp-modal-notice">{{ otp_notice }}</p>
+        {% endif %}
+
+        {% if otp_error %}
+            <p class="otp-modal-error">{{ otp_error }}</p>
+        {% endif %}
+
+        <form action="{{ url_for('verify_otp') }}" method="post" class="otp-modal-form" id="otpVerificationForm">
+            <input type="hidden" name="email" value="{{ verification_email }}">
+            <label for="otpCode">Verification code</label>
+            <input
+                type="text"
+                id="otpCode"
+                name="otp_code"
+                class="otp-code-input"
+                inputmode="numeric"
+                pattern="\d{6}"
+                maxlength="6"
+                placeholder="123456"
+                autocomplete="one-time-code"
+                required
+            >
+            <button type="submit" class="auth-button" id="otpVerifyButton">Verify Code</button>
+        </form>
+
+        <form action="{{ url_for('resend_verification') }}" method="post" class="otp-resend-form" id="otpResendForm">
+            <input type="hidden" name="email" value="{{ verification_email }}">
+            <input type="hidden" name="next" value="register">
+            <button
+                type="submit"
+                class="auth-secondary-button"
+                id="otpResendButton"
+                {% if resend_cooldown > 0 %}disabled{% endif %}
+            >
+                {% if resend_cooldown > 0 %}
+                    Resend OTP in <span id="otpResendCountdown">{{ resend_cooldown }}</span>s
+                {% else %}
+                    Resend OTP
+                {% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+<style>
+    .otp-modal-backdrop {
+        align-items: center;
+        background: rgba(35, 21, 14, 0.6);
+        display: flex;
+        inset: 0;
+        justify-content: center;
+        padding: 20px;
+        position: fixed;
+        z-index: 40;
+    }
+
+    .otp-modal-card {
+        background: #fffaf4;
+        border-radius: 24px;
+        box-shadow: 0 22px 48px rgba(28, 18, 12, 0.24);
+        max-width: 420px;
+        padding: 28px 24px;
+        width: 100%;
+    }
+
+    .otp-modal-card h2 {
+        margin: 0 0 8px;
+        color: #5b3926;
+    }
+
+    .otp-modal-copy,
+    .otp-modal-email,
+    .otp-modal-notice,
+    .otp-modal-error {
+        margin: 0 0 12px;
+    }
+
+    .otp-modal-copy,
+    .otp-modal-email {
+        color: #704631;
+    }
+
+    .otp-modal-email {
+        font-weight: 800;
+        word-break: break-word;
+    }
+
+    .otp-modal-notice {
+        color: #2f7d57;
+        font-weight: 700;
+    }
+
+    .otp-modal-error {
+        color: #a53d34;
+        font-weight: 700;
+    }
+
+    .otp-modal-form,
+    .otp-resend-form {
+        display: grid;
+        gap: 12px;
+    }
+
+    .otp-modal-form label {
+        color: #5b3926;
+        font-weight: 700;
+    }
+
+    .otp-code-input {
+        border: 1px solid #d5b594;
+        border-radius: 16px;
+        font-size: 1.2rem;
+        letter-spacing: 0.3em;
+        padding: 14px 16px;
+        text-align: center;
+    }
+
+    .otp-resend-form {
+        margin-top: 12px;
+    }
+</style>
 <script>
     (function () {
         var form = document.getElementById("registerForm");
         var passwordInput = document.getElementById("password");
         var confirmPasswordInput = document.getElementById("confirm_password");
         var submitButton = document.getElementById("registerSubmitButton");
+        var otpForm = document.getElementById("otpVerificationForm");
+        var otpVerifyButton = document.getElementById("otpVerifyButton");
+        var otpResendForm = document.getElementById("otpResendForm");
+        var otpResendButton = document.getElementById("otpResendButton");
+        var otpResendCountdown = document.getElementById("otpResendCountdown");
         form.addEventListener("submit", function (event) {
             if (passwordInput.value !== confirmPasswordInput.value) {
                 event.preventDefault();
@@ -83,6 +217,36 @@
                 confirmPasswordInput.setCustomValidity("");
             }
         });
+
+        if (otpForm && otpVerifyButton) {
+            otpForm.addEventListener("submit", function () {
+                otpVerifyButton.disabled = true;
+                otpVerifyButton.textContent = "Verifying...";
+            });
+        }
+
+        if (otpResendForm && otpResendButton) {
+            otpResendForm.addEventListener("submit", function () {
+                otpResendButton.disabled = true;
+                otpResendButton.textContent = "Sending...";
+            });
+        }
+
+        if (otpResendButton && otpResendCountdown) {
+            var secondsLeft = parseInt(otpResendCountdown.textContent || "0", 10);
+            if (secondsLeft > 0) {
+                var countdown = window.setInterval(function () {
+                    secondsLeft -= 1;
+                    if (secondsLeft <= 0) {
+                        window.clearInterval(countdown);
+                        otpResendButton.disabled = false;
+                        otpResendButton.textContent = "Resend OTP";
+                        return;
+                    }
+                    otpResendCountdown.textContent = String(secondsLeft);
+                }, 1000);
+            }
+        }
     })();
 </script>
 {% endblock %}

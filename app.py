@@ -25,6 +25,7 @@ load_env_file()
 
 from supabase_client import (
     authenticate_user,
+    invalid_otp_message,
     create_employee,
     create_admin_menu_item,
     create_rider,
@@ -66,6 +67,7 @@ from supabase_client import (
     valid_email_message,
     verification_rate_limit_message,
     verification_required_message,
+    verify_email_otp,
 )
 
 app = Flask(
@@ -160,6 +162,71 @@ def destination_for_role(role: str) -> str:
     if normalized_role == "staff":
         return url_for("staff_dashboard")
     return url_for("home")
+
+
+def start_verification_cooldown(seconds: int = 60) -> None:
+    session["verification_resend_sent_at"] = time.time()
+    session["verification_resend_cooldown"] = seconds
+    session.modified = True
+
+
+def current_verification_cooldown_seconds() -> int:
+    cooldown_seconds = int(session.get("verification_resend_cooldown") or 60)
+    last_sent_at = float(session.get("verification_resend_sent_at") or 0)
+    seconds_since_last_send = time.time() - last_sent_at
+    if seconds_since_last_send >= cooldown_seconds:
+        return 0
+    return max(0, int(cooldown_seconds - seconds_since_last_send))
+
+
+def pending_verification_form_data() -> dict[str, str]:
+    pending = session.get("pending_verification") or {}
+    return {
+        "full_name": str(pending.get("full_name") or ""),
+        "email": str(pending.get("email") or ""),
+        "phone_number": str(pending.get("phone_number") or ""),
+        "address": str(pending.get("address") or ""),
+    }
+
+
+def render_register_page(
+    form_data: dict[str, str] | None = None,
+    show_otp_modal: bool = False,
+    otp_error: str = "",
+    otp_notice: str = "",
+):
+    final_form_data = form_data or {"full_name": "", "email": "", "phone_number": "", "address": ""}
+    pending = session.get("pending_verification") or {}
+    verification_email = str(pending.get("email") or final_form_data.get("email") or "")
+    return render_template(
+        "register.html",
+        auth_page=True,
+        form_data=final_form_data,
+        show_otp_modal=show_otp_modal,
+        verification_email=verification_email,
+        otp_error=otp_error,
+        otp_notice=otp_notice,
+        resend_cooldown=current_verification_cooldown_seconds(),
+    )
+
+
+def store_authenticated_session(user_session: dict[str, Any], fallback_email: str = "") -> str:
+    existing_cart = list(session.get("cart") or [])
+    session.clear()
+    user_role = str((user_session or {}).get("role", "customer")).strip().lower()
+    if user_role == "user":
+        user_role = "customer"
+    if user_role not in {"admin", "customer", "staff"}:
+        user_role = "customer"
+    user_session["role"] = user_role
+    session["user"] = user_session
+    session["role"] = user_role
+    session["user_email"] = (user_session.get("email") or fallback_email).strip().lower()
+    if existing_cart:
+        session["cart"] = existing_cart
+    session.permanent = True
+    session.modified = True
+    return user_role
 
 
 def get_cart() -> list[dict[str, Any]]:
@@ -1387,21 +1454,7 @@ def login():
             if user_session is None:
                 flash("Login successful, but the app could not load your session details.", "error")
                 return redirect(url_for("login"))
-            existing_cart = list(session.get("cart") or [])
-            session.clear()
-            user_role = str((user_session or {}).get("role", "customer")).strip().lower()
-            if user_role == "user":
-                user_role = "customer"
-            if user_role not in {"admin", "customer", "staff"}:
-                user_role = "customer"
-            user_session["role"] = user_role
-            session["user"] = user_session
-            session["role"] = user_role
-            session["user_email"] = (user_session.get("email") or email).strip().lower()
-            if existing_cart:
-                session["cart"] = existing_cart
-            session.permanent = True
-            session.modified = True
+            user_role = store_authenticated_session(user_session, email)
             try:
                 destination = destination_for_role(user_role)
             except Exception:
@@ -1440,30 +1493,55 @@ def forgot_password():
 @app.route("/resend-verification", methods=["POST"])
 def resend_verification():
     email = request.form.get("email", "").strip().lower()
+    next_target = request.form.get("next", "").strip().lower()
+    return_to_register = next_target == "register"
     if not email:
-        flash("Enter your email address first so we can resend the verification link.", "error")
+        flash("Enter your email address first so we can resend the verification code.", "error")
+        if return_to_register:
+            return render_register_page(
+                form_data=pending_verification_form_data(),
+                show_otp_modal=True,
+                otp_error="Enter your email address first.",
+            )
         return redirect(url_for("login"))
 
     email_message = valid_email_message(email)
     if email_message:
+        if return_to_register:
+            return render_register_page(
+                form_data=pending_verification_form_data(),
+                show_otp_modal=True,
+                otp_error=email_message,
+            )
         flash(email_message, "error")
         return redirect(url_for("login"))
 
-    cooldown_seconds = 60
-    last_sent_at = float(session.get("verification_resend_sent_at") or 0)
-    seconds_since_last_send = time.time() - last_sent_at
-    if seconds_since_last_send < cooldown_seconds:
-        seconds_left = int(cooldown_seconds - seconds_since_last_send)
-        flash(f"Please wait {seconds_left} seconds before requesting another verification email.", "error")
+    seconds_left = current_verification_cooldown_seconds()
+    if seconds_left > 0:
+        cooldown_message = f"Please wait {seconds_left} seconds before requesting another verification code."
+        if return_to_register:
+            return render_register_page(
+                form_data=pending_verification_form_data(),
+                show_otp_modal=True,
+                otp_error=cooldown_message,
+            )
+        flash(cooldown_message, "error")
         return redirect(url_for("login"))
 
     success, message = resend_verification_email(email)
     if success:
-        session["verification_resend_sent_at"] = time.time()
-        session.modified = True
+        start_verification_cooldown()
     elif message == verification_rate_limit_message():
-        session["verification_resend_sent_at"] = time.time()
-        session.modified = True
+        start_verification_cooldown()
+
+    if return_to_register:
+        return render_register_page(
+            form_data=pending_verification_form_data(),
+            show_otp_modal=True,
+            otp_error="" if success else message,
+            otp_notice=message if success else "",
+        )
+
     flash(message, "success" if success else "error")
     return redirect(url_for("login"))
 
@@ -1490,6 +1568,48 @@ def verify_check():
     else:
         flash("Email is registered but not verified yet. Please check your inbox.", "error")
     return redirect(url_for("login"))
+
+
+@app.route("/verify-otp", methods=["POST"])
+def verify_otp():
+    pending = session.get("pending_verification") or {}
+    form_data = pending_verification_form_data()
+    email = str(pending.get("email") or request.form.get("email", "")).strip().lower()
+    otp_code = request.form.get("otp_code", "").strip()
+
+    if not email:
+        return render_register_page(
+            form_data=form_data,
+            show_otp_modal=False,
+            otp_error="Please register first before entering a verification code.",
+        )
+
+    if not re.fullmatch(r"\d{6}", otp_code):
+        return render_register_page(
+            form_data=form_data,
+            show_otp_modal=True,
+            otp_error="Please enter a valid 6-digit verification code.",
+        )
+
+    success, message, user_session = verify_email_otp(email, otp_code)
+    if not success:
+        otp_error = invalid_otp_message() if message == invalid_otp_message() else message
+        return render_register_page(
+            form_data=form_data,
+            show_otp_modal=True,
+            otp_error=otp_error,
+        )
+
+    if user_session is None:
+        return render_register_page(
+            form_data=form_data,
+            show_otp_modal=True,
+            otp_error="Verification succeeded, but the user session could not be created.",
+        )
+
+    user_role = store_authenticated_session(user_session, email)
+    flash("Email verified successfully. Welcome to J'Bistro.", "success")
+    return redirect(destination_for_role(user_role))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -1556,19 +1676,31 @@ def register():
             phone_number=phone_number,
             delivery_address=delivery_address,
         )
-        flash(message, "success" if success else "error")
         if success:
-            if target_role == "admin":
-                flash("Admin account created. Please verify the email before logging in.", "success")
-            elif target_role == "staff":
-                flash("Staff account created. Please verify the email before logging in.", "success")
-            else:
-                flash("Registration complete. Please verify your email before logging in.", "success")
-            return redirect(url_for("login"))
+            session["pending_verification"] = {
+                "email": email,
+                "full_name": full_name,
+                "phone_number": phone_number,
+                "address": delivery_address,
+                "role": target_role,
+            }
+            start_verification_cooldown()
+            return render_register_page(
+                form_data=form_data,
+                show_otp_modal=True,
+                otp_notice="Enter the 6-digit verification code sent to your email.",
+            )
 
-        return render_template("register.html", auth_page=True, form_data=form_data)
+        flash(message, "error")
+        return render_register_page(form_data=form_data, show_otp_modal=False)
 
-    return render_template("register.html", auth_page=True, form_data=form_data)
+    if session.get("pending_verification"):
+        return render_register_page(
+            form_data=pending_verification_form_data(),
+            show_otp_modal=True,
+        )
+
+    return render_register_page(form_data=form_data, show_otp_modal=False)
 
 
 @app.route("/logout")

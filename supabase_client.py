@@ -168,6 +168,10 @@ def verification_rate_limit_message() -> str:
     return "Too many verification emails were sent. Please wait a few minutes before trying again."
 
 
+def invalid_otp_message() -> str:
+    return "Invalid or expired verification code."
+
+
 def normalize_env_value(value: str | None, fallback: str) -> str:
     cleaned = (value or fallback).strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
@@ -566,7 +570,36 @@ def resend_verification_email(email: str) -> tuple[bool, str]:
             return False, "We could not find an account with that email address."
         return False, error_message
 
-    return True, "Verification email sent. Please check your inbox before logging in."
+    return True, "Verification code sent. Please check your email before logging in."
+
+
+def build_user_session_from_auth_payload(
+    payload: dict[str, Any],
+    fallback_email: str = "",
+) -> tuple[bool, str, dict[str, Any] | None]:
+    user_data = payload.get("user") or {}
+    user_id = user_data.get("id")
+    profile, profile_message = fetch_user_profile(user_id, user_data.get("email", fallback_email)) if user_id else (None, None)
+    if not profile:
+        return False, profile_message or "Authentication succeeded, but no app_users profile was found for this account.", None
+    if profile_message:
+        return False, profile_message, None
+
+    user_role = normalize_role(profile.get("role"))
+    user_session = {
+        "id": user_id,
+        "email": user_data.get("email", fallback_email),
+        "access_token": payload.get("access_token"),
+        "refresh_token": payload.get("refresh_token"),
+        "expires_in": payload.get("expires_in"),
+        "expires_at": payload.get("expires_at"),
+        "full_name": profile.get("full_name") or default_full_name(user_data.get("email", fallback_email)),
+        "role": user_role,
+        "phone_number": profile.get("phone_number") or "",
+        "delivery_address": profile.get("delivery_address") or "",
+        "profile_image": profile.get("profile_image") or "",
+    }
+    return True, "Authentication successful.", user_session
 
 
 def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | None, str | None]:
@@ -1066,28 +1099,40 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
     user_data = payload.get("user") or {}
     if not (user_data.get("email_confirmed_at") or user_data.get("confirmed_at")):
         return False, verification_required_message(), None
-    user_id = user_data.get("id")
-    profile, profile_message = fetch_user_profile(user_id, user_data.get("email", email)) if user_id else (None, None)
-    if not profile:
-        return False, profile_message or "Login successful, but no app_users profile was found for this account.", None
-    if profile_message:
-        return False, profile_message, None
-
-    user_role = normalize_role(profile.get("role"))
-    user_session = {
-        "id": user_id,
-        "email": user_data.get("email", email),
-        "access_token": payload.get("access_token"),
-        "refresh_token": payload.get("refresh_token"),
-        "expires_in": payload.get("expires_in"),
-        "expires_at": payload.get("expires_at"),
-        "full_name": profile.get("full_name") or default_full_name(user_data.get("email", email)),
-        "role": user_role,
-        "phone_number": profile.get("phone_number") or "",
-        "delivery_address": profile.get("delivery_address") or "",
-        "profile_image": profile.get("profile_image") or "",
-    }
+    success, message, user_session = build_user_session_from_auth_payload(payload, email)
+    if not success:
+        return False, message, None
     return True, "Login successful.", user_session
+
+
+def verify_email_otp(email: str, token: str) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error, None
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.post(
+            f"{supabase_url}/auth/v1/verify",
+            headers=auth_headers(),
+            json={"email": email, "token": token, "type": "email"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to verify the email code right now.", None
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        lowered_error = error_message.lower()
+        if "otp" in lowered_error or "token" in lowered_error or "expired" in lowered_error:
+            return False, invalid_otp_message(), None
+        return False, error_message, None
+
+    payload = response.json()
+    success, message, user_session = build_user_session_from_auth_payload(payload, email)
+    if not success:
+        return False, message, None
+    return True, "Email verified successfully.", user_session
 
 
 def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
