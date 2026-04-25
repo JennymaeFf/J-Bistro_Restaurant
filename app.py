@@ -1481,6 +1481,15 @@ def register():
     if is_logged_in():
         return redirect(url_for("home"))
 
+    # These values are passed back to the template whenever validation fails
+    # so the user does not have to type everything again.
+    form_data = {
+        "full_name": "",
+        "email": "",
+        "phone_number": "",
+        "address": "",
+    }
+
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -1490,23 +1499,31 @@ def register():
         confirm_password = request.form.get("confirm_password", "").strip()
         admin_code = request.form.get("admin_code", "").strip()
         configured_admin_code = os.environ.get("ADMIN_REGISTRATION_CODE", "").strip()
+        form_data.update(
+            {
+                "full_name": full_name,
+                "email": email,
+                "phone_number": phone_number,
+                "address": delivery_address,
+            }
+        )
 
         if not full_name or not email or not phone_number or not delivery_address or not password or not confirm_password:
             flash("Please fill in all registration fields.", "error")
-            return redirect(url_for("register"))
+            return render_template("register.html", auth_page=True, form_data=form_data)
 
         email_message = valid_email_message(email)
         if email_message:
             flash(email_message, "error")
-            return redirect(url_for("register"))
+            return render_template("register.html", auth_page=True, form_data=form_data)
 
-        if len(password) < 6:
-            flash("Password must be at least 6 characters long.", "error")
-            return redirect(url_for("register"))
+        if len(password) < 8:
+            flash("Password must be at least 8 characters long.", "error")
+            return render_template("register.html", auth_page=True, form_data=form_data)
 
         if password != confirm_password:
             flash("Passwords do not match.", "error")
-            return redirect(url_for("register"))
+            return render_template("register.html", auth_page=True, form_data=form_data)
 
         target_role = "customer"
         if admin_code:
@@ -1533,7 +1550,9 @@ def register():
                 flash("Registration complete. Please verify your email before logging in.", "success")
             return redirect(url_for("login"))
 
-    return render_template("register.html", auth_page=True)
+        return render_template("register.html", auth_page=True, form_data=form_data)
+
+    return render_template("register.html", auth_page=True, form_data=form_data)
 
 
 @app.route("/logout")
