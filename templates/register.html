@@ -48,7 +48,7 @@
                     </span>
                 </label>
                 <p class="auth-support-text register-help-text">Use a real email address so you can receive your verification link.</p>
-                <button type="submit" class="auth-button">Register</button>
+                <button type="submit" class="auth-button" id="registerSubmitButton">Register</button>
             </form>
 
             <p class="auth-footer-text">
@@ -63,6 +63,7 @@
         var form = document.getElementById("registerForm");
         var passwordInput = document.getElementById("password");
         var confirmPasswordInput = document.getElementById("confirm_password");
+        var submitButton = document.getElementById("registerSubmitButton");
         form.addEventListener("submit", function (event) {
             if (passwordInput.value !== confirmPasswordInput.value) {
                 event.preventDefault();
@@ -71,6 +72,10 @@
                 return;
             }
             confirmPasswordInput.setCustomValidity("");
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = "Registering...";
+            }
         });
 
         confirmPasswordInput.addEventListener("input", function () {

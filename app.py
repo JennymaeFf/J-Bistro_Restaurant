@@ -2,6 +2,7 @@ import os
 import sys
 import hmac
 import re
+import time
 from uuid import uuid4
 from datetime import timedelta
 from functools import wraps
@@ -63,6 +64,7 @@ from supabase_client import (
     update_user_profile,
     update_user_profile_image,
     valid_email_message,
+    verification_rate_limit_message,
     verification_required_message,
 )
 
@@ -1447,7 +1449,21 @@ def resend_verification():
         flash(email_message, "error")
         return redirect(url_for("login"))
 
+    cooldown_seconds = 60
+    last_sent_at = float(session.get("verification_resend_sent_at") or 0)
+    seconds_since_last_send = time.time() - last_sent_at
+    if seconds_since_last_send < cooldown_seconds:
+        seconds_left = int(cooldown_seconds - seconds_since_last_send)
+        flash(f"Please wait {seconds_left} seconds before requesting another verification email.", "error")
+        return redirect(url_for("login"))
+
     success, message = resend_verification_email(email)
+    if success:
+        session["verification_resend_sent_at"] = time.time()
+        session.modified = True
+    elif message == verification_rate_limit_message():
+        session["verification_resend_sent_at"] = time.time()
+        session.modified = True
     flash(message, "success" if success else "error")
     return redirect(url_for("login"))
 

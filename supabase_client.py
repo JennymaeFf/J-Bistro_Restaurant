@@ -164,6 +164,10 @@ def verification_required_message() -> str:
     return "Please verify your email before logging in."
 
 
+def verification_rate_limit_message() -> str:
+    return "Too many verification emails were sent. Please wait a few minutes before trying again."
+
+
 def normalize_env_value(value: str | None, fallback: str) -> str:
     cleaned = (value or fallback).strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
@@ -424,6 +428,8 @@ def register_user(
     if signup_response.status_code >= 400:
         signup_error = parse_response_error(signup_response)
         lowered_signup_error = signup_error.lower()
+        if signup_response.status_code == 429 or "rate limit" in lowered_signup_error or "security purposes" in lowered_signup_error:
+            return False, verification_rate_limit_message()
         if (
             "already registered" in lowered_signup_error
             or "already exists" in lowered_signup_error
@@ -554,6 +560,8 @@ def resend_verification_email(email: str) -> tuple[bool, str]:
     if response.status_code >= 400:
         error_message = parse_response_error(response)
         lowered_error = error_message.lower()
+        if response.status_code == 429 or "rate limit" in lowered_error or "security purposes" in lowered_error:
+            return False, verification_rate_limit_message()
         if "not found" in lowered_error or "no user" in lowered_error:
             return False, "We could not find an account with that email address."
         return False, error_message
