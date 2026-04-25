@@ -33,12 +33,12 @@
 
             {% if show_resend_verification %}
                 <form action="{{ url_for('resend_verification') }}" method="post" class="auth-secondary-form" id="resendVerificationForm">
-                    <p class="auth-support-text">Resend your 6-digit verification code if you still have not received it.</p>
+                    <p class="auth-support-text">Resend your verification email if you still have not received it.</p>
                     <label>
                         Resend verification to
                         <input type="email" name="email" value="{{ verification_email or '' }}" placeholder="Enter your email again" autocomplete="email" required>
                     </label>
-                    <button type="submit" class="auth-secondary-button" id="resendVerificationButton">Resend OTP</button>
+                    <button type="submit" class="auth-secondary-button" id="resendVerificationButton">Resend Verification Email</button>
                 </form>
             {% endif %}
 

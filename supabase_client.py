@@ -168,10 +168,6 @@ def verification_rate_limit_message() -> str:
     return "Too many verification emails were sent. Please wait a few minutes before trying again."
 
 
-def invalid_otp_message() -> str:
-    return "Invalid or expired verification code."
-
-
 def normalize_env_value(value: str | None, fallback: str) -> str:
     cleaned = (value or fallback).strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
@@ -542,7 +538,7 @@ def register_user(
             return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
         return True, f"{requested_role.title()} registration successful. Please verify your email before logging in."
 
-    return True, "Registration successful. Please check your email for the verification link before logging in."
+    return True, "Registration successful. Please check your email for the confirmation link before logging in."
 
 
 def resend_verification_email(email: str) -> tuple[bool, str]:
@@ -1103,36 +1099,6 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str, dict[str, A
     if not success:
         return False, message, None
     return True, "Login successful.", user_session
-
-
-def verify_email_otp(email: str, token: str) -> tuple[bool, str, dict[str, Any] | None]:
-    config_error = supabase_config_error()
-    if config_error:
-        return False, config_error, None
-
-    supabase_url, _ = current_supabase_config()
-    try:
-        response = requests.post(
-            f"{supabase_url}/auth/v1/verify",
-            headers=auth_headers(),
-            json={"email": email, "token": token, "type": "email"},
-            timeout=REQUEST_TIMEOUT,
-        )
-    except requests.RequestException:
-        return False, "Unable to verify the email code right now.", None
-
-    if response.status_code >= 400:
-        error_message = parse_response_error(response)
-        lowered_error = error_message.lower()
-        if "otp" in lowered_error or "token" in lowered_error or "expired" in lowered_error:
-            return False, invalid_otp_message(), None
-        return False, error_message, None
-
-    payload = response.json()
-    success, message, user_session = build_user_session_from_auth_payload(payload, email)
-    if not success:
-        return False, message, None
-    return True, "Email verified successfully.", user_session
 
 
 def normalize_menu_item(item: dict[str, Any]) -> dict[str, Any]:
