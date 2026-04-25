@@ -1374,7 +1374,8 @@ def login():
         auth_page=True,
         show_resend_verification=False,
         verification_email="",
-        login_email=session.pop("verified_email_hint", ""),
+        # Allow the confirmation success page to prefill the email in the login form.
+        login_email=(request.args.get("email", "").strip().lower() or session.pop("verified_email_hint", "")),
     )
 
 
@@ -1448,6 +1449,17 @@ def verify_check():
     else:
         flash("Email is registered but not verified yet. Please check your inbox.", "error")
     return redirect(url_for("login"))
+
+
+@app.route("/verified-success")
+def verified_success():
+    # Supabase redirects here after the user clicks the confirmation link.
+    # We only keep the email so the login form can be prefilled safely.
+    email = request.args.get("email", "").strip().lower()
+    email_message = valid_email_message(email) if email else None
+    if email_message:
+        email = ""
+    return render_template("verified_success.html", verified_email=email)
 
 
 @app.route("/register", methods=["GET", "POST"])

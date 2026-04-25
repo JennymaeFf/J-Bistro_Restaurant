@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Email Verified | J'Bistro Restaurant{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-background"></div>
+    <div class="auth-overlay"></div>
+    <div class="wood-strip"></div>
+
+    <div class="auth-card-wrap">
+        <div class="auth-card">
+            <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="J'Bistro Restaurant Logo" class="auth-logo">
+            <p class="auth-title">Email Verified</p>
+
+            <div class="auth-success-panel">
+                <strong>Registration successful! Your email has been verified.</strong>
+                <p>You can now continue to the login form and sign in with your password.</p>
+            </div>
+
+            <a
+                href="{{ url_for('login', email=verified_email) if verified_email else url_for('login') }}"
+                class="auth-button"
+                style="display: inline-flex; justify-content: center; text-decoration: none;"
+            >
+                Proceed to Login
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -4,6 +4,7 @@ import re
 import time
 from base64 import urlsafe_b64decode
 from typing import Any
+from urllib.parse import urlencode
 
 import requests
 from env_loader import load_env_file
@@ -189,6 +190,14 @@ def current_supabase_service_config() -> tuple[str, str]:
     url = normalize_env_value(os.environ.get("SUPABASE_URL"), "")
     service_key = normalize_env_value(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"), "")
     return url, service_key
+
+
+def email_confirmation_redirect_url(email: str) -> str | None:
+    site_url = normalize_env_value(os.environ.get("SITE_URL"), "").rstrip("/")
+    if not site_url.startswith(("http://", "https://")):
+        return None
+    query = urlencode({"email": email})
+    return f"{site_url}/verified-success?{query}"
 
 
 def default_full_name(email: str) -> str:
@@ -420,10 +429,14 @@ def register_user(
             return False, "Email already exists."
 
     try:
+        signup_payload = {"email": email, "password": password}
+        redirect_url = email_confirmation_redirect_url(email)
+        if redirect_url:
+            signup_payload["email_redirect_to"] = redirect_url
         signup_response = requests.post(
             f"{supabase_url}/auth/v1/signup",
             headers=auth_headers(),
-            json={"email": email, "password": password},
+            json=signup_payload,
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
@@ -552,10 +565,14 @@ def resend_verification_email(email: str) -> tuple[bool, str]:
 
     supabase_url, _ = current_supabase_config()
     try:
+        resend_payload = {"type": "signup", "email": email}
+        redirect_url = email_confirmation_redirect_url(email)
+        if redirect_url:
+            resend_payload["email_redirect_to"] = redirect_url
         response = requests.post(
             f"{supabase_url}/auth/v1/resend",
             headers=auth_headers(),
-            json={"type": "signup", "email": email},
+            json=resend_payload,
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
@@ -570,7 +587,7 @@ def resend_verification_email(email: str) -> tuple[bool, str]:
             return False, "We could not find an account with that email address."
         return False, error_message
 
-    return True, "Verification code sent. Please check your email before logging in."
+    return True, "Confirmation link sent! Please check your email."
 
 
 def build_user_session_from_auth_payload(
