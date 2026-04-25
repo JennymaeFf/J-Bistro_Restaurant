@@ -1467,6 +1467,7 @@ def login():
         auth_page=True,
         show_resend_verification=False,
         verification_email="",
+        login_email=session.pop("verified_email_hint", ""),
     )
 
 
@@ -1607,9 +1608,16 @@ def verify_otp():
             otp_error="Verification succeeded, but the user session could not be created.",
         )
 
-    user_role = store_authenticated_session(user_session, email)
-    flash("Email verified successfully. Welcome to J'Bistro.", "success")
-    return redirect(destination_for_role(user_role))
+    pending_cart = list(session.get("cart") or [])
+    session.pop("pending_verification", None)
+    session.pop("verification_resend_sent_at", None)
+    session.pop("verification_resend_cooldown", None)
+    if pending_cart:
+        session["cart"] = pending_cart
+    session["verified_email_hint"] = email
+    session.modified = True
+    flash("Email verified successfully. Please log in to continue.", "success")
+    return redirect(url_for("login"))
 
 
 @app.route("/register", methods=["GET", "POST"])

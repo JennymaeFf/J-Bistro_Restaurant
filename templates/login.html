@@ -16,7 +16,7 @@
             <form action="{{ url_for('login') }}" method="post" class="auth-form">
                 <label>
                     Email
-                    <input type="email" name="email" placeholder="Enter your email" autocomplete="email" required>
+                    <input type="email" name="email" value="{{ login_email or '' }}" placeholder="Enter your email" autocomplete="email" required>
                 </label>
                 <label>
                     Password
