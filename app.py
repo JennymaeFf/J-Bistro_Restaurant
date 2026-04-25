@@ -1475,7 +1475,6 @@ def register():
         "phone_number": "",
         "address": "",
     }
-    registration_success = False
 
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
@@ -1529,27 +1528,19 @@ def register():
         )
         if success:
             flash(message, "success")
-            registration_success = True
-            return render_template(
-                "register.html",
-                auth_page=True,
-                form_data=form_data,
-                registration_success=registration_success,
-            )
+            return redirect(url_for("login", email=email))
 
         flash(message, "error")
         return render_template(
             "register.html",
             auth_page=True,
             form_data=form_data,
-            registration_success=registration_success,
         )
 
     return render_template(
         "register.html",
         auth_page=True,
         form_data=form_data,
-        registration_success=registration_success,
     )
 
 
