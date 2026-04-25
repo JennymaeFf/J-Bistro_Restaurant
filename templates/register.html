@@ -14,6 +14,14 @@
             <p class="auth-title register-title">Create Your J'Bistro Account</p>
             <p class="register-subtitle">Fill in your details to start ordering delicious meals. We will send a confirmation link to your email before you can log in.</p>
 
+            {% if registration_success %}
+                <div class="auth-success-panel">
+                    <strong>Registration successful! Please check your email for the confirmation link.</strong>
+                    <p>After confirming your email, you can log in using your password.</p>
+                    <a href="{{ url_for('login') }}" class="auth-secondary-button">Go to Login</a>
+                </div>
+            {% endif %}
+
             <form action="{{ url_for('register') }}" method="post" class="auth-form register-form" id="registerForm">
                 <label>
                     Full name

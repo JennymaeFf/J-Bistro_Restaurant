@@ -168,6 +168,10 @@ def verification_rate_limit_message() -> str:
     return "Too many verification emails were sent. Please wait a few minutes before trying again."
 
 
+def verification_send_failed_message() -> str:
+    return "Unable to send verification email. Please try again."
+
+
 def normalize_env_value(value: str | None, fallback: str) -> str:
     cleaned = (value or fallback).strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
@@ -423,7 +427,7 @@ def register_user(
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return False, "Unable to contact Supabase right now."
+        return False, verification_send_failed_message()
 
     if signup_response.status_code >= 400:
         signup_error = parse_response_error(signup_response)
@@ -450,13 +454,13 @@ def register_user(
                 if promote_existing_response.status_code < 400:
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
-        return False, signup_error
+        return False, verification_send_failed_message()
 
     payload = signup_response.json()
     user_data = payload.get("user") or {}
     user_id = user_data.get("id")
     if not user_id:
-        return False, "Registration succeeded, but no user id was returned."
+        return True, "Registration successful! Please check your email for the confirmation link."
 
     try:
         profile_response = requests.post(
@@ -476,7 +480,7 @@ def register_user(
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return False, "Account created, but the app profile could not be saved."
+        return True, "Registration successful! Please check your email for the confirmation link."
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
@@ -498,7 +502,7 @@ def register_user(
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
         if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
-            return False, error_message
+            return True, "Registration successful! Please check your email for the confirmation link."
 
         fallback_payload = {"id": user_id, "email": email, "role": requested_role}
 
@@ -511,10 +515,10 @@ def register_user(
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
-            return False, "Account created, but the app profile could not be saved."
+            return True, "Registration successful! Please check your email for the confirmation link."
 
         if fallback_response.status_code >= 400:
-            return False, parse_response_error(fallback_response)
+            return True, "Registration successful! Please check your email for the confirmation link."
 
     if requested_role in {"admin", "staff"}:
         try:
@@ -536,9 +540,9 @@ def register_user(
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
             return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
-        return True, f"{requested_role.title()} registration successful. Please verify your email before logging in."
+        return True, "Registration successful! Please check your email for the confirmation link."
 
-    return True, "Registration successful. Please check your email for the confirmation link before logging in."
+    return True, "Registration successful! Please check your email for the confirmation link."
 
 
 def resend_verification_email(email: str) -> tuple[bool, str]:
