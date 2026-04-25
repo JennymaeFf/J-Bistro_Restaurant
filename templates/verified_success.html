@@ -14,8 +14,8 @@
             <p class="auth-title">Email Verified</p>
 
             <div class="auth-success-panel">
-                <strong>Registration successful! Your email has been verified.</strong>
-                <p>You can now continue to the login form and sign in with your password.</p>
+                <strong>Registration successful! Your email has been verified. Please log in to continue.</strong>
+                <p>Your account is not logged in yet. Enter your email and password on the login page to continue safely.</p>
             </div>
 
             <a
@@ -28,4 +28,13 @@
         </div>
     </div>
 </section>
+<script>
+    (function () {
+        // Supabase can append auth data in the URL hash after email confirmation.
+        // We are not auto-logging in here, so clean the hash for a simpler URL.
+        if (window.location.hash) {
+            window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+    })();
+</script>
 {% endblock %}

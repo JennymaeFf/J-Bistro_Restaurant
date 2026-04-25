@@ -1455,6 +1455,7 @@ def verify_check():
 def verified_success():
     # Supabase redirects here after the user clicks the confirmation link.
     # We only keep the email so the login form can be prefilled safely.
+    # Do not create a session here. The user must still log in manually.
     email = request.args.get("email", "").strip().lower()
     email_message = valid_email_message(email) if email else None
     if email_message:
