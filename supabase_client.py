@@ -476,7 +476,7 @@ def register_user(
     user_data = payload.get("user") or {}
     user_id = user_data.get("id")
     if not user_id:
-        return True, "Verification email sent. Please check your email and click the confirmation link."
+        return True, "Verification email sent. Please check your email to confirm your account."
 
     try:
         profile_response = requests.post(
@@ -496,7 +496,7 @@ def register_user(
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return True, "Verification email sent. Please check your email and click the confirmation link."
+        return True, "Verification email sent. Please check your email to confirm your account."
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
@@ -518,7 +518,7 @@ def register_user(
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
         if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
-            return True, "Verification email sent. Please check your email and click the confirmation link."
+            return True, "Verification email sent. Please check your email to confirm your account."
 
         fallback_payload = {"id": user_id, "email": email, "role": requested_role}
 
@@ -531,10 +531,10 @@ def register_user(
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
-            return True, "Verification email sent. Please check your email and click the confirmation link."
+            return True, "Verification email sent. Please check your email to confirm your account."
 
         if fallback_response.status_code >= 400:
-            return True, "Verification email sent. Please check your email and click the confirmation link."
+            return True, "Verification email sent. Please check your email to confirm your account."
 
     if requested_role in {"admin", "staff"}:
         try:
@@ -556,9 +556,9 @@ def register_user(
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
             return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
-        return True, "Verification email sent. Please check your email and click the confirmation link."
+        return True, "Verification email sent. Please check your email to confirm your account."
 
-    return True, "Verification email sent. Please check your email and click the confirmation link."
+    return True, "Verification email sent. Please check your email to confirm your account."
 
 
 def resend_verification_email(email: str) -> tuple[bool, str]:
