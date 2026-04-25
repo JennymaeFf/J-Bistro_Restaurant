@@ -191,9 +191,8 @@ def current_supabase_service_config() -> tuple[str, str]:
 
 
 def email_confirmation_redirect_url(email: str) -> str | None:
-    # Force Supabase confirmation links to return to the custom success page.
-    # This keeps the user away from the default /home redirect after email confirmation.
-    return "https://j-bistro-restaurant.vercel.app/verified-success"
+    # Send confirmed users directly to the login page after clicking the email link.
+    return "https://j-bistro-restaurant.vercel.app/login"
 
 
 def default_full_name(email: str) -> str:
