@@ -193,7 +193,10 @@ def current_supabase_service_config() -> tuple[str, str]:
 
 
 def email_confirmation_redirect_url(email: str) -> str | None:
-    site_url = normalize_env_value(os.environ.get("SITE_URL"), "").rstrip("/")
+    site_url = normalize_env_value(
+        os.environ.get("SITE_URL"),
+        "https://j-bistro-restaurant.vercel.app",
+    ).rstrip("/")
     if not site_url.startswith(("http://", "https://")):
         return None
     query = urlencode({"email": email})
