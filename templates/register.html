@@ -16,8 +16,8 @@
 
             {% if registration_success %}
                 <div class="auth-success-panel">
-                    <strong>Registration successful! Please check your email for the confirmation link.</strong>
-                    <p>After confirming your email, you can log in using your password.</p>
+                    <strong>Verification email sent. Please check your email and click the confirmation link.</strong>
+                    <p>After confirming your email, you can continue to the login page and sign in using your password.</p>
                     <a href="{{ url_for('login') }}" class="auth-secondary-button">Go to Login</a>
                 </div>
             {% endif %}
