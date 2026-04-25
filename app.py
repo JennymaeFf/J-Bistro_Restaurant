@@ -48,6 +48,7 @@ from supabase_client import (
     fetch_user_profile,
     register_user,
     resend_verification_email,
+    check_email_verification_status,
     send_password_reset,
     update_order_tracking,
     update_employee,
@@ -119,30 +120,44 @@ def current_session_role() -> str:
     role = session.get("role")
     if isinstance(role, str) and role.strip():
         normalized = role.strip().lower()
-        return normalized if normalized in {"admin", "user"} else "user"
+        if normalized == "user":
+            normalized = "customer"
+        return normalized if normalized in {"admin", "customer", "staff"} else "customer"
 
     user = session.get("user") or {}
     inferred = user.get("role")
     if isinstance(inferred, str) and inferred.strip():
         normalized = inferred.strip().lower()
-        if normalized not in {"admin", "user"}:
-            normalized = "user"
+        if normalized == "user":
+            normalized = "customer"
+        if normalized not in {"admin", "customer", "staff"}:
+            normalized = "customer"
         session["role"] = normalized
         session.modified = True
         return normalized
-    return "user"
+    return "customer"
 
 
 def redirect_for_role(role: str):
-    normalized_role = role.strip().lower() if isinstance(role, str) else "user"
+    normalized_role = role.strip().lower() if isinstance(role, str) else "customer"
+    if normalized_role == "user":
+        normalized_role = "customer"
     if normalized_role == "admin":
         return redirect(url_for("admin_dashboard"))
+    if normalized_role == "staff":
+        return redirect(url_for("staff_dashboard"))
     return redirect(url_for("home"))
 
 
 def destination_for_role(role: str) -> str:
-    normalized_role = role.strip().lower() if isinstance(role, str) else "user"
-    return url_for("admin_dashboard") if normalized_role == "admin" else url_for("home")
+    normalized_role = role.strip().lower() if isinstance(role, str) else "customer"
+    if normalized_role == "user":
+        normalized_role = "customer"
+    if normalized_role == "admin":
+        return url_for("admin_dashboard")
+    if normalized_role == "staff":
+        return url_for("staff_dashboard")
+    return url_for("home")
 
 
 def get_cart() -> list[dict[str, Any]]:
@@ -411,6 +426,9 @@ def login_required_for_order(view_function):
     def wrapped_view(*args, **kwargs):
         if not is_logged_in():
             return redirect_to_register_for_order()
+        if current_session_role() == "staff":
+            flash("Staff accounts can manage orders but cannot place customer orders.", "error")
+            return redirect(url_for("staff_dashboard"))
         return view_function(*args, **kwargs)
 
     return wrapped_view
@@ -433,6 +451,10 @@ def is_admin_logged_in() -> bool:
     return current_session_role() == "admin"
 
 
+def is_staff_logged_in() -> bool:
+    return current_session_role() == "staff"
+
+
 def admin_required(view_function):
     @wraps(view_function)
     def wrapped_view(*args, **kwargs):
@@ -449,6 +471,23 @@ def admin_required(view_function):
     return wrapped_view
 
 
+def staff_required(view_function):
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        role = current_session_role()
+        if role not in {"admin", "staff"}:
+            if is_logged_in():
+                flash("Please log in with a staff or admin account.", "error")
+                return redirect_for_role(role)
+            session["next_url"] = next_url_for_auth_redirect()
+            session.modified = True
+            flash("Please log in first.", "error")
+            return redirect(url_for("login"))
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
+
+
 @app.context_processor
 def inject_layout_data() -> dict[str, Any]:
     cart = get_cart()
@@ -459,6 +498,7 @@ def inject_layout_data() -> dict[str, Any]:
         "current_user_image_url": profile_image_url(current_user),
         "is_logged_in": is_logged_in(),
         "is_admin_logged_in": is_admin_logged_in(),
+        "is_staff_logged_in": is_staff_logged_in(),
         "get_cart": get_cart,
         "cart_total": cart_total,
         "profile_image_url": profile_image_url,
@@ -758,8 +798,11 @@ def receipt():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    if current_session_role() == "admin":
+    current_role = current_session_role()
+    if current_role == "admin":
         return redirect(url_for("admin_dashboard"))
+    if current_role == "staff":
+        return redirect(url_for("staff_dashboard"))
     try:
         orders, message = fetch_orders()
     except Exception:
@@ -787,6 +830,9 @@ def dashboard():
 @app.route("/dashboard/update/<int:order_id>", methods=["POST"])
 @login_required
 def dashboard_update(order_id: int):
+    if current_session_role() == "staff":
+        flash("Staff should update orders from the staff dashboard.", "error")
+        return redirect(url_for("staff_dashboard"))
     status = request.form.get("status", "").strip()
     if status not in {"Pending", "Preparing", "Completed", "Cancelled"}:
         flash("Please choose a valid order status.", "error")
@@ -800,6 +846,9 @@ def dashboard_update(order_id: int):
 @app.route("/dashboard/delete/<int:order_id>", methods=["POST"])
 @login_required
 def dashboard_delete(order_id: int):
+    if current_session_role() == "staff":
+        flash("Staff accounts cannot delete customer dashboard orders here.", "error")
+        return redirect(url_for("staff_dashboard"))
     success, message = delete_order(order_id)
     flash(message, "success" if success else "error")
     return redirect(url_for("dashboard"))
@@ -816,6 +865,29 @@ def admin_logout():
     session.modified = True
     flash("Admin logged out.", "success")
     return redirect(url_for("login"))
+
+
+@app.route("/staff/dashboard")
+@staff_required
+def staff_dashboard():
+    orders, info_message = fetch_orders()
+    riders, riders_message = fetch_riders()
+    orders = attach_riders_to_orders(orders, riders)
+    if riders_message:
+        info_message = f"{info_message} {riders_message}".strip() if info_message else riders_message
+    return render_template("staff_dashboard.html", orders=orders, info_message=info_message)
+
+
+@app.route("/staff/orders/<int:order_id>/status", methods=["POST"])
+@staff_required
+def staff_orders_update_status(order_id: int):
+    status = request.form.get("status", "").strip()
+    if status not in ORDER_STATUS_OPTIONS:
+        flash("Please choose a valid order status.", "error")
+        return redirect(url_for("staff_dashboard"))
+    success, message = update_order_status(order_id, status)
+    flash(message, "success" if success else "error")
+    return redirect(url_for("staff_dashboard"))
 
 
 @app.route("/admin")
@@ -1315,9 +1387,11 @@ def login():
                 return redirect(url_for("login"))
             existing_cart = list(session.get("cart") or [])
             session.clear()
-            user_role = str((user_session or {}).get("role", "user")).strip().lower()
-            if user_role not in {"admin", "user"}:
-                user_role = "user"
+            user_role = str((user_session or {}).get("role", "customer")).strip().lower()
+            if user_role == "user":
+                user_role = "customer"
+            if user_role not in {"admin", "customer", "staff"}:
+                user_role = "customer"
             user_session["role"] = user_role
             session["user"] = user_session
             session["role"] = user_role
@@ -1378,6 +1452,30 @@ def resend_verification():
     return redirect(url_for("login"))
 
 
+@app.route("/verify-check", methods=["GET", "POST"])
+def verify_check():
+    email = request.values.get("email", "").strip().lower()
+    if not email:
+        flash("Enter an email address first.", "error")
+        return redirect(url_for("login"))
+
+    email_message = valid_email_message(email)
+    if email_message:
+        flash(email_message, "error")
+        return redirect(url_for("login"))
+
+    success, message, result = check_email_verification_status(email)
+    if not success:
+        flash(message, "error")
+        return redirect(url_for("login"))
+
+    if result and result.get("is_verified"):
+        flash("Email is already verified. You can log in now.", "success")
+    else:
+        flash("Email is registered but not verified yet. Please check your inbox.", "error")
+    return redirect(url_for("login"))
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if is_logged_in():
@@ -1410,12 +1508,12 @@ def register():
             flash("Passwords do not match.", "error")
             return redirect(url_for("register"))
 
-        target_role = "user"
+        target_role = "customer"
         if admin_code:
             if configured_admin_code and hmac.compare_digest(admin_code, configured_admin_code):
                 target_role = "admin"
             else:
-                flash("Admin code not recognized. Account will be created as a user.", "error")
+                flash("Admin code not recognized. Account will be created as a customer.", "error")
 
         success, message = register_user(
             email,
@@ -1429,6 +1527,8 @@ def register():
         if success:
             if target_role == "admin":
                 flash("Admin account created. Please verify the email before logging in.", "success")
+            elif target_role == "staff":
+                flash("Staff account created. Please verify the email before logging in.", "success")
             else:
                 flash("Registration complete. Please verify your email before logging in.", "success")
             return redirect(url_for("login"))

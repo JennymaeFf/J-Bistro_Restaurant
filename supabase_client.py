@@ -189,15 +189,17 @@ def default_full_name(email: str) -> str:
 
 
 def normalize_role(role_value: Any) -> str:
-    role = str(role_value or "user").strip().lower()
-    return role if role in {"admin", "user"} else "user"
+    role = str(role_value or "customer").strip().lower()
+    if role == "user":
+        role = "customer"
+    return role if role in {"admin", "customer", "staff"} else "customer"
 
 
 def profile_role_error() -> str:
     return (
         "Login successful, but the app could not verify your account role from app_users.role. "
         "Check that the role column exists, the Supabase schema cache is refreshed, and the account "
-        "is saved with role 'admin' or 'user'."
+        "is saved with role 'admin', 'customer', or 'staff'."
     )
 
 
@@ -363,7 +365,7 @@ def schema_cache_fix_message(*columns: str) -> str:
 def register_user(
     email: str,
     password: str,
-    role: str = "user",
+    role: str = "customer",
     full_name: str = "",
     phone_number: str = "",
     delivery_address: str = "",
@@ -372,8 +374,8 @@ def register_user(
     if config_error:
         return False, config_error
     requested_role = normalize_role(role)
-    if requested_role not in {"user", "admin"}:
-        requested_role = "user"
+    if requested_role not in {"customer", "staff", "admin"}:
+        requested_role = "customer"
     full_name = full_name.strip() or default_full_name(email)
     phone_number = phone_number.strip()
     delivery_address = delivery_address.strip()
@@ -455,7 +457,7 @@ def register_user(
             f"{supabase_url}/rest/v1/app_users",
             headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
             params={"on_conflict": "id"},
-            # Role is set by database default ('user') to avoid registration
+            # Role is set by database default ('customer') to avoid registration
             # failures when the schema cache has not refreshed yet.
             json={
                 "id": user_id,
@@ -463,6 +465,7 @@ def register_user(
                 "full_name": full_name,
                 "phone_number": phone_number or None,
                 "delivery_address": delivery_address or None,
+                "role": requested_role,
             },
             timeout=REQUEST_TIMEOUT,
         )
@@ -491,7 +494,7 @@ def register_user(
         if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
             return False, error_message
 
-        fallback_payload = {"id": user_id, "email": email}
+        fallback_payload = {"id": user_id, "email": email, "role": requested_role}
 
         try:
             fallback_response = requests.post(
@@ -507,27 +510,27 @@ def register_user(
         if fallback_response.status_code >= 400:
             return False, parse_response_error(fallback_response)
 
-    if requested_role == "admin":
+    if requested_role in {"admin", "staff"}:
         try:
             role_response = requests.patch(
                 f"{supabase_url}/rest/v1/app_users",
                 headers=supabase_headers("return=minimal"),
                 params={"id": f"eq.{user_id}"},
-                json={"role": "admin"},
+                json={"role": requested_role},
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
-            return True, "Registration successful, but admin role could not be assigned right now."
+            return True, f"Registration successful, but the {requested_role} role could not be assigned right now."
 
         if role_response.status_code >= 400:
             role_error = parse_response_error(role_response)
             if is_schema_cache_column_error(role_error, "role") or "role" in role_error.lower():
                 return True, (
-                    "Registration successful, but admin role could not be assigned because the role column "
+                    f"Registration successful, but the {requested_role} role could not be assigned because the role column "
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
-            return True, f"Registration successful, but admin role assignment failed: {role_error}"
-        return True, "Admin registration successful. Please verify your email before logging in."
+            return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
+        return True, f"{requested_role.title()} registration successful. Please verify your email before logging in."
 
     return True, "Registration successful. Please check your email for the verification link before logging in."
 
@@ -621,7 +624,7 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         "email": email,
         "full_name": default_full_name(email),
         "delivery_address": "",
-        "role": "user",
+        "role": "customer",
     }
     try:
         create_response = requests.post(
@@ -668,6 +671,54 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
         return None, profile_role_error()
     final_profile["role"] = normalize_role(final_profile.get("role"))
     return final_profile, None
+
+
+def service_auth_headers() -> dict[str, str]:
+    _, service_key = current_supabase_service_config()
+    return {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def check_email_verification_status(email: str) -> tuple[bool, str, dict[str, Any] | None]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error, None
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/auth/v1/admin/users",
+            headers=service_auth_headers(),
+            params={"page": 1, "per_page": 200},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to check verification status right now.", None
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response), None
+
+    payload = response.json() if response.content else {}
+    users = payload.get("users") if isinstance(payload, dict) else []
+    if not isinstance(users, list):
+        users = []
+
+    normalized_email = email.strip().lower()
+    for user in users:
+        if str((user or {}).get("email") or "").strip().lower() != normalized_email:
+            continue
+        is_verified = bool(user.get("email_confirmed_at") or user.get("confirmed_at"))
+        return True, "Verification status loaded.", {
+            "email": normalized_email,
+            "is_verified": is_verified,
+            "email_confirmed_at": user.get("email_confirmed_at") or user.get("confirmed_at"),
+            "user_id": user.get("id"),
+        }
+
+    return False, "Account not found.", None
 
 
 def update_user_profile(

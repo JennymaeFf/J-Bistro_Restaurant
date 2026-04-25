@@ -26,7 +26,7 @@
 
             <div class="admin-user-meta">
                 <span>&#9742; {{ user.phone_number or "No phone number" }}</span>
-                <span>&#9670; {{ user.role|default("user")|title }}</span>
+                <span>&#9670; {{ user.role|default("customer")|title }}</span>
             </div>
 
             <form method="post" class="admin-user-edit-form">
