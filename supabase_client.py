@@ -4,8 +4,6 @@ import re
 import time
 from base64 import urlsafe_b64decode
 from typing import Any
-from urllib.parse import urlencode
-
 import requests
 from env_loader import load_env_file
 
@@ -193,14 +191,9 @@ def current_supabase_service_config() -> tuple[str, str]:
 
 
 def email_confirmation_redirect_url(email: str) -> str | None:
-    site_url = normalize_env_value(
-        os.environ.get("SITE_URL"),
-        "https://j-bistro-restaurant.vercel.app",
-    ).rstrip("/")
-    if not site_url.startswith(("http://", "https://")):
-        return None
-    query = urlencode({"email": email})
-    return f"{site_url}/verified-success?{query}"
+    # Force Supabase confirmation links to return to the custom success page.
+    # This keeps the user away from the default /home redirect after email confirmation.
+    return "https://j-bistro-restaurant.vercel.app/verified-success"
 
 
 def default_full_name(email: str) -> str:
@@ -435,7 +428,7 @@ def register_user(
         signup_payload = {"email": email, "password": password}
         redirect_url = email_confirmation_redirect_url(email)
         if redirect_url:
-            signup_payload["email_redirect_to"] = redirect_url
+            signup_payload["options"] = {"email_redirect_to": redirect_url}
         signup_response = requests.post(
             f"{supabase_url}/auth/v1/signup",
             headers=auth_headers(),
@@ -476,7 +469,7 @@ def register_user(
     user_data = payload.get("user") or {}
     user_id = user_data.get("id")
     if not user_id:
-        return True, "Verification email sent. Please check your email to confirm your account."
+        return True, "Verification email sent. Please check your email."
 
     try:
         profile_response = requests.post(
@@ -496,7 +489,7 @@ def register_user(
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return True, "Verification email sent. Please check your email to confirm your account."
+        return True, "Verification email sent. Please check your email."
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
@@ -518,7 +511,7 @@ def register_user(
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
         if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
-            return True, "Verification email sent. Please check your email to confirm your account."
+            return True, "Verification email sent. Please check your email."
 
         fallback_payload = {"id": user_id, "email": email, "role": requested_role}
 
@@ -531,10 +524,10 @@ def register_user(
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
-            return True, "Verification email sent. Please check your email to confirm your account."
+            return True, "Verification email sent. Please check your email."
 
         if fallback_response.status_code >= 400:
-            return True, "Verification email sent. Please check your email to confirm your account."
+            return True, "Verification email sent. Please check your email."
 
     if requested_role in {"admin", "staff"}:
         try:
@@ -556,9 +549,9 @@ def register_user(
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
             return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
-        return True, "Verification email sent. Please check your email to confirm your account."
+        return True, "Verification email sent. Please check your email."
 
-    return True, "Verification email sent. Please check your email to confirm your account."
+    return True, "Verification email sent. Please check your email."
 
 
 def resend_verification_email(email: str) -> tuple[bool, str]:
@@ -571,7 +564,7 @@ def resend_verification_email(email: str) -> tuple[bool, str]:
         resend_payload = {"type": "signup", "email": email}
         redirect_url = email_confirmation_redirect_url(email)
         if redirect_url:
-            resend_payload["email_redirect_to"] = redirect_url
+            resend_payload["options"] = {"email_redirect_to": redirect_url}
         response = requests.post(
             f"{supabase_url}/auth/v1/resend",
             headers=auth_headers(),
