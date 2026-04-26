@@ -19,6 +19,7 @@
             </div>
 
             <a
+                id="loginRedirectLink"
                 href="{{ url_for('login', email=verified_email) if verified_email else url_for('login') }}"
                 class="auth-button"
                 style="display: inline-flex; justify-content: center; text-decoration: none;"
@@ -30,11 +31,13 @@
 </section>
 <script>
     (function () {
+        var loginUrl = "{{ url_for('login', email=verified_email) if verified_email else url_for('login') }}";
         // Supabase can append auth data in the URL hash after email confirmation.
-        // We are not auto-logging in here, so clean the hash for a simpler URL.
+        // We are not auto-logging in here, so clean the hash before going to login.
         if (window.location.hash) {
             window.history.replaceState(null, "", window.location.pathname + window.location.search);
         }
+        window.location.replace(loginUrl);
     })();
 </script>
 {% endblock %}

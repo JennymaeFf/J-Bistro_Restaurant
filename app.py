@@ -1460,6 +1460,9 @@ def verified_success():
     email_message = valid_email_message(email) if email else None
     if email_message:
         email = ""
+    session.clear()
+    session["verified_email_hint"] = email
+    session.modified = True
     return render_template("verified_success.html", verified_email=email)
 
 

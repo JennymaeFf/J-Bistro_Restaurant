@@ -4,6 +4,7 @@ import re
 import time
 from base64 import urlsafe_b64decode
 from typing import Any
+from urllib.parse import quote
 import requests
 from env_loader import load_env_file
 
@@ -191,8 +192,10 @@ def current_supabase_service_config() -> tuple[str, str]:
 
 
 def email_confirmation_redirect_url(email: str) -> str | None:
-    # Send confirmed users directly to the login page after clicking the email link.
-    return "https://j-bistro-restaurant.vercel.app/login"
+    # Route confirmations through a safe page that clears Supabase's URL hash,
+    # then sends the user to login without creating an app session.
+    encoded_email = quote(email.strip().lower())
+    return f"https://j-bistro-restaurant.vercel.app/verified-success?email={encoded_email}"
 
 
 def default_full_name(email: str) -> str:
