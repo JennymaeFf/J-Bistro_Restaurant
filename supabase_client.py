@@ -1439,6 +1439,10 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
                 low_stock += 1
         partial_stats["low_stock_items"] = low_stock
 
+    # Employees and riders are managed separately, but the dashboard team count
+    # should include both groups.
+    total_team_members = 0
+
     # Employees may not exist yet on older deployments; keep dashboard working.
     try:
         employees_response = requests.get(
@@ -1453,9 +1457,9 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
     if employees_response.status_code < 400:
         try:
             employees = employees_response.json()
-            partial_stats["total_employees"] = len(employees) if isinstance(employees, list) else 0
+            total_team_members += len(employees) if isinstance(employees, list) else 0
         except ValueError:
-            partial_stats["total_employees"] = 0
+            total_team_members += 0
     else:
         employees_error = parse_response_error(employees_response).lower()
         if "employees" in employees_error and (
@@ -1464,9 +1468,40 @@ def fetch_admin_dashboard_stats() -> tuple[dict[str, Any], str | None]:
             or "could not find the table" in employees_error
             or "schema cache" in employees_error
         ):
-            partial_stats["total_employees"] = 0
+            total_team_members += 0
         else:
             return partial_stats, parse_response_error(employees_response)
+
+    try:
+        riders_response = requests.get(
+            f"{supabase_url}/rest/v1/riders",
+            headers=supabase_headers(),
+            params={"select": "id"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return partial_stats, "Unable to load some dashboard data from Supabase right now."
+
+    if riders_response.status_code < 400:
+        try:
+            riders = riders_response.json()
+            total_team_members += len(riders) if isinstance(riders, list) else 0
+        except ValueError:
+            total_team_members += 0
+    else:
+        riders_error = parse_response_error(riders_response).lower()
+        if not (
+            "riders" in riders_error
+            and (
+                "does not exist" in riders_error
+                or "relation" in riders_error
+                or "could not find the table" in riders_error
+                or "schema cache" in riders_error
+            )
+        ):
+            return partial_stats, parse_response_error(riders_response)
+
+    partial_stats["total_employees"] = total_team_members
 
     return partial_stats, None
 
