@@ -181,7 +181,7 @@ def normalize_env_value(value: str | None, fallback: str) -> str:
 
 def current_supabase_config() -> tuple[str, str]:
     url = normalize_env_value(os.environ.get("SUPABASE_URL"), "")
-    api_key = normalize_env_value(os.environ.get("SUPABASE_API_KEY"), "")
+    api_key = normalize_env_value(os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_API_KEY"), "")
     return url, api_key
 
 
@@ -384,10 +384,16 @@ def register_user(
     full_name: str = "",
     phone_number: str = "",
     delivery_address: str = "",
+    email_confirmed: bool = False,
 ) -> tuple[bool, str]:
-    config_error = supabase_config_error()
-    if config_error:
-        return False, config_error
+    if email_confirmed:
+        service_config_error = supabase_service_config_error()
+        if service_config_error:
+            return False, service_config_error
+    else:
+        config_error = supabase_config_error()
+        if config_error:
+            return False, config_error
     requested_role = normalize_role(role)
     if requested_role not in {"customer", "staff", "admin"}:
         requested_role = "customer"
@@ -395,11 +401,14 @@ def register_user(
     phone_number = phone_number.strip()
     delivery_address = delivery_address.strip()
 
-    supabase_url, _ = current_supabase_config()
+    supabase_url, _ = current_supabase_service_config() if email_confirmed else current_supabase_config()
+    read_headers = service_auth_headers() if email_confirmed else supabase_headers()
+    write_headers = service_auth_headers() if email_confirmed else supabase_headers("return=minimal,resolution=merge-duplicates")
+    write_headers["Prefer"] = "return=minimal,resolution=merge-duplicates"
     try:
         existing_response = requests.get(
             f"{supabase_url}/rest/v1/app_users",
-            headers=supabase_headers(),
+            headers=read_headers,
             params={"email": f"eq.{email}", "select": "id,email,role", "limit": "1"},
             timeout=REQUEST_TIMEOUT,
         )
@@ -413,7 +422,7 @@ def register_user(
                 try:
                     promote_response = requests.patch(
                         f"{supabase_url}/rest/v1/app_users",
-                        headers=supabase_headers("return=minimal"),
+                        headers=write_headers,
                         params={"email": f"eq.{email}"},
                         json={"role": "admin"},
                         timeout=REQUEST_TIMEOUT,
@@ -427,18 +436,32 @@ def register_user(
             return False, "Email already exists."
 
     try:
-        signup_payload = {"email": email, "password": password}
-        redirect_url = email_confirmation_redirect_url(email)
-        if redirect_url:
-            signup_payload["options"] = {"email_redirect_to": redirect_url}
-        signup_response = requests.post(
-            f"{supabase_url}/auth/v1/signup",
-            headers=auth_headers(),
-            json=signup_payload,
-            timeout=REQUEST_TIMEOUT,
-        )
+        if email_confirmed:
+            signup_payload = {
+                "email": email,
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"full_name": full_name, "role": requested_role},
+            }
+            signup_response = requests.post(
+                f"{supabase_url}/auth/v1/admin/users",
+                headers=service_auth_headers(),
+                json=signup_payload,
+                timeout=REQUEST_TIMEOUT,
+            )
+        else:
+            signup_payload = {"email": email, "password": password}
+            redirect_url = email_confirmation_redirect_url(email)
+            if redirect_url:
+                signup_payload["options"] = {"email_redirect_to": redirect_url}
+            signup_response = requests.post(
+                f"{supabase_url}/auth/v1/signup",
+                headers=auth_headers(),
+                json=signup_payload,
+                timeout=REQUEST_TIMEOUT,
+            )
     except requests.RequestException:
-        return False, verification_send_failed_message()
+        return False, "Unable to create the account right now." if email_confirmed else verification_send_failed_message()
 
     if signup_response.status_code >= 400:
         signup_error = parse_response_error(signup_response)
@@ -454,7 +477,7 @@ def register_user(
                 try:
                     promote_existing_response = requests.patch(
                         f"{supabase_url}/rest/v1/app_users",
-                        headers=supabase_headers("return=minimal"),
+                        headers=write_headers,
                         params={"email": f"eq.{email}"},
                         json={"role": "admin"},
                         timeout=REQUEST_TIMEOUT,
@@ -465,18 +488,20 @@ def register_user(
                 if promote_existing_response.status_code < 400:
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
-        return False, verification_send_failed_message()
+        return False, "Unable to create the account right now." if email_confirmed else verification_send_failed_message()
 
     payload = signup_response.json()
-    user_data = payload.get("user") or {}
+    user_data = payload.get("user") or payload or {}
     user_id = user_data.get("id")
     if not user_id:
-        return True, "Verification email sent. Please check your email."
+        if email_confirmed:
+            return False, "Account was created, but the app could not read the new user ID."
+        return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
     try:
         profile_response = requests.post(
             f"{supabase_url}/rest/v1/app_users",
-            headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
+            headers=write_headers,
             params={"on_conflict": "id"},
             # Role is set by database default ('customer') to avoid registration
             # failures when the schema cache has not refreshed yet.
@@ -491,7 +516,7 @@ def register_user(
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException:
-        return True, "Verification email sent. Please check your email."
+        return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
     if profile_response.status_code >= 400:
         error_message = parse_response_error(profile_response)
@@ -501,7 +526,7 @@ def register_user(
                 try:
                     promote_profile_response = requests.patch(
                         f"{supabase_url}/rest/v1/app_users",
-                        headers=supabase_headers("return=minimal"),
+                        headers=write_headers,
                         params={"email": f"eq.{email}"},
                         json={"role": "admin"},
                         timeout=REQUEST_TIMEOUT,
@@ -513,29 +538,29 @@ def register_user(
                     return True, "Existing account updated to admin."
             return False, "Email already exists."
         if not any(column in lowered_error for column in ("full_name", "phone_number", "delivery_address")):
-            return True, "Verification email sent. Please check your email."
+            return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
         fallback_payload = {"id": user_id, "email": email, "role": requested_role}
 
         try:
             fallback_response = requests.post(
                 f"{supabase_url}/rest/v1/app_users",
-                headers=supabase_headers("return=minimal,resolution=merge-duplicates"),
+                headers=write_headers,
                 params={"on_conflict": "id"},
                 json=fallback_payload,
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.RequestException:
-            return True, "Verification email sent. Please check your email."
+            return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
         if fallback_response.status_code >= 400:
-            return True, "Verification email sent. Please check your email."
+            return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
     if requested_role in {"admin", "staff"}:
         try:
             role_response = requests.patch(
                 f"{supabase_url}/rest/v1/app_users",
-                headers=supabase_headers("return=minimal"),
+                headers=write_headers,
                 params={"id": f"eq.{user_id}"},
                 json={"role": requested_role},
                 timeout=REQUEST_TIMEOUT,
@@ -551,9 +576,9 @@ def register_user(
                     "is unavailable in schema cache. Run NOTIFY pgrst, 'reload schema'; and update role manually."
                 )
             return True, f"Registration successful, but {requested_role} role assignment failed: {role_error}"
-        return True, "Verification email sent. Please check your email."
+        return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
-    return True, "Verification email sent. Please check your email."
+    return True, "Account verified. You can now log in." if email_confirmed else "Verification email sent. Please check your email."
 
 
 def resend_verification_email(email: str) -> tuple[bool, str]:

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Email | J'Bistro</title>
+    <style>
+        :root {
+            --coffee: #4b2e1f;
+            --caramel: #b86f2b;
+            --gold: #d9a441;
+            --cream: #fff6e8;
+            --linen: #f8ead2;
+            --ink: #2f2118;
+            --muted: #7b604c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(217, 164, 65, 0.22), transparent 34%),
+                linear-gradient(135deg, #4b2e1f 0%, #7c4a25 52%, #2d1a12 100%);
+        }
+
+        main {
+            width: min(100%, 430px);
+        }
+
+        .email-card {
+            padding: 36px 30px 32px;
+            text-align: center;
+            background: rgba(255, 246, 232, 0.97);
+            border: 1px solid rgba(217, 164, 65, 0.38);
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(36, 20, 12, 0.34);
+        }
+
+        .email-icon {
+            width: 84px;
+            height: 84px;
+            margin: 0 auto 18px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            color: var(--coffee);
+            background: linear-gradient(135deg, #ffe7b7, #d9a441);
+            box-shadow: 0 14px 28px rgba(184, 111, 43, 0.24);
+            font-size: 2.35rem;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            color: var(--coffee);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(1.75rem, 4vw, 2.2rem);
+            line-height: 1.12;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.55;
+            font-size: 1rem;
+        }
+
+        .verify-link {
+            width: 100%;
+            min-height: 48px;
+            margin-top: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            color: #fff8ed;
+            background: linear-gradient(135deg, var(--caramel), var(--coffee));
+            box-shadow: 0 12px 28px rgba(75, 46, 31, 0.28);
+            text-decoration: none;
+            font-weight: 800;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .verify-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 15px 30px rgba(75, 46, 31, 0.34);
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px;
+            }
+
+            .email-card {
+                padding: 30px 20px 26px;
+                border-radius: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="email-card" aria-labelledby="check-email-title">
+            <div class="email-icon" aria-hidden="true">&#9993;</div>
+            <h1 id="check-email-title">Verification code sent to your email</h1>
+            <p>Please check your inbox or spam folder</p>
+            <a class="verify-link" href="{{ verify_url|default('/verify') }}">Go to Verify Page</a>
+        </section>
+    </main>
+</body>
+</html>

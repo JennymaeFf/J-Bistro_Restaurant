@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Account | J'Bistro</title>
+    <style>
+        :root {
+            --coffee: #4b2e1f;
+            --caramel: #b86f2b;
+            --gold: #d9a441;
+            --cream: #fff6e8;
+            --linen: #f8ead2;
+            --ink: #2f2118;
+            --muted: #7b604c;
+            --error: #b93131;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+            background:
+                linear-gradient(rgba(50, 28, 17, 0.72), rgba(50, 28, 17, 0.72)),
+                url("{{ url_for('static', filename='images/bg.png') }}") center / cover no-repeat,
+                var(--coffee);
+        }
+
+        main {
+            width: min(100%, 460px);
+        }
+
+        .verify-card {
+            padding: 34px 32px 30px;
+            text-align: center;
+            background: rgba(255, 246, 232, 0.96);
+            border: 1px solid rgba(217, 164, 65, 0.35);
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(36, 20, 12, 0.32);
+        }
+
+        .brand-mark {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 14px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: #fffaf1;
+            box-shadow: 0 10px 26px rgba(75, 46, 31, 0.18);
+            overflow: hidden;
+        }
+
+        .brand-mark img {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+        }
+
+        h1 {
+            margin: 0;
+            color: var(--coffee);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(1.8rem, 4vw, 2.25rem);
+            line-height: 1.1;
+        }
+
+        .message {
+            margin: 12px auto 24px;
+            color: var(--muted);
+            font-size: 0.98rem;
+            line-height: 1.5;
+        }
+
+        .otp-group {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .otp-input {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid #e3c595;
+            border-radius: 14px;
+            color: var(--coffee);
+            background: #fffaf1;
+            text-align: center;
+            font-size: clamp(1.25rem, 4vw, 1.7rem);
+            font-weight: 700;
+            outline: none;
+            box-shadow: inset 0 2px 5px rgba(75, 46, 31, 0.06);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .otp-input:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .error-area {
+            min-height: 22px;
+            margin: 0 0 14px;
+            color: var(--error);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .verify-button,
+        .resend-button {
+            width: 100%;
+            min-height: 46px;
+            border: 0;
+            border-radius: 999px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .verify-button {
+            color: #fff8ed;
+            background: linear-gradient(135deg, var(--caramel), var(--coffee));
+            box-shadow: 0 12px 28px rgba(75, 46, 31, 0.28);
+        }
+
+        .resend-button {
+            margin-top: 12px;
+            color: var(--coffee);
+            background: #f4dfbb;
+            border: 1px solid #dfbd82;
+        }
+
+        .verify-button:hover,
+        .resend-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .resend-button:disabled,
+        .verify-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+            transform: none;
+        }
+
+        .small-note {
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 0.86rem;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px;
+            }
+
+            .verify-card {
+                padding: 28px 18px 24px;
+                border-radius: 20px;
+            }
+
+            .otp-group {
+                gap: 7px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="verify-card" aria-labelledby="verify-title">
+            <div class="brand-mark" aria-hidden="true">
+                <img src="{{ url_for('static', filename='images/plogo.png') }}" alt="">
+            </div>
+            <h1 id="verify-title">Verify Your Account</h1>
+            <p class="message">Enter the verification code sent to your email</p>
+
+            <form action="{{ form_action|default(request.path) }}" method="post" id="otpForm" novalidate>
+                {% if email %}
+                    <input type="hidden" name="email" value="{{ email }}">
+                {% endif %}
+                <input type="hidden" name="otp" id="otpValue">
+
+                <div class="otp-group" role="group" aria-label="6 digit verification code">
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1" required>
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2" required>
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3" required>
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4" required>
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 5" required>
+                    <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 6" required>
+                </div>
+
+                <p class="error-area" id="otpError" aria-live="polite">{{ error or "" }}</p>
+                <button type="submit" class="verify-button">Verify</button>
+            </form>
+
+            <form action="{{ resend_action|default(request.path) }}" method="post" id="resendForm">
+                {% if email %}
+                    <input type="hidden" name="email" value="{{ email }}">
+                {% endif %}
+                <button type="submit" class="resend-button" id="resendButton">Resend OTP</button>
+            </form>
+            <p class="small-note">For your security, the code expires in 5 minutes.</p>
+        </section>
+    </main>
+
+    <script>
+        (function () {
+            var inputs = Array.prototype.slice.call(document.querySelectorAll(".otp-input"));
+            var otpValue = document.getElementById("otpValue");
+            var otpForm = document.getElementById("otpForm");
+            var otpError = document.getElementById("otpError");
+            var resendButton = document.getElementById("resendButton");
+            var cooldownSeconds = 60;
+
+            function syncOtpValue() {
+                otpValue.value = inputs.map(function (input) {
+                    return input.value;
+                }).join("");
+            }
+
+            inputs.forEach(function (input, index) {
+                input.addEventListener("input", function () {
+                    input.value = input.value.replace(/\D/g, "").slice(0, 1);
+                    syncOtpValue();
+                    if (input.value && inputs[index + 1]) {
+                        inputs[index + 1].focus();
+                    }
+                });
+
+                input.addEventListener("keydown", function (event) {
+                    if (event.key === "Backspace" && !input.value && inputs[index - 1]) {
+                        inputs[index - 1].focus();
+                    }
+                });
+
+                input.addEventListener("paste", function (event) {
+                    event.preventDefault();
+                    var pasted = (event.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "").slice(0, 6);
+                    pasted.split("").forEach(function (digit, pasteIndex) {
+                        if (inputs[pasteIndex]) {
+                            inputs[pasteIndex].value = digit;
+                        }
+                    });
+                    syncOtpValue();
+                    if (inputs[Math.min(pasted.length, 6) - 1]) {
+                        inputs[Math.min(pasted.length, 6) - 1].focus();
+                    }
+                });
+            });
+
+            otpForm.addEventListener("submit", function (event) {
+                syncOtpValue();
+                if (otpValue.value.length !== 6) {
+                    event.preventDefault();
+                    otpError.textContent = "Please enter the complete 6-digit OTP.";
+                    return;
+                }
+                otpError.textContent = "";
+            });
+
+            function startCooldown() {
+                var secondsLeft = cooldownSeconds;
+                resendButton.disabled = true;
+                resendButton.textContent = "Resend OTP in " + secondsLeft + "s";
+                var timer = window.setInterval(function () {
+                    secondsLeft -= 1;
+                    if (secondsLeft <= 0) {
+                        window.clearInterval(timer);
+                        resendButton.disabled = false;
+                        resendButton.textContent = "Resend OTP";
+                        return;
+                    }
+                    resendButton.textContent = "Resend OTP in " + secondsLeft + "s";
+                }, 1000);
+            }
+
+            document.getElementById("resendForm").addEventListener("submit", function () {
+                startCooldown();
+            });
+
+            startCooldown();
+            inputs[0].focus();
+        })();
+    </script>
+</body>
+</html>
