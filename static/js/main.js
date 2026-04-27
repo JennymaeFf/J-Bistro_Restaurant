@@ -66,6 +66,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const bankPanel = document.getElementById("bankPaymentPanel");
     const gcashReference = document.getElementById("gcashReference");
     const bankReference = document.getElementById("bankReference");
+    const gcashPaymentProof = document.getElementById("gcashPaymentProof");
+    const bankPaymentProof = document.getElementById("bankPaymentProof");
     const paymentReferenceValue = document.getElementById("paymentReferenceValue");
     const bankRadios = document.querySelectorAll('input[name="payment_bank"]');
     const bankAccountPreview = document.getElementById("bankAccountPreview");
@@ -110,6 +112,16 @@ document.addEventListener("DOMContentLoaded", function () {
         if (bankReference) {
             bankReference.required = isBank;
             if (!isBank) bankReference.value = "";
+        }
+        if (gcashPaymentProof) {
+            gcashPaymentProof.required = isGcash;
+            gcashPaymentProof.disabled = !isGcash;
+            if (!isGcash) gcashPaymentProof.value = "";
+        }
+        if (bankPaymentProof) {
+            bankPaymentProof.required = isBank;
+            bankPaymentProof.disabled = !isBank;
+            if (!isBank) bankPaymentProof.value = "";
         }
 
         bankRadios.forEach(function (radio) {

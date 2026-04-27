@@ -122,7 +122,7 @@
                         <p>Make sure your contact details, address, and payment reference are correct so the team can process everything quickly.</p>
                     </div>
 
-                    <form action="{{ url_for('order') }}" method="post" class="checkout-form">
+                    <form action="{{ url_for('order') }}" method="post" class="checkout-form" enctype="multipart/form-data">
                         <div class="form-group">
                             <label>Delivery Option</label>
                             <div class="payment-options delivery-option-list">
@@ -225,6 +225,15 @@
                                 autocomplete="off"
                                 placeholder="Enter transaction reference number"
                             >
+                            <label for="gcashPaymentProof">Payment Screenshot</label>
+                            <input
+                                type="file"
+                                id="gcashPaymentProof"
+                                class="payment-proof-input"
+                                data-proof-input="GCash"
+                                name="payment_proof"
+                                accept="image/png,image/jpeg,image/webp"
+                            >
                         </div>
 
                         <div class="payment-detail-panel" id="bankPaymentPanel" hidden>
@@ -262,6 +271,15 @@
                                 data-reference-input="Card"
                                 autocomplete="off"
                                 placeholder="Enter bank transaction reference number"
+                            >
+                            <label for="bankPaymentProof">Payment Screenshot</label>
+                            <input
+                                type="file"
+                                id="bankPaymentProof"
+                                class="payment-proof-input"
+                                data-proof-input="Card"
+                                name="payment_proof"
+                                accept="image/png,image/jpeg,image/webp"
                             >
                         </div>
 

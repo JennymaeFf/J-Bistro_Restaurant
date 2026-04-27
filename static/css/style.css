@@ -1934,9 +1934,69 @@ select {
     color: #1d6f43;
 }
 
+.status-inventory {
+    background: #fff3d9;
+    color: #81510e;
+}
+
 .status-badge.success {
     background: #e1f3ea;
     color: var(--success);
+}
+
+.tracking-summary {
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.35;
+    margin: 8px 0 10px;
+    max-width: 260px;
+}
+
+.order-tracking-list {
+    display: grid;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tracking-step {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    font-size: 0.82rem;
+    font-weight: 700;
+    gap: 8px;
+    line-height: 1.2;
+}
+
+.tracking-dot {
+    background: #ead9c8;
+    border: 2px solid #d8bea2;
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 13px;
+    height: 13px;
+    width: 13px;
+}
+
+.tracking-step-done {
+    color: var(--success);
+}
+
+.tracking-step-done .tracking-dot {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.tracking-step-current {
+    color: var(--primary-dark);
+}
+
+.tracking-step-current .tracking-dot {
+    background: #f7b955;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(247, 185, 85, 0.22);
 }
 
 /* Action Grid */
@@ -3346,6 +3406,26 @@ select {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 4px rgba(141, 85, 36, 0.12);
+}
+
+.payment-proof-input {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(229, 207, 183, 0.95);
+    border-radius: 12px;
+    color: var(--text);
+    padding: 11px;
+    width: 100%;
+}
+
+.payment-proof-input::file-selector-button {
+    background: var(--primary);
+    border: 0;
+    border-radius: 10px;
+    color: #fffaf4;
+    cursor: pointer;
+    font-weight: 700;
+    margin-right: 12px;
+    padding: 9px 12px;
 }
 
 .bank-options {
@@ -5618,6 +5698,12 @@ td {
     font-size: 1.1rem;
 }
 
+.admin-order-card-email {
+    color: var(--muted);
+    font-size: 0.84rem;
+    margin: 4px 0 0;
+}
+
 .admin-order-card-badges {
     display: flex;
     flex-wrap: wrap;
@@ -5655,6 +5741,36 @@ td {
     margin-bottom: 0;
 }
 
+.admin-tracking-preview {
+    align-items: center;
+    background: rgba(255, 250, 244, 0.9);
+    border: 1px solid rgba(229, 207, 183, 0.9);
+    border-radius: 12px;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
+    margin-top: 12px;
+    padding: 12px;
+}
+
+.admin-tracking-preview h4 {
+    color: var(--primary-dark);
+    font-size: 0.84rem;
+    letter-spacing: 0.05em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.admin-tracking-preview p {
+    color: var(--muted);
+    margin: 0;
+}
+
+.admin-order-tracking-list {
+    gap: 10px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .admin-order-total {
     color: var(--primary-dark);
     font-size: 1.05rem;
@@ -5689,6 +5805,27 @@ td {
     min-height: 40px;
 }
 
+.payment-proof-link {
+    color: var(--primary-dark);
+    display: inline-flex;
+    font-size: 0.86rem;
+    font-weight: 800;
+    margin-top: 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.admin-confirm-payment-form {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.admin-btn-success {
+    background: var(--success);
+    color: #fffaf4;
+}
+
 @media (max-width: 1280px) {
     .admin-order-card-body {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5696,6 +5833,11 @@ td {
 
     .admin-order-actions-form {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-tracking-preview,
+    .admin-order-tracking-list {
+        grid-template-columns: 1fr;
     }
 }
 

@@ -1277,6 +1277,7 @@ def normalize_order_record(order: dict[str, Any]) -> dict[str, Any]:
 
     order["order_number"] = order_number
     order["order_number_label"] = format_order_number(order_number)
+    order["customer_email"] = str(order.get("customer_email") or "").strip().lower()
     delivery_option = str(order.get("delivery_option") or order.get("order_type") or "Delivery").strip().title()
     if delivery_option not in VALID_DELIVERY_OPTIONS:
         delivery_option = "Delivery"
@@ -1292,12 +1293,14 @@ def normalize_order_record(order: dict[str, Any]) -> dict[str, Any]:
         delivery_status = "Waiting"
     order["delivery_status"] = delivery_status
     order.setdefault("rider_id", "")
+    order["inventory_deducted"] = bool(order.get("inventory_deducted"))
     if not isinstance(order.get("rider"), dict):
         order["rider"] = {}
     order.setdefault("delivery_address", "")
     order.setdefault("delivery_notes", "")
     order.setdefault("payment_bank", "")
     order.setdefault("payment_reference", "")
+    order.setdefault("payment_proof", "")
     return order
 
 
@@ -1308,8 +1311,8 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
 
     supabase_url, _ = current_supabase_config()
     select_variants = [
-        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_status,payment_bank,payment_reference,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,created_at",
-        "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_status,payment_reference,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,created_at",
+        "id,customer_name,customer_email,order_number,table_number,items,total_amount,payment_method,payment_status,payment_bank,payment_reference,payment_proof,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,inventory_deducted,created_at",
+        "id,customer_name,customer_email,order_number,table_number,items,total_amount,payment_method,payment_status,payment_reference,payment_proof,delivery_option,delivery_address,preferred_time,delivery_notes,rider_id,delivery_status,status,inventory_deducted,created_at",
         "id,customer_name,order_number,table_number,items,total_amount,payment_method,payment_reference,delivery_address,delivery_notes,status,created_at",
         "id,customer_name,table_number,items,total_amount,payment_method,status,created_at",
     ]
@@ -1343,8 +1346,10 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
             column in last_error.lower()
             for column in (
                 "order_number",
+                "customer_email",
                 "payment_bank",
                 "payment_reference",
+                "payment_proof",
                 "payment_status",
                 "delivery_option",
                 "delivery_address",
@@ -1352,6 +1357,7 @@ def fetch_latest_order(customer_name: str | None = None) -> tuple[dict[str, Any]
                 "delivery_notes",
                 "rider_id",
                 "delivery_status",
+                "inventory_deducted",
             )
         ):
             return None, last_error
@@ -2276,6 +2282,67 @@ def reduce_menu_stock_after_order(cart: list[dict[str, Any]]) -> None:
             continue
 
 
+def deduct_inventory_for_completed_order(order_id: int) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        order_response = requests.get(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers(),
+            params={"id": f"eq.{order_id}", "select": "items,inventory_deducted", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to check order inventory status right now."
+
+    if order_response.status_code >= 400:
+        error_message = parse_response_error(order_response)
+        if "inventory_deducted" in error_message.lower():
+            return False, schema_cache_fix_message("orders.inventory_deducted")
+        return False, error_message
+
+    try:
+        rows = order_response.json()
+    except ValueError:
+        return False, "Unable to read order inventory status right now."
+    if not rows:
+        return False, "Order not found."
+
+    order = rows[0]
+    if bool(order.get("inventory_deducted")):
+        return True, "Inventory was already deducted for this order."
+
+    items = order.get("items")
+    if isinstance(items, str):
+        try:
+            items = json.loads(items)
+        except json.JSONDecodeError:
+            items = []
+    if not isinstance(items, list):
+        items = []
+
+    reduce_menu_stock_after_order(items)
+
+    try:
+        flag_response = requests.patch(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{order_id}"},
+            json={"inventory_deducted": True},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Inventory was deducted, but the order flag could not be saved."
+
+    if flag_response.status_code >= 400:
+        return False, parse_response_error(flag_response)
+
+    return True, "Inventory deducted."
+
+
 def validate_cart_against_inventory(cart: list[dict[str, Any]]) -> str | None:
     if not cart:
         return "Add menu items before placing an order."
@@ -2344,6 +2411,7 @@ def get_next_order_number() -> tuple[int, str | None]:
 
 def create_order(
     customer_name: str,
+    customer_email: str,
     cart: list[dict[str, Any]],
     total_amount: float,
     delivery_option: str,
@@ -2353,10 +2421,12 @@ def create_order(
     payment_method: str,
     payment_bank: str = "",
     payment_reference: str = "",
+    payment_proof: str = "",
 ) -> tuple[bool, str]:
     config_error = supabase_config_error()
     if config_error:
         return False, config_error
+    customer_email = customer_email.strip().lower()
     delivery_option = delivery_option.strip().title()
     if delivery_option not in VALID_DELIVERY_OPTIONS:
         return False, "Please choose Pickup or Delivery."
@@ -2369,6 +2439,7 @@ def create_order(
     delivery_notes = delivery_notes.strip()
     payment_bank = payment_bank.strip()
     payment_reference = payment_reference.strip()
+    payment_proof = payment_proof.strip()
     if payment_method == "GCash" and not payment_reference:
         return False, "Please enter your GCash transaction reference number."
     if payment_method == "Card":
@@ -2388,6 +2459,7 @@ def create_order(
     supabase_url, _ = current_supabase_config()
     payload = {
         "customer_name": customer_name,
+        "customer_email": customer_email or None,
         "order_number": order_number,
         # Keep table_number as a legacy display field until all old deployments
         # and database rows have moved fully to order_number.
@@ -2398,6 +2470,7 @@ def create_order(
         "payment_status": "Pending",
         "payment_bank": payment_bank or None,
         "payment_reference": payment_reference or None,
+        "payment_proof": payment_proof or None,
         "delivery_option": delivery_option,
         "delivery_address": delivery_address,
         "preferred_time": preferred_time or None,
@@ -2405,6 +2478,7 @@ def create_order(
         "rider_id": None,
         "delivery_status": "Waiting",
         "status": "Pending",
+        "inventory_deducted": False,
     }
     try:
         response = requests.post(
@@ -2420,9 +2494,12 @@ def create_order(
         error_message = parse_response_error(response)
         if is_schema_cache_column_error(error_message, "order_number") or "order_number" in error_message.lower():
             fallback_payload = dict(payload)
+            fallback_payload.pop("customer_email", None)
             fallback_payload.pop("order_number", None)
             fallback_payload.pop("payment_bank", None)
             fallback_payload.pop("payment_reference", None)
+            fallback_payload.pop("payment_proof", None)
+            fallback_payload.pop("inventory_deducted", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",
@@ -2435,13 +2512,14 @@ def create_order(
 
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
-            reduce_menu_stock_after_order(cart)
             return True, f"Order submitted successfully. Your order number is {order_number_label}."
         if any(
             column in error_message.lower()
             for column in (
                 "payment_bank",
+                "customer_email",
                 "payment_reference",
+                "payment_proof",
                 "payment_status",
                 "delivery_option",
                 "delivery_address",
@@ -2449,11 +2527,14 @@ def create_order(
                 "delivery_notes",
                 "rider_id",
                 "delivery_status",
+                "inventory_deducted",
             )
         ):
             fallback_payload = dict(payload)
+            fallback_payload.pop("customer_email", None)
             fallback_payload.pop("payment_bank", None)
             fallback_payload.pop("payment_reference", None)
+            fallback_payload.pop("payment_proof", None)
             fallback_payload.pop("payment_status", None)
             fallback_payload.pop("delivery_option", None)
             fallback_payload.pop("delivery_address", None)
@@ -2461,6 +2542,7 @@ def create_order(
             fallback_payload.pop("delivery_notes", None)
             fallback_payload.pop("rider_id", None)
             fallback_payload.pop("delivery_status", None)
+            fallback_payload.pop("inventory_deducted", None)
             try:
                 fallback_response = requests.post(
                     f"{supabase_url}/rest/v1/orders",
@@ -2473,7 +2555,6 @@ def create_order(
 
             if fallback_response.status_code >= 400:
                 return False, parse_response_error(fallback_response)
-            reduce_menu_stock_after_order(cart)
             return True, (
                 f"Order submitted successfully. Your order number is {order_number_label}. "
                 "Some tracking fields could not be saved until the database schema is refreshed."
@@ -2482,7 +2563,6 @@ def create_order(
             return False, schema_cache_fix_message("orders.payment_method")
         return False, error_message
 
-    reduce_menu_stock_after_order(cart)
     return True, f"Order submitted successfully. Your order number is {order_number_label}."
 
 
@@ -2507,6 +2587,33 @@ def update_order_status(order_id: int, status: str) -> tuple[bool, str]:
         return False, parse_response_error(response)
 
     return True, "Order status updated."
+
+
+def update_order_payment_status(order_id: int, payment_status: str) -> tuple[bool, str]:
+    config_error = supabase_config_error()
+    if config_error:
+        return False, config_error
+
+    payment_status = payment_status.strip()
+    if payment_status not in VALID_PAYMENT_STATUSES:
+        return False, "Please choose a valid payment status."
+
+    supabase_url, _ = current_supabase_config()
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/orders",
+            headers=supabase_headers("return=minimal"),
+            params={"id": f"eq.{order_id}"},
+            json={"payment_status": payment_status},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update payment status right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+
+    return True, "Payment confirmed." if payment_status == "Paid" else "Payment status updated."
 
 
 def set_rider_status(rider_id: str, rider_status: str) -> None:
@@ -2617,7 +2724,13 @@ def update_order_tracking(
         else:
             set_rider_status(rider_id, "Busy")
 
-    return True, "Order tracking updated."
+    inventory_message = ""
+    if status == "Completed":
+        inventory_success, inventory_message = deduct_inventory_for_completed_order(order_id)
+        if not inventory_success:
+            return False, f"Order tracking updated, but inventory was not deducted: {inventory_message}"
+
+    return True, f"Order tracking updated. {inventory_message}".strip()
 
 
 def delete_order(order_id: int) -> tuple[bool, str]:

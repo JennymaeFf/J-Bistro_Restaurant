@@ -90,7 +90,18 @@
                                     {% endif %}
                                 </td>
                                 <td>PHP {{ "%.2f"|format(order["total_amount"]|float) }}</td>
-                                <td><span class="status-badge">{{ order["status"] }}</span></td>
+                                <td>
+                                    <span class="status-badge">{{ order["status"] }}</span>
+                                    <p class="tracking-summary">{{ order["tracking_summary"] }}</p>
+                                    <ol class="order-tracking-list" aria-label="Order tracking for {{ order['order_number_label'] or 'Order #' ~ order['id'] }}">
+                                        {% for step in order["tracking_steps"] %}
+                                            <li class="tracking-step tracking-step-{{ step['state'] }}">
+                                                <span class="tracking-dot" aria-hidden="true"></span>
+                                                <span>{{ step["label"] }}</span>
+                                            </li>
+                                        {% endfor %}
+                                    </ol>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

@@ -68,6 +68,12 @@
                     <span>{{ receipt["payment_reference"] }}</span>
                 </div>
             {% endif %}
+            {% if receipt["payment_proof"] %}
+                <div class="cash-info">
+                    <span>Payment Proof</span>
+                    <span>Uploaded for admin review</span>
+                </div>
+            {% endif %}
         </div>
 
         <div class="dashed"></div>

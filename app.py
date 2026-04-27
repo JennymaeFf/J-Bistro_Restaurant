@@ -64,6 +64,7 @@ from supabase_client import (
     update_admin_user,
     update_inventory_item,
     update_order_status,
+    update_order_payment_status,
     upload_profile_image_to_storage,
     update_user_profile,
     update_user_profile_image,
@@ -81,7 +82,10 @@ app = Flask(
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 UPLOAD_DIR = CURRENT_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+PAYMENT_PROOF_UPLOAD_DIR = UPLOAD_DIR / "payment_proofs"
+PAYMENT_PROOF_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
+ALLOWED_PAYMENT_PROOF_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 GCASH_PAYMENT_NUMBER = "0917 123 4567"
 BANK_PAYMENT_ACCOUNTS = {
     "Landbank": {
@@ -273,6 +277,67 @@ def send_otp_email(recipient_email: str, otp_code: str) -> tuple[bool, str]:
     return True, "Verification code sent to your email."
 
 
+def send_plain_email(recipient_email: str, subject: str, body: str) -> tuple[bool, str]:
+    config_error = otp_email_config_error()
+    if config_error:
+        return False, config_error
+
+    sender = (
+        os.environ.get("JBISTRO_OTP_SENDER_EMAIL")
+        or os.environ.get("GMAIL_USER")
+        or os.environ.get("EMAIL_USER")
+        or ""
+    ).strip()
+    smtp_host = os.environ.get("JBISTRO_OTP_SMTP_HOST", "smtp.gmail.com").strip()
+    smtp_port = env_int("JBISTRO_OTP_SMTP_PORT", 587)
+    use_tls = env_bool("JBISTRO_OTP_SMTP_TLS", True)
+    password = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("EMAIL_PASS") or "").strip()
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = sender
+    message["To"] = recipient_email
+    message.set_content(body)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as smtp:
+            if use_tls:
+                smtp.starttls()
+            smtp.login(sender, password)
+            smtp.send_message(message)
+    except smtplib.SMTPAuthenticationError:
+        return False, "Gmail rejected the login. Check your Gmail address and App Password."
+    except OSError:
+        return False, "Unable to connect to Gmail SMTP right now."
+    except smtplib.SMTPException:
+        return False, "Unable to send the email right now."
+
+    return True, "Email sent."
+
+
+def send_order_shipped_email(order: dict[str, Any]) -> tuple[bool, str]:
+    recipient_email = str(order.get("customer_email") or "").strip().lower()
+    if not recipient_email:
+        return False, "No customer email is saved for this order."
+
+    order_label = order.get("order_number_label") or f"Order #{order.get('id', '---')}"
+    customer_name = order.get("customer_name") or "Customer"
+    rider_line = ""
+    if order.get("rider_name") and order.get("rider_name") != "Not assigned":
+        rider_line = f"\nRider: {order.get('rider_name')}"
+        if order.get("rider_phone"):
+            rider_line += f" ({order.get('rider_phone')})"
+
+    body = (
+        f"Hi {customer_name},\n\n"
+        f"Good news! Your J'Bistro {order_label} is now on the way.\n"
+        "Please keep your phone available so the rider can contact you if needed."
+        f"{rider_line}\n\n"
+        "Thank you for ordering from J'Bistro."
+    )
+    return send_plain_email(recipient_email, f"Your J'Bistro {order_label} is on the way", body)
+
+
 def prepare_otp_record(email: str, purpose: str) -> tuple[dict[str, Any], str]:
     otp_code = generate_otp_code()
     now = time.time()
@@ -437,6 +502,7 @@ def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer")
     payment_status = (data.get("payment_status") or "Pending").strip() or "Pending"
     payment_bank = (data.get("payment_bank") or "").strip()
     payment_reference = (data.get("payment_reference") or "").strip()
+    payment_proof = (data.get("payment_proof") or "").strip()
     delivery_address = (data.get("delivery_address") or "").strip()
     preferred_time = (data.get("preferred_time") or "").strip()
     delivery_notes = (data.get("delivery_notes") or "").strip()
@@ -462,6 +528,7 @@ def build_receipt_payload(source: Any, fallback_customer_name: str = "Customer")
         "payment_status": payment_status,
         "payment_bank": payment_bank,
         "payment_reference": payment_reference,
+        "payment_proof": payment_proof,
         "delivery_address": delivery_address,
         "delivery_notes": delivery_notes,
         "delivery_status": delivery_status,
@@ -561,6 +628,24 @@ def is_allowed_profile_image(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
 
 
+def is_allowed_payment_proof(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PAYMENT_PROOF_EXTENSIONS
+
+
+def save_payment_proof_upload(upload_file: Any, customer_name: str) -> tuple[str, str | None]:
+    if not upload_file or not upload_file.filename:
+        return "", None
+    if not is_allowed_payment_proof(upload_file.filename):
+        return "", "Payment proof must be a JPG, PNG, or WEBP image."
+
+    original_name = secure_filename(upload_file.filename)
+    extension = original_name.rsplit(".", 1)[1].lower()
+    customer_slug = re.sub(r"[^a-z0-9]+", "-", customer_name.lower()).strip("-") or "customer"
+    filename = f"payment-proof-{customer_slug}-{uuid4().hex}.{extension}"
+    upload_file.save(PAYMENT_PROOF_UPLOAD_DIR / filename)
+    return f"uploads/payment_proofs/{filename}", None
+
+
 def profile_image_content_type(extension: str) -> str:
     return "image/png" if extension == "png" else "image/jpeg"
 
@@ -587,6 +672,49 @@ def attach_riders_to_orders(orders: list[dict[str, Any]], riders: list[dict[str,
         order["rider_name"] = rider_data.get("name") or "Not assigned"
         order["rider_phone"] = rider_data.get("phone") or ""
         order["rider_status"] = rider_data.get("status") or ""
+    return orders
+
+
+def build_order_tracking_steps(order: dict[str, Any]) -> list[dict[str, Any]]:
+    status = str(order.get("status") or "Pending").strip()
+    delivery_status = str(order.get("delivery_status") or "Waiting").strip()
+    delivery_option = str(order.get("delivery_option") or "Delivery").strip()
+    is_delivery = delivery_option == "Delivery"
+    steps = [
+        ("Pending", "Order received", "We received your order."),
+        ("Preparing", "Preparing", "The kitchen is preparing your food."),
+        ("On the way" if is_delivery else "Ready", "On the way" if is_delivery else "Ready", "Your order is out for delivery." if is_delivery else "Your order is ready for pickup."),
+        ("Delivered" if is_delivery else "Completed", "Delivered" if is_delivery else "Completed", "Your order has been completed."),
+    ]
+
+    if status == "Completed" or delivery_status == "Delivered":
+        active_index = 3
+    elif delivery_status == "On the way":
+        active_index = 2
+    elif status == "Preparing" or delivery_status == "Assigned":
+        active_index = 1
+    else:
+        active_index = 0
+
+    tracking_steps = []
+    for index, (key, label, detail) in enumerate(steps):
+        if index < active_index:
+            state = "done"
+        elif index == active_index:
+            state = "current"
+        else:
+            state = "upcoming"
+        tracking_steps.append({"key": key, "label": label, "detail": detail, "state": state})
+    return tracking_steps
+
+
+def attach_tracking_to_orders(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for order in orders:
+        order["tracking_steps"] = build_order_tracking_steps(order)
+        order["tracking_summary"] = next(
+            (step["detail"] for step in order["tracking_steps"] if step["state"] == "current"),
+            "Tracking details are being updated.",
+        )
     return orders
 
 
@@ -815,6 +943,7 @@ def order():
         flash(profile_message, "error")
     if request.method == "POST":
         customer_name = user.get("full_name") or fallback_full_name(user.get("email", ""))
+        customer_email = str(user.get("email") or "").strip().lower()
         delivery_option = request.form.get("delivery_option", "Delivery").strip().title()
         delivery_address = request.form.get("delivery_address", "").strip()
         preferred_time = request.form.get("preferred_time", "").strip()
@@ -822,6 +951,7 @@ def order():
         payment_method = request.form.get("payment_method", "").strip()
         payment_bank = request.form.get("payment_bank", "").strip()
         payment_reference = request.form.get("payment_reference", "").strip()
+        payment_proof_file = request.files.get("payment_proof")
 
         app.logger.info(
             "Submitting order: payment_method=%s cart_items=%s",
@@ -848,6 +978,15 @@ def order():
             if not payment_reference:
                 flash("Please enter your bank transaction reference number.", "error")
                 return redirect(url_for("order"))
+        payment_proof_path = ""
+        if payment_method in {"GCash", "Card"}:
+            payment_proof_path, payment_proof_error = save_payment_proof_upload(payment_proof_file, customer_name)
+            if payment_proof_error:
+                flash(payment_proof_error, "error")
+                return redirect(url_for("order"))
+            if not payment_proof_path:
+                flash("Please upload a payment screenshot or receipt.", "error")
+                return redirect(url_for("order"))
         if not customer_name:
             flash("Please complete your profile name before placing an order.", "error")
             return redirect(url_for("profile"))
@@ -858,6 +997,7 @@ def order():
         try:
             success, message = create_order(
                 customer_name,
+                customer_email,
                 cart,
                 cart_total(cart),
                 delivery_option,
@@ -867,6 +1007,7 @@ def order():
                 payment_method,
                 payment_bank,
                 payment_reference,
+                payment_proof_path,
             )
         except Exception:
             app.logger.exception("Unexpected error while placing an order.")
@@ -891,6 +1032,7 @@ def order():
                 receipt_payload = build_receipt_payload(
                     {
                         "customer_name": customer_name,
+                        "customer_email": customer_email,
                         "order_type": delivery_option,
                         "delivery_option": delivery_option,
                         "order_number_label": order_number_label,
@@ -903,6 +1045,7 @@ def order():
                         "payment_status": "Pending",
                         "payment_bank": payment_bank,
                         "payment_reference": payment_reference,
+                        "payment_proof": payment_proof_path,
                         "delivery_status": "Waiting",
                     },
                     customer_name,
@@ -962,11 +1105,14 @@ def dashboard():
     riders, riders_message = fetch_riders()
     user_profile = current_user_profile()
     customer_name = user_profile.get("full_name") or fallback_full_name(user_profile.get("email", ""))
+    customer_email = str(user_profile.get("email") or "").strip().lower()
     user_orders = []
     for order in orders:
-        if str(order.get("customer_name") or "").strip().lower() == customer_name.strip().lower():
+        order_email = str(order.get("customer_email") or "").strip().lower()
+        order_name = str(order.get("customer_name") or "").strip().lower()
+        if (order_email and order_email == customer_email) or order_name == customer_name.strip().lower():
             user_orders.append(order)
-    user_orders = attach_riders_to_orders(user_orders, riders)
+    user_orders = attach_tracking_to_orders(attach_riders_to_orders(user_orders, riders))
     if riders_message:
         if message:
             message = f"{message} {riders_message}"
@@ -1038,7 +1184,7 @@ def admin_dashboard():
 def admin_orders():
     orders, info_message = fetch_orders()
     riders, riders_message = fetch_riders()
-    orders = attach_riders_to_orders(orders, riders)
+    orders = attach_tracking_to_orders(attach_riders_to_orders(orders, riders))
     if riders_message:
         if info_message:
             info_message = f"{info_message} {riders_message}"
@@ -1063,6 +1209,15 @@ def admin_orders_update_status(order_id: int):
     payment_status = request.form.get("payment_status", "").strip()
     delivery_status = request.form.get("delivery_status", "").strip()
     rider_id = request.form.get("rider_id", "").strip()
+    previous_delivery_status = ""
+    try:
+        existing_orders, _ = fetch_orders()
+        existing_order = next((order for order in existing_orders if int(order.get("id") or 0) == order_id), None)
+        if existing_order:
+            previous_delivery_status = str(existing_order.get("delivery_status") or "").strip()
+    except Exception:
+        app.logger.exception("Failed to load previous delivery status for order %s.", order_id)
+
     success, message = update_order_tracking(
         order_id,
         status,
@@ -1070,6 +1225,29 @@ def admin_orders_update_status(order_id: int):
         delivery_status,
         rider_id,
     )
+    if success and delivery_status == "On the way" and previous_delivery_status != "On the way":
+        try:
+            updated_orders, _ = fetch_orders()
+            riders, _ = fetch_riders()
+            updated_orders = attach_riders_to_orders(updated_orders, riders)
+            shipped_order = next((order for order in updated_orders if int(order.get("id") or 0) == order_id), None)
+            if shipped_order:
+                email_success, email_message = send_order_shipped_email(shipped_order)
+                if email_success:
+                    message = f"{message} Shipped email sent."
+                else:
+                    message = f"{message} Shipped email not sent: {email_message}"
+        except Exception:
+            app.logger.exception("Failed to send shipped email for order %s.", order_id)
+            message = f"{message} Shipped email not sent."
+    flash(message, "success" if success else "error")
+    return redirect(url_for("admin_orders"))
+
+
+@app.route("/admin/orders/<int:order_id>/payment/confirm", methods=["POST"])
+@admin_required
+def admin_orders_confirm_payment(order_id: int):
+    success, message = update_order_payment_status(order_id, "Paid")
     flash(message, "success" if success else "error")
     return redirect(url_for("admin_orders"))
 

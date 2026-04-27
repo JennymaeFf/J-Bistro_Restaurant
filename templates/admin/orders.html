@@ -16,11 +16,17 @@
                     <div>
                         <p class="admin-order-card-number">{{ order["order_number_label"] or "Order #" ~ order["id"] }}</p>
                         <h3>{{ order["customer_name"] }}</h3>
+                        {% if order["customer_email"] %}
+                            <p class="admin-order-card-email">{{ order["customer_email"] }}</p>
+                        {% endif %}
                     </div>
                     <div class="admin-order-card-badges">
                         <span class="status-badge">{{ order["status"] }}</span>
                         <span class="status-badge status-payment">{{ order["payment_status"] or "Pending" }}</span>
                         <span class="status-badge status-delivery">{{ order["delivery_status"] or "Waiting" }}</span>
+                        {% if order["inventory_deducted"] %}
+                            <span class="status-badge status-inventory">Stock deducted</span>
+                        {% endif %}
                     </div>
                 </header>
 
@@ -61,6 +67,13 @@
                         {% if order["payment_reference"] %}
                             <p><small>Ref: {{ order["payment_reference"] }}</small></p>
                         {% endif %}
+                        {% if order["payment_proof"] %}
+                            <a class="payment-proof-link" href="{{ url_for('static', filename=order['payment_proof']) }}" target="_blank" rel="noopener">
+                                View payment proof
+                            </a>
+                        {% elif order["payment_method"] in ["GCash", "Card"] %}
+                            <p><small>No proof uploaded</small></p>
+                        {% endif %}
                         <p class="admin-order-total">PHP {{ "%.2f"|format(order["total_amount"]|float) }}</p>
                     </section>
 
@@ -75,6 +88,21 @@
                         {% endif %}
                     </section>
                 </div>
+
+                <section class="admin-tracking-preview" aria-label="Customer tracking preview">
+                    <div>
+                        <h4>Customer Tracking</h4>
+                        <p>{{ order["tracking_summary"] }}</p>
+                    </div>
+                    <ol class="order-tracking-list admin-order-tracking-list">
+                        {% for step in order["tracking_steps"] %}
+                            <li class="tracking-step tracking-step-{{ step['state'] }}">
+                                <span class="tracking-dot" aria-hidden="true"></span>
+                                <span>{{ step["label"] }}</span>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </section>
 
                 <form action="{{ url_for('admin_orders_update_status', order_id=order['id']) }}" method="post" class="admin-order-actions-form">
                     <label>
@@ -116,6 +144,11 @@
                     </label>
                     <button type="submit" class="admin-btn">Save</button>
                 </form>
+                {% if order["payment_proof"] and (order["payment_status"] or "Pending") != "Paid" %}
+                    <form action="{{ url_for('admin_orders_confirm_payment', order_id=order['id']) }}" method="post" class="admin-confirm-payment-form">
+                        <button type="submit" class="admin-btn admin-btn-success">Confirm Payment</button>
+                    </form>
+                {% endif %}
             </article>
         {% else %}
             <div class="admin-empty-card">
