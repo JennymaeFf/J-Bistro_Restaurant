@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J'Bistro Order Update</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f8ead2; font-family:Arial, Helvetica, sans-serif; color:#2f2118;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; background-color:#f8ead2; margin:0; padding:28px 12px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; max-width:620px; background-color:#fffaf1; border:1px solid #e6c98f; border-radius:18px; overflow:hidden;">
+                    <tr>
+                        <td align="center" style="background-color:#4b2e1f; padding:26px 22px;">
+                            <div style="font-family:Georgia, 'Times New Roman', serif; font-size:32px; line-height:38px; font-weight:bold; color:#fff6e8;">J'Bistro</div>
+                            <div style="font-size:13px; line-height:20px; color:#f4dfbb;">Restaurant Order Update</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:30px 28px 14px;">
+                            <p style="margin:0 0 12px; font-size:17px; line-height:26px;">Hi {{ customer_name or "Customer" }},</p>
+                            <p style="margin:0 0 22px; font-size:15px; line-height:24px; color:#6c4d37;">{{ status_message }}</p>
+                            <div style="display:inline-block; padding:12px 18px; background-color:#d9a441; border-radius:999px; color:#2f2118; font-size:16px; line-height:20px; font-weight:bold;">{{ current_status }}</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:14px 28px 0;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse; background-color:#fff6e8; border:1px solid #edd9ad; border-radius:12px; overflow:hidden;">
+                                <tr>
+                                    <td style="padding:14px 16px; font-size:13px; color:#7b604c;">Order Number</td>
+                                    <td align="right" style="padding:14px 16px; font-size:14px; font-weight:bold;">{{ order_number }}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:22px 28px 0;">
+                            <div style="font-size:15px; line-height:22px; font-weight:bold; margin-bottom:10px;">Order Items</div>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                                {% for item in order_items %}
+                                    <tr>
+                                        <td style="padding:10px 0; border-bottom:1px solid #edd9ad; font-size:14px; line-height:21px;">
+                                            {{ item.name }}
+                                            <span style="color:#7b604c;">x{{ item.quantity }}</span>
+                                        </td>
+                                        <td align="right" style="padding:10px 0; border-bottom:1px solid #edd9ad; font-size:14px; line-height:21px;">PHP {{ "%.2f"|format(item.price * item.quantity) }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td style="padding:10px 0; border-bottom:1px solid #edd9ad; font-size:14px; line-height:21px;">No items available</td>
+                                        <td align="right" style="padding:10px 0; border-bottom:1px solid #edd9ad; font-size:14px; line-height:21px;">PHP 0.00</td>
+                                    </tr>
+                                {% endfor %}
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:18px 28px 30px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td style="font-size:16px; line-height:24px; font-weight:bold;">Total</td>
+                                    <td align="right" style="font-size:18px; line-height:26px; font-weight:bold; color:#4b2e1f;">PHP {{ "%.2f"|format(total_amount or 0) }}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="background-color:#f4dfbb; padding:16px 20px;">
+                            <p style="margin:0; font-size:12px; line-height:18px; color:#6c4d37;">Thank you for ordering from J'Bistro Restaurant.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -103,7 +103,7 @@ BANK_PAYMENT_ACCOUNTS = {
         "account_number": "0921-4567-8901",
     },
 }
-ORDER_STATUS_OPTIONS = ("Pending", "Preparing", "Completed")
+ORDER_STATUS_OPTIONS = ("Pending", "Processing", "Completed")
 PAYMENT_STATUS_OPTIONS = ("Pending", "Paid", "COD")
 DELIVERY_STATUS_OPTIONS = ("Waiting", "Assigned", "On the way", "Delivered")
 DELIVERY_OPTION_VALUES = ("Pickup", "Delivery")
@@ -368,6 +368,125 @@ def send_order_shipped_email(order: dict[str, Any]) -> tuple[bool, str]:
         "Thank you for ordering from J'Bistro."
     )
     return send_plain_email(recipient_email, f"Your J'Bistro {order_label} is on the way", body)
+
+
+def customer_facing_order_status(order: dict[str, Any]) -> str:
+    status = str(order.get("status") or "").strip()
+    delivery_status = str(order.get("delivery_status") or "").strip()
+    if delivery_status == "Delivered":
+        return "Delivered"
+    if delivery_status == "On the way":
+        return "Shipped"
+    if status in {"Preparing", "Processing"}:
+        return "Processing"
+    return ""
+
+
+def resolve_order_customer_email(order: dict[str, Any]) -> tuple[str, str | None]:
+    order_email = str(order.get("customer_email") or "").strip().lower()
+    customer_name = str(order.get("customer_name") or "").strip().lower()
+    users, users_message = fetch_admin_users()
+    if users_message:
+        app.logger.warning("Unable to fully resolve order customer email from app_users: %s", users_message)
+
+    for user in users:
+        user_email = str(user.get("email") or "").strip().lower()
+        if order_email and user_email == order_email:
+            return user_email, None
+        user_name = str(user.get("full_name") or "").strip().lower()
+        if customer_name and user_name == customer_name and user_email:
+            return user_email, None
+
+    if order_email:
+        return order_email, None
+    return "", "No customer email is saved for this order."
+
+
+def normalized_order_items(order_data: dict[str, Any]) -> list[dict[str, Any]]:
+    return normalize_receipt_items(order_data.get("items"))
+
+
+def send_order_status_email(user_email: str, order_data: dict[str, Any]) -> tuple[bool, str]:
+    recipient_email = str(user_email or "").strip().lower()
+    if not recipient_email:
+        return False, "No customer email is available for this order."
+
+    status_label = customer_facing_order_status(order_data)
+    if status_label not in {"Processing", "Shipped", "Delivered"}:
+        return False, "This order status does not require an email notification."
+
+    order_label = order_data.get("order_number_label") or receipt_order_number_label(order_data)
+    customer_name = order_data.get("customer_name") or "Customer"
+    order_items = normalized_order_items(order_data)
+    total_amount = max(0.0, coerce_float(order_data.get("total_amount"), 0.0))
+    if total_amount <= 0 and order_items:
+        total_amount = sum(item["price"] * item["quantity"] for item in order_items)
+
+    status_messages = {
+        "Processing": "Your order is now being prepared by our kitchen.",
+        "Shipped": "Your order is on the way. Please keep your phone available for the rider.",
+        "Delivered": "Your order has been delivered. Thank you for choosing J'Bistro.",
+    }
+    message = status_messages[status_label]
+
+    email = EmailMessage()
+    email["Subject"] = f"J'Bistro {order_label} is {status_label}"
+    email["From"] = (
+        os.environ.get("JBISTRO_OTP_SENDER_EMAIL")
+        or os.environ.get("GMAIL_USER")
+        or os.environ.get("EMAIL_USER")
+        or ""
+    ).strip()
+    email["To"] = recipient_email
+    email.set_content(
+        f"Hi {customer_name},\n\n"
+        f"{message}\n\n"
+        f"Order: {order_label}\n"
+        f"Status: {status_label}\n"
+        f"Total: PHP {total_amount:.2f}\n\n"
+        "Items:\n"
+        + "\n".join(
+            f"- {item['name']} x{item['quantity']} - PHP {item['price'] * item['quantity']:.2f}"
+            for item in order_items
+        )
+        + "\n\nThank you for ordering from J'Bistro."
+    )
+    email_html = app.jinja_env.get_template("order_status_email.html").render(
+        customer_name=customer_name,
+        order_number=order_label,
+        order_items=order_items,
+        total_amount=total_amount,
+        current_status=status_label,
+        status_message=message,
+    )
+    email.add_alternative(
+        email_html,
+        subtype="html",
+    )
+
+    config_error = otp_email_config_error()
+    if config_error:
+        return False, config_error
+
+    smtp_host = os.environ.get("JBISTRO_OTP_SMTP_HOST", "smtp.gmail.com").strip()
+    smtp_port = env_int("JBISTRO_OTP_SMTP_PORT", 587)
+    use_tls = env_bool("JBISTRO_OTP_SMTP_TLS", True)
+    password = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("EMAIL_PASS") or "").strip()
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as smtp:
+            if use_tls:
+                smtp.starttls()
+            smtp.login(email["From"], password)
+            smtp.send_message(email)
+    except smtplib.SMTPAuthenticationError:
+        return False, "Gmail rejected the login. Check your Gmail address and App Password."
+    except OSError:
+        return False, "Unable to connect to Gmail SMTP right now."
+    except smtplib.SMTPException:
+        return False, "Unable to send the order status email right now."
+
+    return True, f"{status_label} email sent."
 
 
 def save_otp_record(email: str, purpose: str, otp_code: str) -> tuple[bool, str]:
@@ -730,7 +849,7 @@ def build_order_tracking_steps(order: dict[str, Any]) -> list[dict[str, Any]]:
         active_index = 3
     elif delivery_status == "On the way":
         active_index = 2
-    elif status == "Preparing" or delivery_status == "Assigned":
+    elif status in {"Preparing", "Processing"} or delivery_status == "Assigned":
         active_index = 1
     else:
         active_index = 0
@@ -1165,7 +1284,7 @@ def dashboard():
 @login_required
 def dashboard_update(order_id: int):
     status = request.form.get("status", "").strip()
-    if status not in {"Pending", "Preparing", "Completed", "Cancelled"}:
+    if status not in {"Pending", "Preparing", "Processing", "Completed", "Cancelled"}:
         flash("Please choose a valid order status.", "error")
         return redirect(url_for("dashboard"))
 
@@ -1248,14 +1367,18 @@ def admin_orders_update_status(order_id: int):
     payment_status = request.form.get("payment_status", "").strip()
     delivery_status = request.form.get("delivery_status", "").strip()
     rider_id = request.form.get("rider_id", "").strip()
+    previous_status = ""
     previous_delivery_status = ""
+    previous_email_status = ""
     try:
         existing_orders, _ = fetch_orders()
         existing_order = next((order for order in existing_orders if int(order.get("id") or 0) == order_id), None)
         if existing_order:
+            previous_status = str(existing_order.get("status") or "").strip()
             previous_delivery_status = str(existing_order.get("delivery_status") or "").strip()
+            previous_email_status = customer_facing_order_status(existing_order)
     except Exception:
-        app.logger.exception("Failed to load previous delivery status for order %s.", order_id)
+        app.logger.exception("Failed to load previous order status for order %s.", order_id)
 
     success, message = update_order_tracking(
         order_id,
@@ -1264,21 +1387,33 @@ def admin_orders_update_status(order_id: int):
         delivery_status,
         rider_id,
     )
-    if success and delivery_status == "On the way" and previous_delivery_status != "On the way":
+    if success:
         try:
             updated_orders, _ = fetch_orders()
             riders, _ = fetch_riders()
             updated_orders = attach_riders_to_orders(updated_orders, riders)
-            shipped_order = next((order for order in updated_orders if int(order.get("id") or 0) == order_id), None)
-            if shipped_order:
-                email_success, email_message = send_order_shipped_email(shipped_order)
-                if email_success:
-                    message = f"{message} Shipped email sent."
-                else:
-                    message = f"{message} Shipped email not sent: {email_message}"
+            updated_order = next((order for order in updated_orders if int(order.get("id") or 0) == order_id), None)
+            if updated_order:
+                current_email_status = customer_facing_order_status(updated_order)
+                status_changed = previous_status != status or previous_delivery_status != delivery_status
+                should_notify = (
+                    status_changed
+                    and current_email_status in {"Processing", "Shipped", "Delivered"}
+                    and current_email_status != previous_email_status
+                )
+                if should_notify:
+                    user_email, email_error = resolve_order_customer_email(updated_order)
+                    if email_error:
+                        message = f"{message} Email not sent: {email_error}"
+                    else:
+                        email_success, email_message = send_order_status_email(user_email, updated_order)
+                        if email_success:
+                            message = f"{message} {email_message}"
+                        else:
+                            message = f"{message} Email not sent: {email_message}"
         except Exception:
-            app.logger.exception("Failed to send shipped email for order %s.", order_id)
-            message = f"{message} Shipped email not sent."
+            app.logger.exception("Failed to send order status email for order %s.", order_id)
+            message = f"{message} Email not sent."
     flash(message, "success" if success else "error")
     return redirect(url_for("admin_orders"))
 

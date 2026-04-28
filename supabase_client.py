@@ -145,7 +145,7 @@ SAMPLE_MENU_ITEMS = [
     },
 ]
 
-VALID_ORDER_STATUSES = {"Pending", "Preparing", "Completed"}
+VALID_ORDER_STATUSES = {"Pending", "Preparing", "Processing", "Completed"}
 VALID_PAYMENT_STATUSES = {"Pending", "Paid", "COD"}
 VALID_DELIVERY_STATUSES = {"Waiting", "Assigned", "On the way", "Delivered"}
 VALID_DELIVERY_OPTIONS = {"Pickup", "Delivery"}
