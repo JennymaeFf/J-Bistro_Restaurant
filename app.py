@@ -7,7 +7,7 @@ import secrets
 import smtplib
 import time
 from uuid import uuid4
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
@@ -31,6 +31,7 @@ from supabase_client import (
     authenticate_user,
     create_employee,
     create_admin_menu_item,
+    create_otp_verification,
     create_rider,
     current_supabase_config,
     current_supabase_service_config,
@@ -38,6 +39,7 @@ from supabase_client import (
     delete_employee,
     delete_admin_menu_item,
     delete_admin_user,
+    delete_otp_verification,
     delete_rider,
     detect_key_type,
     delete_order,
@@ -47,6 +49,7 @@ from supabase_client import (
     fetch_admin_users,
     fetch_inventory_items,
     fetch_menu_items,
+    fetch_latest_otp_verification,
     fetch_latest_order,
     fetch_orders,
     fetch_riders,
@@ -63,6 +66,7 @@ from supabase_client import (
     update_admin_menu_item,
     update_admin_user,
     update_inventory_item,
+    update_otp_attempts,
     update_order_status,
     update_order_payment_status,
     upload_profile_image_to_storage,
@@ -105,8 +109,6 @@ DELIVERY_STATUS_OPTIONS = ("Waiting", "Assigned", "On the way", "Delivered")
 DELIVERY_OPTION_VALUES = ("Pickup", "Delivery")
 EMPLOYEE_ATTENDANCE_OPTIONS = ("On Duty", "Off Duty", "Absent")
 EMPLOYEE_STATUS_OPTIONS = ("Active", "Inactive")
-PENDING_REGISTRATIONS: dict[str, dict[str, Any]] = {}
-PENDING_LOGIN_OTPS: dict[str, dict[str, Any]] = {}
 
 
 def is_vercel_runtime() -> bool:
@@ -245,6 +247,23 @@ def hash_otp_code(code: str) -> str:
     ).hexdigest()
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def iso_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_otp_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def send_otp_email(recipient_email: str, otp_code: str) -> tuple[bool, str]:
     config_error = otp_email_config_error()
     if config_error:
@@ -351,33 +370,20 @@ def send_order_shipped_email(order: dict[str, Any]) -> tuple[bool, str]:
     return send_plain_email(recipient_email, f"Your J'Bistro {order_label} is on the way", body)
 
 
-def prepare_otp_record(email: str, purpose: str) -> tuple[dict[str, Any], str]:
-    otp_code = generate_otp_code()
-    now = time.time()
-    record = {
-        "email": email,
-        "purpose": purpose,
-        "otp_hash": hash_otp_code(otp_code),
-        "expires_at": now + 300,
-        "attempts": 0,
-        "last_sent_at": now,
-    }
-    return record, otp_code
-
-
-def refresh_otp_record(record: dict[str, Any]) -> str:
-    otp_code = generate_otp_code()
-    record["otp_hash"] = hash_otp_code(otp_code)
-    record["expires_at"] = time.time() + 300
-    record["attempts"] = 0
-    record["last_sent_at"] = time.time()
-    return otp_code
+def save_otp_record(email: str, purpose: str, otp_code: str) -> tuple[bool, str]:
+    return create_otp_verification(
+        email,
+        purpose,
+        hash_otp_code(otp_code),
+        iso_utc(utc_now() + timedelta(minutes=5)),
+    )
 
 
 def verify_otp_record(record: dict[str, Any] | None, otp_code: str) -> tuple[bool, str]:
     if not record:
         return False, "No active OTP request found. Please register or log in again."
-    if time.time() > float(record.get("expires_at") or 0):
+    expires_at = parse_otp_datetime(record.get("expires_at"))
+    if not expires_at or utc_now() > expires_at:
         return False, "Your OTP has expired. Please request a new code."
     attempts = int(record.get("attempts") or 0)
     if attempts >= otp_max_attempts():
@@ -387,8 +393,19 @@ def verify_otp_record(record: dict[str, Any] | None, otp_code: str) -> tuple[boo
     submitted_hash = hash_otp_code(otp_code)
     if not hmac.compare_digest(expected_hash, submitted_hash):
         record["attempts"] = attempts + 1
+        otp_id = record.get("id")
+        if otp_id:
+            update_otp_attempts(otp_id, attempts + 1)
         return False, "Invalid OTP. Please try again."
     return True, "OTP verified."
+
+
+def latest_otp_record(email: str, purpose: str) -> tuple[dict[str, Any] | None, str | None]:
+    record, error = fetch_latest_otp_verification(email, purpose)
+    if error:
+        app.logger.warning("Could not load OTP verification for %s/%s: %s", email, purpose, error)
+        return None, error
+    return record, None
 
 
 def start_otp_resend_cooldown() -> None:
@@ -1711,14 +1728,17 @@ def login():
                 flash("Login successful, but the app could not load your session details.", "error")
                 return redirect(url_for("login"))
             if env_bool("ENABLE_LOGIN_OTP", False):
-                otp_record, otp_code = prepare_otp_record(email, "login")
-                otp_record["user_session"] = user_session
+                otp_code = generate_otp_code()
+                saved, save_message = save_otp_record(email, "login", otp_code)
+                if not saved:
+                    flash(save_message, "error")
+                    return redirect(url_for("login"))
                 sent, send_message = send_otp_email(email, otp_code)
                 if not sent:
                     flash(send_message, "error")
                     return redirect(url_for("login"))
-                PENDING_LOGIN_OTPS[email] = otp_record
                 session["pending_login_otp_email"] = email
+                session["pending_login_user_session"] = user_session
                 start_otp_resend_cooldown()
                 flash(send_message, "success")
                 return redirect(url_for("verify_login", email=email))
@@ -1757,7 +1777,15 @@ def verify():
     )
     if request.method == "POST":
         otp_code = request.form.get("otp", "").strip()
-        record = PENDING_REGISTRATIONS.get(email)
+        record, otp_error = latest_otp_record(email, "registration")
+        if otp_error:
+            return render_template(
+                "verify.html",
+                email=email,
+                error=otp_error,
+                form_action=url_for("verify"),
+                resend_action=url_for("resend_otp", purpose="registration"),
+            )
         valid, message = verify_otp_record(record, otp_code)
         if not valid:
             return render_template(
@@ -1768,13 +1796,20 @@ def verify():
                 resend_action=url_for("resend_otp", purpose="registration"),
             )
 
+        pending_registration = session.get("pending_registration")
+        if not isinstance(pending_registration, dict) or pending_registration.get("email") != email:
+            flash("Registration verification expired. Please register again.", "error")
+            if record and record.get("id"):
+                delete_otp_verification(record["id"])
+            return redirect(url_for("register"))
+
         success, register_message = register_user(
             email,
-            record["password"],
-            role=record.get("role", "customer"),
-            full_name=record.get("full_name", ""),
-            phone_number=record.get("phone_number", ""),
-            delivery_address=record.get("delivery_address", ""),
+            pending_registration.get("password", ""),
+            role=pending_registration.get("role", "customer"),
+            full_name=pending_registration.get("full_name", ""),
+            phone_number=pending_registration.get("phone_number", ""),
+            delivery_address=pending_registration.get("delivery_address", ""),
             email_confirmed=True,
         )
         if not success:
@@ -1786,8 +1821,10 @@ def verify():
                 resend_action=url_for("resend_otp", purpose="registration"),
             )
 
-        PENDING_REGISTRATIONS.pop(email, None)
+        if record and record.get("id"):
+            delete_otp_verification(record["id"])
         session.pop("pending_registration_email", None)
+        session.pop("pending_registration", None)
         flash(register_message, "success")
         return redirect(url_for("login", email=email))
 
@@ -1807,7 +1844,15 @@ def verify_login():
     )
     if request.method == "POST":
         otp_code = request.form.get("otp", "").strip()
-        record = PENDING_LOGIN_OTPS.get(email)
+        record, otp_error = latest_otp_record(email, "login")
+        if otp_error:
+            return render_template(
+                "verify_login.html",
+                email=email,
+                error=otp_error,
+                form_action=url_for("verify_login"),
+                resend_action=url_for("resend_otp", purpose="login"),
+            )
         valid, message = verify_otp_record(record, otp_code)
         if not valid:
             return render_template(
@@ -1818,14 +1863,17 @@ def verify_login():
                 resend_action=url_for("resend_otp", purpose="login"),
             )
 
-        user_session = record.get("user_session")
+        user_session = session.get("pending_login_user_session")
         if not isinstance(user_session, dict):
-            PENDING_LOGIN_OTPS.pop(email, None)
+            if record and record.get("id"):
+                delete_otp_verification(record["id"])
             flash("Login verification expired. Please log in again.", "error")
             return redirect(url_for("login"))
 
-        PENDING_LOGIN_OTPS.pop(email, None)
+        if record and record.get("id"):
+            delete_otp_verification(record["id"])
         session.pop("pending_login_otp_email", None)
+        session.pop("pending_login_user_session", None)
         user_role = store_authenticated_session(user_session, email)
         flash("Login verified.", "success")
         return redirect(destination_for_role(user_role))
@@ -1843,13 +1891,15 @@ def resend_otp():
     purpose = request.args.get("purpose", "registration").strip().lower()
     email = request.form.get("email", "").strip().lower()
     if purpose == "login":
-        record = PENDING_LOGIN_OTPS.get(email)
         verify_endpoint = "verify_login"
     else:
         purpose = "registration"
-        record = PENDING_REGISTRATIONS.get(email)
         verify_endpoint = "verify"
 
+    record, otp_error = latest_otp_record(email, purpose)
+    if otp_error:
+        flash(otp_error, "error")
+        return redirect(url_for("register" if purpose == "registration" else "login"))
     if not record:
         flash("No active OTP request found. Please try again.", "error")
         return redirect(url_for("register" if purpose == "registration" else "login"))
@@ -1859,7 +1909,11 @@ def resend_otp():
         flash(f"Please wait {seconds_left} seconds before requesting another OTP.", "error")
         return redirect(url_for(verify_endpoint, email=email))
 
-    otp_code = refresh_otp_record(record)
+    otp_code = generate_otp_code()
+    saved, save_message = save_otp_record(email, purpose, otp_code)
+    if not saved:
+        flash(save_message, "error")
+        return redirect(url_for(verify_endpoint, email=email))
     sent, message = send_otp_email(email, otp_code)
     if sent:
         start_otp_resend_cooldown()
@@ -2011,23 +2065,26 @@ def register():
                 flash("Admin code not recognized. Account will be created as a customer.", "error")
 
         if env_bool("ENABLE_REGISTRATION_OTP", True):
-            otp_record, otp_code = prepare_otp_record(email, "registration")
-            otp_record.update(
-                {
-                    "full_name": full_name,
-                    "phone_number": phone_number,
-                    "delivery_address": delivery_address,
-                    "password": password,
-                    "role": target_role,
-                }
-            )
+            otp_code = generate_otp_code()
+            saved, save_message = save_otp_record(email, "registration", otp_code)
+            if not saved:
+                flash(save_message, "error")
+                return render_template("register.html", auth_page=True, form_data=form_data)
+
             sent, send_message = send_otp_email(email, otp_code)
             if not sent:
                 flash(send_message, "error")
                 return render_template("register.html", auth_page=True, form_data=form_data)
 
-            PENDING_REGISTRATIONS[email] = otp_record
             session["pending_registration_email"] = email
+            session["pending_registration"] = {
+                "email": email,
+                "full_name": full_name,
+                "phone_number": phone_number,
+                "delivery_address": delivery_address,
+                "password": password,
+                "role": target_role,
+            }
             start_otp_resend_cooldown()
             flash(send_message, "success")
             return redirect(url_for("check_email", email=email))

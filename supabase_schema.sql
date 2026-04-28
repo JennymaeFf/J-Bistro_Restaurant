@@ -331,6 +331,28 @@ values
     ('Water', 'Pure drinking water.', 'Beverages', 15.00, 'water.png', true)
 on conflict do nothing;
 
+create table if not exists public.otp_verifications (
+    id bigserial primary key,
+    email text not null,
+    otp_hash text not null,
+    purpose text not null check (purpose in ('registration', 'login')),
+    expires_at timestamptz not null,
+    attempts integer not null default 0,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists otp_verifications_email_purpose_created_idx
+on public.otp_verifications (email, purpose, created_at desc);
+
+alter table public.otp_verifications enable row level security;
+
+drop policy if exists "Service role manages OTP verifications" on public.otp_verifications;
+create policy "Service role manages OTP verifications"
+on public.otp_verifications for all
+to service_role
+using (true)
+with check (true);
+
 -- Verify the columns exist in Postgres.
 select table_name, column_name, data_type
 from information_schema.columns
@@ -341,6 +363,7 @@ where table_schema = 'public'
       or (table_name = 'riders' and column_name in ('name', 'phone', 'status'))
       or (table_name = 'menu_items' and column_name in ('is_available', 'stock_quantity', 'low_stock_threshold'))
       or (table_name = 'employees' and column_name in ('name', 'position', 'contact_number', 'shift_schedule', 'attendance_status', 'employment_status', 'notes', 'task_assignment', 'time_in', 'time_out'))
+      or (table_name = 'otp_verifications' and column_name in ('id', 'email', 'otp_hash', 'purpose', 'expires_at', 'attempts', 'created_at'))
   )
 order by table_name, column_name;
 

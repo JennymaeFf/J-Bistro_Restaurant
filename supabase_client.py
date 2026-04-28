@@ -754,13 +754,135 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     return final_profile, None
 
 
-def service_auth_headers() -> dict[str, str]:
+def service_auth_headers(prefer_return: str | None = None) -> dict[str, str]:
     _, service_key = current_supabase_service_config()
-    return {
+    headers = {
         "apikey": service_key,
         "Authorization": f"Bearer {service_key}",
         "Content-Type": "application/json",
     }
+    if prefer_return:
+        headers["Prefer"] = prefer_return
+    return headers
+
+
+def create_otp_verification(
+    email: str,
+    purpose: str,
+    otp_hash: str,
+    expires_at: str,
+) -> tuple[bool, str]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_service_config()
+    normalized_email = email.strip().lower()
+    normalized_purpose = purpose.strip().lower()
+
+    try:
+        requests.delete(
+            f"{supabase_url}/rest/v1/otp_verifications",
+            headers=service_auth_headers(),
+            params={"email": f"eq.{normalized_email}", "purpose": f"eq.{normalized_purpose}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response = requests.post(
+            f"{supabase_url}/rest/v1/otp_verifications",
+            headers=service_auth_headers("return=minimal"),
+            json={
+                "email": normalized_email,
+                "purpose": normalized_purpose,
+                "otp_hash": otp_hash,
+                "expires_at": expires_at,
+                "attempts": 0,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to save the OTP verification right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "OTP verification saved."
+
+
+def fetch_latest_otp_verification(email: str, purpose: str) -> tuple[dict[str, Any] | None, str | None]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return None, config_error
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/otp_verifications",
+            headers=service_auth_headers(),
+            params={
+                "select": "*",
+                "email": f"eq.{email.strip().lower()}",
+                "purpose": f"eq.{purpose.strip().lower()}",
+                "order": "created_at.desc",
+                "limit": "1",
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return None, "Unable to load the OTP verification right now."
+
+    if response.status_code >= 400:
+        return None, parse_response_error(response)
+
+    try:
+        rows = response.json()
+    except ValueError:
+        return None, "Unable to read the OTP verification response."
+    if not isinstance(rows, list) or not rows:
+        return None, None
+    row = rows[0]
+    return row if isinstance(row, dict) else None, None
+
+
+def update_otp_attempts(otp_id: Any, attempts: int) -> tuple[bool, str]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/otp_verifications",
+            headers=service_auth_headers("return=minimal"),
+            params={"id": f"eq.{otp_id}"},
+            json={"attempts": attempts},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update OTP attempts right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "OTP attempts updated."
+
+
+def delete_otp_verification(otp_id: Any) -> tuple[bool, str]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.delete(
+            f"{supabase_url}/rest/v1/otp_verifications",
+            headers=service_auth_headers("return=minimal"),
+            params={"id": f"eq.{otp_id}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to delete the OTP verification right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "OTP verification deleted."
 
 
 def check_email_verification_status(email: str) -> tuple[bool, str, dict[str, Any] | None]:
