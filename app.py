@@ -81,9 +81,7 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "jbistro-school-project-secret-key")
 UPLOAD_DIR = CURRENT_DIR / "static" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 PAYMENT_PROOF_UPLOAD_DIR = UPLOAD_DIR / "payment_proofs"
-PAYMENT_PROOF_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 ALLOWED_PAYMENT_PROOF_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 GCASH_PAYMENT_NUMBER = "0917 123 4567"
@@ -109,6 +107,21 @@ EMPLOYEE_ATTENDANCE_OPTIONS = ("On Duty", "Off Duty", "Absent")
 EMPLOYEE_STATUS_OPTIONS = ("Active", "Inactive")
 PENDING_REGISTRATIONS: dict[str, dict[str, Any]] = {}
 PENDING_LOGIN_OTPS: dict[str, dict[str, Any]] = {}
+
+
+def is_vercel_runtime() -> bool:
+    return os.environ.get("VERCEL") == "1"
+
+
+def ensure_local_upload_dir(directory: Path) -> bool:
+    if is_vercel_runtime():
+        return directory.exists()
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        app.logger.exception("Unable to prepare upload directory: %s", directory)
+        return False
+    return True
 
 # SESSION COOKIE SETTINGS - Vercel uses HTTPS, local dev usually uses HTTP.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("VERCEL") == "1"
@@ -214,9 +227,9 @@ def otp_email_config_error() -> str | None:
     ).strip()
     password = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("EMAIL_PASS") or "").strip()
     if not sender or "your-jbistro-email" in sender:
-        return "Add your Gmail address to GMAIL_USER and JBISTRO_OTP_SENDER_EMAIL in .env."
+        return "Add your Gmail address to GMAIL_USER in your environment variables."
     if not password or "your-16-character-app-password" in password:
-        return "Add your Gmail App Password to GMAIL_APP_PASSWORD and EMAIL_PASS in .env."
+        return "Add your Gmail App Password to GMAIL_APP_PASSWORD in your environment variables."
     return None
 
 
@@ -642,7 +655,16 @@ def save_payment_proof_upload(upload_file: Any, customer_name: str) -> tuple[str
     extension = original_name.rsplit(".", 1)[1].lower()
     customer_slug = re.sub(r"[^a-z0-9]+", "-", customer_name.lower()).strip("-") or "customer"
     filename = f"payment-proof-{customer_slug}-{uuid4().hex}.{extension}"
-    upload_file.save(PAYMENT_PROOF_UPLOAD_DIR / filename)
+    if not ensure_local_upload_dir(PAYMENT_PROOF_UPLOAD_DIR):
+        return "", (
+            "Payment proof uploads are not available on this deployment yet. "
+            "Use Supabase Storage or another persistent upload service for deployed payment proof files."
+        )
+    try:
+        upload_file.save(PAYMENT_PROOF_UPLOAD_DIR / filename)
+    except OSError:
+        app.logger.exception("Unable to save payment proof upload to %s", PAYMENT_PROOF_UPLOAD_DIR)
+        return "", "Unable to save the payment proof right now. Please try again."
     return f"uploads/payment_proofs/{filename}", None
 
 
@@ -1577,8 +1599,13 @@ def upload_profile():
 
     if os.environ.get("PROFILE_UPLOAD_STORAGE", "supabase").strip().lower() == "local":
         upload_path = UPLOAD_DIR / filename
+        if not ensure_local_upload_dir(UPLOAD_DIR):
+            flash(
+                "Local profile uploads are not available on this deployment. Use Supabase Storage for deployed uploads.",
+                "error",
+            )
+            return safe_upload_redirect(next_target)
         try:
-            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
             image_file.save(upload_path)
         except OSError:
             app.logger.exception("Unable to save uploaded profile picture to %s", upload_path)

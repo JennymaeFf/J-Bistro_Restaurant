@@ -13,6 +13,9 @@ def load_env_file(env_path: str | Path | None = None) -> None:
     On Vercel (or any host that pre-injects env vars) the file won't exist,
     which is fine: we skip it silently so the app still starts correctly.
     """
+    if os.environ.get("VERCEL") == "1":
+        return
+
     if env_path is None:
         env_path = Path(__file__).resolve().parent / ".env"
 
