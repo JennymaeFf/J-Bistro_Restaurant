@@ -68,7 +68,7 @@
                             <p><small>Ref: {{ order["payment_reference"] }}</small></p>
                         {% endif %}
                         {% if order["payment_proof"] %}
-                            <a class="payment-proof-link" href="{{ url_for('static', filename=order['payment_proof']) }}" target="_blank" rel="noopener">
+                            <a class="payment-proof-link" href="{{ payment_proof_url(order['payment_proof']) }}" target="_blank" rel="noopener">
                                 View payment proof
                             </a>
                         {% elif order["payment_method"] in ["GCash", "Card"] %}

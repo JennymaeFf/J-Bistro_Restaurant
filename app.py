@@ -70,6 +70,7 @@ from supabase_client import (
     update_order_status,
     update_order_payment_status,
     upload_menu_image_to_storage,
+    upload_payment_proof_to_storage,
     upload_profile_image_to_storage,
     update_user_profile,
     update_user_profile_image,
@@ -91,6 +92,7 @@ ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 ALLOWED_PAYMENT_PROOF_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_MENU_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 MAX_MENU_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_PAYMENT_PROOF_BYTES = 5 * 1024 * 1024
 GCASH_PAYMENT_NUMBER = "0917 123 4567"
 BANK_PAYMENT_ACCOUNTS = {
     "Landbank": {
@@ -787,6 +789,17 @@ def menu_image_url(image_path: str | None) -> str:
     return url_for("static", filename="images/plogo.png")
 
 
+def payment_proof_url(proof_path: str | None) -> str:
+    proof_path = (proof_path or "").strip()
+    if not proof_path:
+        return ""
+    if proof_path.startswith(("http://", "https://")):
+        return proof_path
+    if proof_path.startswith("/static/"):
+        return proof_path
+    return url_for("static", filename=proof_path)
+
+
 def is_allowed_profile_image(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
 
@@ -799,6 +812,13 @@ def is_allowed_payment_proof(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PAYMENT_PROOF_EXTENSIONS
 
 
+def selected_upload_file(field_name: str) -> Any:
+    for upload_file in request.files.getlist(field_name):
+        if upload_file and upload_file.filename:
+            return upload_file
+    return None
+
+
 def save_payment_proof_upload(upload_file: Any, customer_name: str) -> tuple[str, str | None]:
     if not upload_file or not upload_file.filename:
         return "", None
@@ -809,17 +829,19 @@ def save_payment_proof_upload(upload_file: Any, customer_name: str) -> tuple[str
     extension = original_name.rsplit(".", 1)[1].lower()
     customer_slug = re.sub(r"[^a-z0-9]+", "-", customer_name.lower()).strip("-") or "customer"
     filename = f"payment-proof-{customer_slug}-{uuid4().hex}.{extension}"
-    if not ensure_local_upload_dir(PAYMENT_PROOF_UPLOAD_DIR):
-        return "", (
-            "Payment proof uploads are not available on this deployment yet. "
-            "Use Supabase Storage or another persistent upload service for deployed payment proof files."
-        )
-    try:
-        upload_file.save(PAYMENT_PROOF_UPLOAD_DIR / filename)
-    except OSError:
-        app.logger.exception("Unable to save payment proof upload to %s", PAYMENT_PROOF_UPLOAD_DIR)
-        return "", "Unable to save the payment proof right now. Please try again."
-    return f"uploads/payment_proofs/{filename}", None
+    image_bytes = upload_file.read()
+    if len(image_bytes) > MAX_PAYMENT_PROOF_BYTES:
+        return "", "Payment proof must be 5 MB or smaller."
+
+    success, message, public_url = upload_payment_proof_to_storage(
+        filename,
+        payment_proof_content_type(extension),
+        image_bytes,
+    )
+    if not success or not public_url:
+        app.logger.warning("Payment proof storage upload failed for %s: %s", customer_name, message)
+        return "", message
+    return public_url, None
 
 
 def profile_image_content_type(extension: str) -> str:
@@ -827,6 +849,14 @@ def profile_image_content_type(extension: str) -> str:
 
 
 def menu_image_content_type(extension: str) -> str:
+    if extension == "png":
+        return "image/png"
+    if extension == "webp":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def payment_proof_content_type(extension: str) -> str:
     if extension == "png":
         return "image/png"
     if extension == "webp":
@@ -991,6 +1021,7 @@ def inject_layout_data() -> dict[str, Any]:
         "cart_total": cart_total,
         "profile_image_url": profile_image_url,
         "menu_image_url": menu_image_url,
+        "payment_proof_url": payment_proof_url,
     }
 
 
@@ -1161,7 +1192,7 @@ def order():
         payment_method = request.form.get("payment_method", "").strip()
         payment_bank = request.form.get("payment_bank", "").strip()
         payment_reference = request.form.get("payment_reference", "").strip()
-        payment_proof_file = request.files.get("payment_proof")
+        payment_proof_file = selected_upload_file("payment_proof")
 
         app.logger.info(
             "Submitting order: payment_method=%s cart_items=%s",

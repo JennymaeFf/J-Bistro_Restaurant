@@ -133,6 +133,28 @@ on storage.objects for select
 to anon
 using (bucket_id = 'menu-images');
 
+-- Public bucket for payment screenshots/receipts uploaded during checkout.
+-- The app stores the public URL from this bucket in orders.payment_proof.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'payment-proofs',
+    'payment-proofs',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Payment proofs are publicly readable" on storage.objects;
+create policy "Payment proofs are publicly readable"
+on storage.objects for select
+to anon
+using (bucket_id = 'payment-proofs');
+
 do $$
 begin
     if not exists (
