@@ -1067,6 +1067,62 @@ def upload_profile_image_to_storage(
     return True, "Profile picture uploaded successfully.", public_url
 
 
+def upload_menu_image_to_storage(
+    filename: str,
+    content_type: str,
+    image_bytes: bytes,
+) -> tuple[bool, str, str | None]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error, None
+    if not image_bytes:
+        return False, "The uploaded image is empty.", None
+
+    bucket = os.environ.get("SUPABASE_MENU_IMAGES_BUCKET", "menu-images").strip() or "menu-images"
+    object_path = f"items/{filename}"
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        bucket_response = requests.post(
+            f"{supabase_url}/storage/v1/bucket",
+            headers=service_auth_headers("return=minimal"),
+            json={
+                "id": bucket,
+                "name": bucket,
+                "public": True,
+                "file_size_limit": 5 * 1024 * 1024,
+                "allowed_mime_types": ["image/jpeg", "image/png", "image/webp"],
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to prepare the menu image storage bucket right now.", None
+
+    if bucket_response.status_code >= 400:
+        bucket_error = parse_response_error(bucket_response)
+        if "already exists" not in bucket_error.lower() and "duplicate" not in bucket_error.lower():
+            return False, f"Unable to create or use the '{bucket}' storage bucket: {bucket_error}", None
+
+    try:
+        response = requests.post(
+            f"{supabase_url}/storage/v1/object/{bucket}/{object_path}",
+            headers=storage_upload_headers(content_type),
+            data=image_bytes,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to upload menu image to Supabase Storage right now.", None
+
+    if response.status_code >= 400:
+        error_message = parse_response_error(response)
+        return False, (
+            f"Supabase Storage upload failed: {error_message}. "
+            f"Make sure the '{bucket}' bucket exists and SUPABASE_SERVICE_ROLE_KEY is configured server-side."
+        ), None
+
+    public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{object_path}"
+    return True, "Menu image uploaded successfully.", public_url
+
+
 def update_admin_account_profile(
     user_id: str,
     access_token: str,

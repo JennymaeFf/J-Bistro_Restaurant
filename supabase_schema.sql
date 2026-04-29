@@ -111,6 +111,28 @@ alter table public.employees add column if not exists time_in text;
 alter table public.employees add column if not exists time_out text;
 alter table public.employees add column if not exists created_at timestamptz not null default now();
 
+-- Public bucket for menu item images uploaded from the Admin Menu.
+-- The app stores the public URL from this bucket in menu_items.image.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'menu-images',
+    'menu-images',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Menu images are publicly readable" on storage.objects;
+create policy "Menu images are publicly readable"
+on storage.objects for select
+to anon
+using (bucket_id = 'menu-images');
+
 do $$
 begin
     if not exists (

@@ -36,7 +36,7 @@
                     data-available="{{ 'true' if item_available else 'false' }}"
                 >
                     <div class="menu-image-wrap">
-                        <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }}">
+                        <img src="{{ menu_image_url(item.image) }}" alt="{{ item.name }}">
                         <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
                             {% if item_available %}Available{% else %}Out of Stock{% endif %}
                         </span>

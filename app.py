@@ -69,6 +69,7 @@ from supabase_client import (
     update_otp_attempts,
     update_order_status,
     update_order_payment_status,
+    upload_menu_image_to_storage,
     upload_profile_image_to_storage,
     update_user_profile,
     update_user_profile_image,
@@ -88,6 +89,8 @@ UPLOAD_DIR = CURRENT_DIR / "static" / "uploads"
 PAYMENT_PROOF_UPLOAD_DIR = UPLOAD_DIR / "payment_proofs"
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 ALLOWED_PAYMENT_PROOF_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+ALLOWED_MENU_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+MAX_MENU_IMAGE_BYTES = 5 * 1024 * 1024
 GCASH_PAYMENT_NUMBER = "0917 123 4567"
 BANK_PAYMENT_ACCOUNTS = {
     "Landbank": {
@@ -773,8 +776,23 @@ def profile_image_url(profile: dict[str, Any] | None) -> str:
     return url_for("static", filename="images/plogo.png")
 
 
+def menu_image_url(image_path: str | None) -> str:
+    image_path = (image_path or "").strip()
+    if image_path:
+        if image_path.startswith(("http://", "https://")):
+            return image_path
+        if image_path.startswith(("uploads/", "images/")):
+            return url_for("static", filename=image_path)
+        return url_for("static", filename=f"images/{image_path}")
+    return url_for("static", filename="images/plogo.png")
+
+
 def is_allowed_profile_image(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PROFILE_IMAGE_EXTENSIONS
+
+
+def is_allowed_menu_image(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_MENU_IMAGE_EXTENSIONS
 
 
 def is_allowed_payment_proof(filename: str) -> bool:
@@ -806,6 +824,39 @@ def save_payment_proof_upload(upload_file: Any, customer_name: str) -> tuple[str
 
 def profile_image_content_type(extension: str) -> str:
     return "image/png" if extension == "png" else "image/jpeg"
+
+
+def menu_image_content_type(extension: str) -> str:
+    if extension == "png":
+        return "image/png"
+    if extension == "webp":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def uploaded_menu_image_url(upload_file: Any, item_name: str) -> tuple[str, str | None]:
+    if not upload_file or not upload_file.filename:
+        return "", None
+    if not is_allowed_menu_image(upload_file.filename):
+        return "", "Menu image must be a JPG, JPEG, PNG, or WEBP file."
+
+    original_name = secure_filename(upload_file.filename)
+    extension = original_name.rsplit(".", 1)[1].lower()
+    item_slug = re.sub(r"[^a-z0-9]+", "-", item_name.lower()).strip("-") or "menu-item"
+    filename = f"{item_slug}-{uuid4().hex}.{extension}"
+    image_bytes = upload_file.read()
+    if len(image_bytes) > MAX_MENU_IMAGE_BYTES:
+        return "", "Menu image must be 5 MB or smaller."
+
+    success, message, public_url = upload_menu_image_to_storage(
+        filename,
+        menu_image_content_type(extension),
+        image_bytes,
+    )
+    if not success or not public_url:
+        app.logger.warning("Menu image storage upload failed for %s: %s", item_name, message)
+        return "", message
+    return public_url, None
 
 
 def safe_upload_redirect(next_target: str = ""):
@@ -939,6 +990,7 @@ def inject_layout_data() -> dict[str, Any]:
         "get_cart": get_cart,
         "cart_total": cart_total,
         "profile_image_url": profile_image_url,
+        "menu_image_url": menu_image_url,
     }
 
 
@@ -1568,6 +1620,12 @@ def admin_menu():
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
+            uploaded_image, upload_error = uploaded_menu_image_url(request.files.get("image_file"), name)
+            if upload_error:
+                flash(upload_error, "error")
+                return redirect(url_for("admin_menu"))
+            if uploaded_image:
+                image = uploaded_image
             success, message = create_admin_menu_item(
                 name,
                 description,
@@ -1584,7 +1642,7 @@ def admin_menu():
             name = request.form.get("name", "")
             description = request.form.get("description", "")
             category = request.form.get("category", "")
-            image = request.form.get("image", "")
+            image = request.form.get("image", "") or request.form.get("existing_image", "")
             price = coerce_float(request.form.get("price"), 0.0)
             is_available = coerce_bool(request.form.get("is_available"), True)
             if item_id <= 0:
@@ -1593,6 +1651,12 @@ def admin_menu():
             if not name.strip() or not description.strip() or not category.strip() or price <= 0:
                 flash("Name, description, category, and a valid price are required.", "error")
                 return redirect(url_for("admin_menu"))
+            uploaded_image, upload_error = uploaded_menu_image_url(request.files.get("image_file"), name)
+            if upload_error:
+                flash(upload_error, "error")
+                return redirect(url_for("admin_menu"))
+            if uploaded_image:
+                image = uploaded_image
             success, message = update_admin_menu_item(
                 item_id,
                 name,

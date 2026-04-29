@@ -272,6 +272,20 @@ document.addEventListener("DOMContentLoaded", function () {
 // Modal functionality for menu items
 let currentItem = null;
 
+function resolveMenuImageUrl(image) {
+    const safeImage = image || "plogo.png";
+    if (safeImage.startsWith("http://") || safeImage.startsWith("https://")) {
+        return safeImage;
+    }
+    if (safeImage.startsWith("/static/")) {
+        return safeImage;
+    }
+    if (safeImage.startsWith("images/") || safeImage.startsWith("uploads/")) {
+        return `/static/${safeImage}`;
+    }
+    return `/static/images/${safeImage}`;
+}
+
 function openItemModal(id, name, description, price, category, sizes, image, isAvailable = true) {
     const numericPrice = Number(price) || 0;
     const safeImage = image || 'plogo.png';
@@ -286,7 +300,7 @@ function openItemModal(id, name, description, price, category, sizes, image, isA
 
     if (!modal || !modalImage || !modalName || !modalDescription || !modalPrice || !quantityDisplay) return;
 
-    modalImage.src = `/static/images/${safeImage}`;
+    modalImage.src = resolveMenuImageUrl(safeImage);
     modalName.textContent = name;
     modalDescription.textContent = description;
     modalPrice.textContent = numericPrice.toFixed(2);

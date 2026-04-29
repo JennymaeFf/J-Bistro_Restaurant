@@ -29,7 +29,7 @@
                     {% for item in cart_items %}
                         <div class="cart-item-card">
                             <div class="item-image">
-                                <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
+                                <img src="{{ menu_image_url(item.image if item.image is defined else 'plogo.png') }}" alt="{{ item.display_name }}">
                             </div>
                             <div class="item-details">
                                 <div class="item-topline">

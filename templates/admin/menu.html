@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <form method="post" class="admin-menu-create-form">
+    <form method="post" class="admin-menu-create-form" enctype="multipart/form-data">
         <input type="hidden" name="action" value="create">
         <label>
             Item name
@@ -37,7 +37,11 @@
             <input type="number" step="0.01" min="0" name="price" placeholder="99.00" required>
         </label>
         <label>
-            Image filename
+            Image file
+            <input type="file" name="image_file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+        </label>
+        <label>
+            Existing filename or URL
             <input type="text" name="image" placeholder="cheeseburger.png">
         </label>
         <label>
@@ -63,7 +67,7 @@
         {% set item_available = item.get('is_available', true) %}
         <article class="admin-menu-card {% if not item_available %}is-unavailable{% endif %}">
             <div class="admin-menu-image-wrap">
-                <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }} image" class="admin-menu-image">
+                <img src="{{ menu_image_url(item.image) }}" alt="{{ item.name }} image" class="admin-menu-image">
                 <span class="admin-menu-id">#{{ item.id }}</span>
                 <span class="availability-badge {% if item_available %}available{% else %}unavailable{% endif %}">
                     {% if item_available %}Available{% else %}Not Available{% endif %}
@@ -87,9 +91,10 @@
                     </span>
                 </div>
 
-                <form method="post" class="admin-menu-edit-form">
+                <form method="post" class="admin-menu-edit-form" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <input type="hidden" name="existing_image" value="{{ item.image }}">
                     <label>
                         Name
                         <input type="text" name="name" value="{{ item.name }}" required>
@@ -103,7 +108,11 @@
                         <input type="number" step="0.01" min="0" name="price" value="{{ item.price }}" required>
                     </label>
                     <label>
-                        Image
+                        Change image
+                        <input type="file" name="image_file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    </label>
+                    <label>
+                        Current filename or URL
                         <input type="text" name="image" value="{{ item.image }}">
                     </label>
                     <label>

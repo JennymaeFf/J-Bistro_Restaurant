@@ -17,7 +17,7 @@
     {% for item in inventory_items %}
         <article class="admin-menu-card">
             <div class="admin-menu-image-wrap">
-                <img src="{{ url_for('static', filename='images/' ~ (item.image or 'plogo.png')) }}" alt="{{ item.name }} image" class="admin-menu-image">
+                <img src="{{ menu_image_url(item.image) }}" alt="{{ item.name }} image" class="admin-menu-image">
                 <span class="admin-menu-id">#{{ item.id }}</span>
                 <span class="availability-badge {% if item.inventory_status == 'In Stock' %}available{% else %}unavailable{% endif %}">
                     {{ item.inventory_status }}

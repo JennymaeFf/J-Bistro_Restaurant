@@ -41,7 +41,7 @@
                         {% for item in cart %}
                             <div class="order-item">
                                 <div class="item-info">
-                                    <img src="{{ url_for('static', filename='images/' ~ (item.image if item.image is defined else 'plogo.png')) }}" alt="{{ item.display_name }}">
+                                    <img src="{{ menu_image_url(item.image if item.image is defined else 'plogo.png') }}" alt="{{ item.display_name }}">
                                     <div>
                                         <h4>{{ item.display_name }}</h4>
                                         <p>Quantity: {{ item.quantity }}</p>
