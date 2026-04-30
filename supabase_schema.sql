@@ -379,11 +379,18 @@ create table if not exists public.otp_verifications (
     id bigserial primary key,
     email text not null,
     otp_hash text not null,
-    purpose text not null check (purpose in ('registration', 'login')),
+    purpose text not null check (purpose in ('registration', 'login', 'password_reset')),
     expires_at timestamptz not null,
     attempts integer not null default 0,
     created_at timestamptz not null default now()
 );
+
+alter table public.otp_verifications
+drop constraint if exists otp_verifications_purpose_check;
+
+alter table public.otp_verifications
+add constraint otp_verifications_purpose_check
+check (purpose in ('registration', 'login', 'password_reset'));
 
 create index if not exists otp_verifications_email_purpose_created_idx
 on public.otp_verifications (email, purpose, created_at desc);

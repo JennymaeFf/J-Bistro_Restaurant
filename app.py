@@ -53,16 +53,17 @@ from supabase_client import (
     fetch_latest_order,
     fetch_orders,
     fetch_riders,
+    fetch_registered_user_by_email,
     fetch_user_profile,
     register_user,
     resend_verification_email,
     check_email_verification_status,
-    send_password_reset,
     update_order_tracking,
     update_employee,
     update_rider,
     update_admin_account_profile,
     update_admin_password,
+    update_user_password_by_id,
     update_admin_menu_item,
     update_admin_user,
     update_inventory_item,
@@ -505,7 +506,9 @@ def save_otp_record(email: str, purpose: str, otp_code: str) -> tuple[bool, str]
 
 def verify_otp_record(record: dict[str, Any] | None, otp_code: str) -> tuple[bool, str]:
     if not record:
-        return False, "No active OTP request found. Please register or log in again."
+        return False, "No active OTP request found. Please request a new code."
+    if not re.fullmatch(r"\d{6}", otp_code or ""):
+        return False, "Enter the 6-digit OTP code."
     expires_at = parse_otp_datetime(record.get("expires_at"))
     if not expires_at or utc_now() > expires_at:
         return False, "Your OTP has expired. Please request a new code."
@@ -2156,19 +2159,134 @@ def forgot_password():
     if request.method == "GET" and is_logged_in():
         return redirect_for_role(current_session_role())
 
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        if not email:
-            flash("Please enter your email address.", "error")
-            return redirect(url_for("forgot_password"))
+    reset_step = request.args.get("step", "").strip().lower() or session.get("password_reset_step", "email")
+    reset_email = session.get("password_reset_email", "")
 
-        success, message = send_password_reset(email)
-        flash(message, "success" if success else "error")
-        if success:
-            return redirect(url_for("login"))
+    if request.method == "POST":
+        action = request.form.get("action", "send_otp").strip().lower()
+
+        if action in {"send_otp", "resend_otp"}:
+            email = (
+                request.form.get("email", "").strip().lower()
+                or session.get("password_reset_email", "")
+            )
+            email_message = valid_email_message(email) if email else "Please enter your registered email address."
+            if email_message:
+                flash(email_message, "error")
+                return redirect(url_for("forgot_password"))
+
+            if action == "resend_otp":
+                seconds_left = current_verification_cooldown_seconds()
+                if seconds_left > 0:
+                    flash(f"Please wait {seconds_left} seconds before requesting another OTP.", "error")
+                    return redirect(url_for("forgot_password", step="otp"))
+
+            user, lookup_error = fetch_registered_user_by_email(email)
+            if lookup_error:
+                flash(lookup_error, "error")
+                return redirect(url_for("forgot_password"))
+            if not user:
+                flash("No registered J'Bistro account uses that email address.", "error")
+                return redirect(url_for("forgot_password"))
+
+            otp_code = generate_otp_code()
+            saved, save_message = save_otp_record(email, "password_reset", otp_code)
+            if not saved:
+                flash(save_message, "error")
+                return redirect(url_for("forgot_password"))
+
+            sent, send_message = send_otp_email(email, otp_code)
+            if not sent:
+                flash(send_message, "error")
+                return redirect(url_for("forgot_password", step="email"))
+
+            session["password_reset_email"] = email
+            session["password_reset_user_id"] = user.get("id")
+            session["password_reset_verified"] = False
+            session["password_reset_step"] = "otp"
+            start_otp_resend_cooldown()
+            flash("We sent a 6-digit OTP to your registered email.", "success")
+            return redirect(url_for("forgot_password", step="otp"))
+
+        if action == "verify_otp":
+            email = session.get("password_reset_email", "")
+            otp_code = request.form.get("otp", "").strip()
+            if not email:
+                flash("Please enter your registered email first.", "error")
+                return redirect(url_for("forgot_password"))
+
+            record, otp_error = latest_otp_record(email, "password_reset")
+            if otp_error:
+                flash(otp_error, "error")
+                return redirect(url_for("forgot_password", step="otp"))
+
+            valid, message = verify_otp_record(record, otp_code)
+            if not valid:
+                flash(message, "error")
+                return redirect(url_for("forgot_password", step="otp"))
+
+            session["password_reset_verified"] = True
+            session["password_reset_step"] = "password"
+            flash("OTP verified. Please choose a new password.", "success")
+            return redirect(url_for("forgot_password", step="password"))
+
+        if action == "change_password":
+            email = session.get("password_reset_email", "")
+            user_id = session.get("password_reset_user_id", "")
+            otp_verified = bool(session.get("password_reset_verified"))
+            password = request.form.get("password", "").strip()
+            confirm_password = request.form.get("confirm_password", "").strip()
+
+            if not email or not user_id or not otp_verified:
+                flash("Please verify your OTP before changing your password.", "error")
+                return redirect(url_for("forgot_password"))
+            if password != confirm_password:
+                flash("Passwords do not match.", "error")
+                return redirect(url_for("forgot_password", step="password"))
+            if len(password) < 8:
+                flash("Password must be at least 8 characters long.", "error")
+                return redirect(url_for("forgot_password", step="password"))
+
+            record, otp_error = latest_otp_record(email, "password_reset")
+            if otp_error:
+                flash(otp_error, "error")
+                return redirect(url_for("forgot_password", step="otp"))
+
+            expires_at = parse_otp_datetime((record or {}).get("expires_at"))
+            if not record or not expires_at or utc_now() > expires_at:
+                session.pop("password_reset_verified", None)
+                session["password_reset_step"] = "otp"
+                flash("Your OTP has expired. Please request a new code.", "error")
+                return redirect(url_for("forgot_password", step="otp"))
+
+            success, message = update_user_password_by_id(user_id, password)
+            flash(message, "success" if success else "error")
+            if not success:
+                return redirect(url_for("forgot_password", step="password"))
+
+            if record and record.get("id"):
+                delete_otp_verification(record["id"])
+            session.pop("password_reset_email", None)
+            session.pop("password_reset_user_id", None)
+            session.pop("password_reset_verified", None)
+            session.pop("password_reset_step", None)
+            return redirect(url_for("login", email=email))
+
+        flash("Please try the password reset again.", "error")
         return redirect(url_for("forgot_password"))
 
-    return render_template("forgot_password.html", auth_page=True)
+    if reset_step == "password" and not session.get("password_reset_verified"):
+        reset_step = "otp" if reset_email else "email"
+    if reset_step == "otp" and not reset_email:
+        reset_step = "email"
+
+    return render_template(
+        "forgot_password.html",
+        auth_page=True,
+        reset_step=reset_step,
+        reset_email=reset_email,
+        resend_cooldown=current_verification_cooldown_seconds(),
+    )
 
 
 @app.route("/resend-verification", methods=["POST"])

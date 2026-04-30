@@ -4032,6 +4032,130 @@ td {
     font-weight: 700;
 }
 
+.forgot-password-page .auth-overlay {
+    background: linear-gradient(180deg, rgba(48, 31, 20, 0.22) 0%, rgba(48, 31, 20, 0.64) 100%);
+}
+
+.reset-modal-shell {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+}
+
+.reset-modal {
+    position: relative;
+    width: min(460px, 100%);
+    background: #fff8ef;
+    border: 1px solid rgba(214, 174, 130, 0.7);
+    border-radius: 24px;
+    box-shadow: 0 28px 70px rgba(28, 15, 8, 0.34);
+    padding: 30px 28px 26px;
+    text-align: center;
+}
+
+.reset-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(112, 70, 49, 0.08);
+    color: #6a3f28;
+    font-size: 1.6rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.reset-modal-close:hover {
+    background: rgba(112, 70, 49, 0.14);
+}
+
+.reset-logo {
+    width: 118px;
+    margin-bottom: 12px;
+}
+
+.reset-kicker {
+    margin: 0 0 6px;
+    color: #b77b4b;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.reset-modal h1 {
+    margin: 0 0 10px;
+    color: #4f2f20;
+    font-size: 2rem;
+    line-height: 1.1;
+}
+
+.reset-copy {
+    margin: 0 auto 22px;
+    max-width: 34ch;
+    color: #73503b;
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+.reset-copy strong {
+    color: #4f2f20;
+}
+
+.reset-form {
+    gap: 13px;
+}
+
+.reset-form label {
+    color: #5b3926;
+}
+
+.reset-form input {
+    border-radius: 14px;
+    background: #fffefd;
+    border-color: #ead7c5;
+}
+
+.reset-form input:focus {
+    border-color: #c58a57;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(197, 138, 87, 0.16);
+}
+
+.reset-otp-input {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.35rem;
+    text-align: center;
+}
+
+.reset-resend-form {
+    margin-top: 12px;
+}
+
+.reset-resend-button {
+    width: 100%;
+}
+
+.reset-resend-button:disabled,
+.auth-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.66;
+    transform: none;
+}
+
+.reset-footer {
+    margin-top: 18px;
+}
+
 /* Register Page Redesign */
 .register-page .auth-overlay {
     background: linear-gradient(180deg, rgba(48, 31, 20, 0.14) 0%, rgba(48, 31, 20, 0.5) 100%);
@@ -4124,6 +4248,20 @@ td {
 }
 
 @media (max-width: 640px) {
+    .reset-modal {
+        border-radius: 20px;
+        padding: 26px 18px 22px;
+    }
+
+    .reset-modal h1 {
+        font-size: 1.72rem;
+    }
+
+    .reset-otp-input {
+        font-size: 1.18rem;
+        letter-spacing: 0.25rem;
+    }
+
     .register-card {
         padding: 24px 18px 20px;
         border-radius: 22px;

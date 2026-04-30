@@ -754,6 +754,37 @@ def fetch_user_profile(user_id: str, email: str = "") -> tuple[dict[str, Any] | 
     return final_profile, None
 
 
+def fetch_registered_user_by_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return None, config_error
+
+    normalized_email = email.strip().lower()
+    email_error = valid_email_message(normalized_email)
+    if email_error:
+        return None, email_error
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.get(
+            f"{supabase_url}/rest/v1/app_users",
+            headers=service_auth_headers(),
+            params={"email": f"eq.{normalized_email}", "select": "id,email,role", "limit": "1"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return None, "Unable to check this email right now."
+
+    if response.status_code >= 400:
+        return None, parse_response_error(response)
+
+    rows = response.json()
+    if not isinstance(rows, list) or not rows:
+        return None, None
+    user = rows[0]
+    return user if isinstance(user, dict) else None, None
+
+
 def service_auth_headers(prefer_return: str | None = None) -> dict[str, str]:
     _, service_key = current_supabase_service_config()
     headers = {
@@ -1282,6 +1313,34 @@ def update_admin_password(access_token: str, password: str) -> tuple[bool, str]:
     if response.status_code >= 400:
         return False, parse_response_error(response)
     return True, "Password updated successfully."
+
+
+def update_user_password_by_id(user_id: str, password: str) -> tuple[bool, str]:
+    config_error = supabase_service_config_error()
+    if config_error:
+        return False, config_error
+
+    user_id = str(user_id or "").strip()
+    password = password.strip()
+    if not user_id:
+        return False, "Unable to find the account for this password reset."
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+
+    supabase_url, _ = current_supabase_service_config()
+    try:
+        response = requests.put(
+            f"{supabase_url}/auth/v1/admin/users/{user_id}",
+            headers=service_auth_headers(),
+            json={"password": password},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False, "Unable to update the password right now."
+
+    if response.status_code >= 400:
+        return False, parse_response_error(response)
+    return True, "Password updated successfully. You can now log in."
 
 
 def refresh_auth_session(refresh_token: str) -> tuple[bool, str, dict[str, Any] | None]:
